@@ -5,6 +5,10 @@ playwright-report/
 test-results/
 .wrangler/
 .site-bootstrap/
+.build/
+.DS_Store
+**/xcuserdata/
+*.xcuserstate
 *.local
 .env*
 !.env.example
