@@ -36,6 +36,11 @@
 		A1000000000000000000001B /* SemesterFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001E /* SemesterFormView.swift */; };
 		A1000000000000000000001C /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001F /* AppRootView.swift */; };
 		A1000000000000000000001D /* SemesterDraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* SemesterDraftTests.swift */; };
+		A1000000000000000000001E /* SchedulePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* SchedulePresentation.swift */; };
+		A1000000000000000000001F /* CourseStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* CourseStyle.swift */; };
+		A10000000000000000000020 /* TodayScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* TodayScheduleView.swift */; };
+		A10000000000000000000021 /* WeekScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* WeekScheduleView.swift */; };
+		A10000000000000000000022 /* SchedulePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* SchedulePresentationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -88,6 +93,11 @@
 		A2000000000000000000001E /* SemesterFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemesterFormView.swift; sourceTree = "<group>"; };
 		A2000000000000000000001F /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		A20000000000000000000020 /* SemesterDraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemesterDraftTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* SchedulePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulePresentation.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* CourseStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseStyle.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* TodayScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayScheduleView.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* WeekScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekScheduleView.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* SchedulePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulePresentationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +165,7 @@
 				A2000000000000000000000C /* ScheduleRulesTests.swift */,
 				A2000000000000000000001C /* SwiftDataScheduleRepositoryTests.swift */,
 				A20000000000000000000020 /* SemesterDraftTests.swift */,
+				A20000000000000000000025 /* SchedulePresentationTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -254,6 +265,10 @@
 				A2000000000000000000001F /* AppRootView.swift */,
 				A2000000000000000000001D /* SemesterDraft.swift */,
 				A2000000000000000000001E /* SemesterFormView.swift */,
+				A20000000000000000000022 /* CourseStyle.swift */,
+				A20000000000000000000021 /* SchedulePresentation.swift */,
+				A20000000000000000000023 /* TodayScheduleView.swift */,
+				A20000000000000000000024 /* WeekScheduleView.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -409,6 +424,10 @@
 				A1000000000000000000001A /* SemesterDraft.swift in Sources */,
 				A1000000000000000000001B /* SemesterFormView.swift in Sources */,
 				A1000000000000000000001C /* AppRootView.swift in Sources */,
+				A1000000000000000000001E /* SchedulePresentation.swift in Sources */,
+				A1000000000000000000001F /* CourseStyle.swift in Sources */,
+				A10000000000000000000020 /* TodayScheduleView.swift in Sources */,
+				A10000000000000000000021 /* WeekScheduleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,6 +440,7 @@
 				A10000000000000000000009 /* ScheduleRulesTests.swift in Sources */,
 				A10000000000000000000019 /* SwiftDataScheduleRepositoryTests.swift in Sources */,
 				A1000000000000000000001D /* SemesterDraftTests.swift in Sources */,
+				A10000000000000000000022 /* SchedulePresentationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

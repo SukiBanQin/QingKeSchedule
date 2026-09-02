@@ -13,14 +13,23 @@ final class ScheduleAppState {
     var presentedError: String?
 
     @ObservationIgnored private let repository: any ScheduleRepository
+    @ObservationIgnored private let nowProvider: () -> Date
+    @ObservationIgnored let calendar: Calendar
 
-    init(repository: any ScheduleRepository) {
+    init(
+        repository: any ScheduleRepository,
+        calendar: Calendar = ScheduleRules.gregorianCalendar(),
+        now: @escaping () -> Date = { Date() }
+    ) {
         self.repository = repository
+        self.calendar = calendar
+        self.nowProvider = now
     }
 
     var semester: SemesterDTO? { data.semester }
     var courses: [CourseDTO] { data.courses }
     var needsOnboarding: Bool { isLoaded && semester == nil }
+    var now: Date { nowProvider() }
 
     func load() {
         do {

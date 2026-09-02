@@ -46,23 +46,27 @@ private struct MainTabView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                ContentUnavailableView(
-                    "添加第一门课程",
-                    systemImage: "book.closed",
-                    description: Text("学期已经准备好，接下来添加课程安排。")
-                )
-                .navigationTitle("今日")
+                if let semester = state.semester {
+                    TodayScheduleView(
+                        semester: semester,
+                        courses: state.courses,
+                        now: state.now,
+                        calendar: state.calendar
+                    )
+                }
             }
             .tabItem { Label("今日", systemImage: "sun.max") }
             .accessibilityIdentifier("today-tab")
 
             NavigationStack {
-                ContentUnavailableView(
-                    "还没有课程",
-                    systemImage: "calendar",
-                    description: Text("添加课程后即可按教学周查看。")
-                )
-                .navigationTitle("课表")
+                if let semester = state.semester {
+                    WeekScheduleView(
+                        semester: semester,
+                        courses: state.courses,
+                        now: state.now,
+                        calendar: state.calendar
+                    )
+                }
             }
             .tabItem { Label("课表", systemImage: "calendar") }
             .accessibilityIdentifier("schedule-tab")

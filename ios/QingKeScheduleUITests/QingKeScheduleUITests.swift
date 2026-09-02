@@ -17,7 +17,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["semester-save-toolbar"].tap()
 
         XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["添加第一门课程"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["today-empty"].exists)
 
         app.tabBars.buttons["设置"].tap()
         XCTAssertTrue(app.navigationBars["学期与节次"].waitForExistence(timeout: 5))
