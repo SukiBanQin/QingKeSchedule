@@ -11,6 +11,22 @@
 		A10000000000000000000002 /* ProjectScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ProjectScaffold.swift */; };
 		A10000000000000000000003 /* QingKeScheduleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* QingKeScheduleTests.swift */; };
 		A10000000000000000000004 /* QingKeScheduleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* QingKeScheduleUITests.swift */; };
+		A10000000000000000000005 /* ScheduleDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ScheduleDTOs.swift */; };
+		A10000000000000000000006 /* ScheduleRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ScheduleRules.swift */; };
+		A10000000000000000000007 /* ScheduleValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* ScheduleValidation.swift */; };
+		A10000000000000000000008 /* SharedFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* SharedFixtureTests.swift */; };
+		A10000000000000000000009 /* ScheduleRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* ScheduleRulesTests.swift */; };
+		A1000000000000000000000A /* schedule-data.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* schedule-data.schema.json */; };
+		A1000000000000000000000B /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* manifest.json */; };
+		A1000000000000000000000C /* complete-schedule.json in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* complete-schedule.json */; };
+		A1000000000000000000000D /* empty-schedule.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* empty-schedule.json */; };
+		A1000000000000000000000E /* invalid-date.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* invalid-date.json */; };
+		A1000000000000000000000F /* invalid-enum.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* invalid-enum.json */; };
+		A10000000000000000000010 /* invalid-period-overlap.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* invalid-period-overlap.json */; };
+		A10000000000000000000011 /* invalid-week-range.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* invalid-week-range.json */; };
+		A10000000000000000000012 /* missing-field.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* missing-field.json */; };
+		A10000000000000000000013 /* unknown-version.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* unknown-version.json */; };
+		A10000000000000000000014 /* missing-semester.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* missing-semester.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +54,22 @@
 		A20000000000000000000005 /* QingKeSchedule.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QingKeSchedule.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000006 /* QingKeScheduleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QingKeScheduleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000007 /* QingKeScheduleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QingKeScheduleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000008 /* ScheduleDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDTOs.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* ScheduleRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleRules.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* ScheduleValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleValidation.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* SharedFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedFixtureTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* ScheduleRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleRulesTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* schedule-data.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "schedule-data.schema.json"; sourceTree = "<group>"; };
+		A2000000000000000000000E /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
+		A2000000000000000000000F /* complete-schedule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "complete-schedule.json"; sourceTree = "<group>"; };
+		A20000000000000000000010 /* empty-schedule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "empty-schedule.json"; sourceTree = "<group>"; };
+		A20000000000000000000011 /* invalid-date.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "invalid-date.json"; sourceTree = "<group>"; };
+		A20000000000000000000012 /* invalid-enum.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "invalid-enum.json"; sourceTree = "<group>"; };
+		A20000000000000000000013 /* invalid-period-overlap.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "invalid-period-overlap.json"; sourceTree = "<group>"; };
+		A20000000000000000000014 /* invalid-week-range.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "invalid-week-range.json"; sourceTree = "<group>"; };
+		A20000000000000000000015 /* missing-field.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "missing-field.json"; sourceTree = "<group>"; };
+		A20000000000000000000016 /* unknown-version.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "unknown-version.json"; sourceTree = "<group>"; };
+		A20000000000000000000017 /* missing-semester.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "missing-semester.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +103,7 @@
 				A50000000000000000000001 /* QingKeSchedule */,
 				A50000000000000000000003 /* QingKeScheduleTests */,
 				A50000000000000000000004 /* QingKeScheduleUITests */,
+				A50000000000000000000007 /* Shared */,
 				A50000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -79,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				A50000000000000000000002 /* App */,
+				A50000000000000000000006 /* Domain */,
 			);
 			path = QingKeSchedule;
 			sourceTree = "<group>";
@@ -96,6 +130,8 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000003 /* QingKeScheduleTests.swift */,
+				A2000000000000000000000B /* SharedFixtureTests.swift */,
+				A2000000000000000000000C /* ScheduleRulesTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -116,6 +152,59 @@
 				A20000000000000000000007 /* QingKeScheduleUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000006 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000008 /* ScheduleDTOs.swift */,
+				A20000000000000000000009 /* ScheduleRules.swift */,
+				A2000000000000000000000A /* ScheduleValidation.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000007 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000D /* schedule-data.schema.json */,
+				A50000000000000000000008 /* fixtures */,
+			);
+			name = Shared;
+			path = ../shared;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000008 /* fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000E /* manifest.json */,
+				A50000000000000000000009 /* valid */,
+				A5000000000000000000000A /* invalid */,
+			);
+			path = fixtures;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000009 /* valid */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000F /* complete-schedule.json */,
+				A20000000000000000000010 /* empty-schedule.json */,
+			);
+			path = valid;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000A /* invalid */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000011 /* invalid-date.json */,
+				A20000000000000000000012 /* invalid-enum.json */,
+				A20000000000000000000013 /* invalid-period-overlap.json */,
+				A20000000000000000000014 /* invalid-week-range.json */,
+				A20000000000000000000015 /* missing-field.json */,
+				A20000000000000000000017 /* missing-semester.json */,
+				A20000000000000000000016 /* unknown-version.json */,
+			);
+			path = invalid;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -229,6 +318,17 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000000A /* schedule-data.schema.json in Resources */,
+				A1000000000000000000000B /* manifest.json in Resources */,
+				A1000000000000000000000C /* complete-schedule.json in Resources */,
+				A1000000000000000000000D /* empty-schedule.json in Resources */,
+				A1000000000000000000000E /* invalid-date.json in Resources */,
+				A1000000000000000000000F /* invalid-enum.json in Resources */,
+				A10000000000000000000010 /* invalid-period-overlap.json in Resources */,
+				A10000000000000000000011 /* invalid-week-range.json in Resources */,
+				A10000000000000000000012 /* missing-field.json in Resources */,
+				A10000000000000000000014 /* missing-semester.json in Resources */,
+				A10000000000000000000013 /* unknown-version.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +348,9 @@
 			files = (
 				A10000000000000000000002 /* ProjectScaffold.swift in Sources */,
 				A10000000000000000000001 /* QingKeScheduleApp.swift in Sources */,
+				A10000000000000000000005 /* ScheduleDTOs.swift in Sources */,
+				A10000000000000000000006 /* ScheduleRules.swift in Sources */,
+				A10000000000000000000007 /* ScheduleValidation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +359,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000003 /* QingKeScheduleTests.swift in Sources */,
+				A10000000000000000000008 /* SharedFixtureTests.swift in Sources */,
+				A10000000000000000000009 /* ScheduleRulesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

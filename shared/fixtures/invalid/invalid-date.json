@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "semester": {
+    "id": "semester-invalid-date",
+    "name": "无效日期学期",
+    "startDate": "2026-02-30",
+    "totalWeeks": 18,
+    "periods": [
+      { "number": 1, "startTime": "08:00", "endTime": "08:45" }
+    ]
+  },
+  "courses": [],
+  "updatedAt": "2026-09-02T12:00:00.000Z"
+}

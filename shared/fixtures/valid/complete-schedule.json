@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "semester": {
+    "id": "semester-2026-fall",
+    "name": "2026 秋季学期",
+    "startDate": "2026-09-02",
+    "totalWeeks": 18,
+    "periods": [
+      { "number": 1, "startTime": "08:00", "endTime": "08:45" },
+      { "number": 2, "startTime": "08:55", "endTime": "09:40" },
+      { "number": 3, "startTime": "10:00", "endTime": "10:45" },
+      { "number": 4, "startTime": "10:55", "endTime": "11:40" }
+    ]
+  },
+  "courses": [
+    {
+      "id": "course-every",
+      "name": "数据结构",
+      "teacher": "陈老师",
+      "color": "#287B74",
+      "schedules": [
+        {
+          "id": "schedule-every",
+          "dayOfWeek": 1,
+          "startPeriod": 1,
+          "endPeriod": 2,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "every",
+          "classroom": "A101"
+        }
+      ]
+    },
+    {
+      "id": "course-odd",
+      "name": "操作系统",
+      "teacher": "林老师",
+      "color": "#D96952",
+      "schedules": [
+        {
+          "id": "schedule-odd",
+          "dayOfWeek": 1,
+          "startPeriod": 2,
+          "endPeriod": 3,
+          "startWeek": 1,
+          "endWeek": 5,
+          "repeat": "odd",
+          "classroom": "B202"
+        }
+      ]
+    },
+    {
+      "id": "course-even",
+      "name": "大学英语",
+      "teacher": "王老师",
+      "color": "#536FAF",
+      "schedules": [
+        {
+          "id": "schedule-even",
+          "dayOfWeek": 1,
+          "startPeriod": 2,
+          "endPeriod": 2,
+          "startWeek": 2,
+          "endWeek": 6,
+          "repeat": "even",
+          "classroom": "C303"
+        }
+      ]
+    },
+    {
+      "id": "course-multiple",
+      "name": "线性代数",
+      "teacher": "赵老师",
+      "color": "#9A6AAF",
+      "schedules": [
+        {
+          "id": "schedule-wednesday",
+          "dayOfWeek": 3,
+          "startPeriod": 3,
+          "endPeriod": 3,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "every",
+          "classroom": "D404"
+        },
+        {
+          "id": "schedule-friday",
+          "dayOfWeek": 5,
+          "startPeriod": 1,
+          "endPeriod": 1,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "every",
+          "classroom": "D405"
+        }
+      ]
+    },
+    {
+      "id": "course-alpha",
+      "name": "Alpha 课程",
+      "teacher": "",
+      "color": "#B87928",
+      "schedules": [
+        {
+          "id": "schedule-alpha",
+          "dayOfWeek": 1,
+          "startPeriod": 4,
+          "endPeriod": 4,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "every",
+          "classroom": ""
+        }
+      ]
+    },
+    {
+      "id": "course-beta",
+      "name": "Beta 课程",
+      "teacher": "",
+      "color": "#46835A",
+      "schedules": [
+        {
+          "id": "schedule-beta",
+          "dayOfWeek": 1,
+          "startPeriod": 4,
+          "endPeriod": 4,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "every",
+          "classroom": ""
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-02T12:00:00.000Z"
+}

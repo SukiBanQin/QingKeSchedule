@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "semester": {
+    "id": "semester-invalid-enum",
+    "name": "无效枚举学期",
+    "startDate": "2026-09-02",
+    "totalWeeks": 18,
+    "periods": [
+      { "number": 1, "startTime": "08:00", "endTime": "08:45" }
+    ]
+  },
+  "courses": [
+    {
+      "id": "course-invalid-enum",
+      "name": "测试课程",
+      "teacher": "",
+      "color": "#287B74",
+      "schedules": [
+        {
+          "id": "schedule-invalid-enum",
+          "dayOfWeek": 1,
+          "startPeriod": 1,
+          "endPeriod": 1,
+          "startWeek": 1,
+          "endWeek": 18,
+          "repeat": "weekly",
+          "classroom": ""
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-09-02T12:00:00.000Z"
+}

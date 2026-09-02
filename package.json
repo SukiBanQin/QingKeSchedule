@@ -27,6 +27,8 @@
     "@types/node": "22.19.19",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.5.0",
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1",
     "eslint": "9.39.1",
     "eslint-plugin-vue": "10.10.0",
     "globals": "17.12.0",

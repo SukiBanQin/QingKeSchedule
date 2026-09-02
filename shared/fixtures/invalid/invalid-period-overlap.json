@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "semester": {
+    "id": "semester-overlap",
+    "name": "节次重叠学期",
+    "startDate": "2026-09-02",
+    "totalWeeks": 18,
+    "periods": [
+      { "number": 1, "startTime": "08:00", "endTime": "08:45" },
+      { "number": 2, "startTime": "08:30", "endTime": "09:15" }
+    ]
+  },
+  "courses": [],
+  "updatedAt": "2026-09-02T12:00:00.000Z"
+}

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QingKe Schedule Data",
+  "description": "Cross-platform schedule data contract for schemaVersion 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "semester", "courses", "updatedAt"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "semester": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/semester" }
+      ]
+    },
+    "courses": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/course" }
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  },
+  "$defs": {
+    "nonEmptyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "localDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "localTime": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "startTime", "endTime"],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startTime": { "$ref": "#/$defs/localTime" },
+        "endTime": { "$ref": "#/$defs/localTime" }
+      }
+    },
+    "semester": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "startDate", "totalWeeks", "periods"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyId" },
+        "name": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "startDate": { "$ref": "#/$defs/localDate" },
+        "totalWeeks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 52
+        },
+        "periods": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/period" }
+        }
+      }
+    },
+    "courseSchedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dayOfWeek",
+        "startPeriod",
+        "endPeriod",
+        "startWeek",
+        "endWeek",
+        "repeat",
+        "classroom"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyId" },
+        "dayOfWeek": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "startPeriod": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endPeriod": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startWeek": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 52
+        },
+        "endWeek": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 52
+        },
+        "repeat": {
+          "type": "string",
+          "enum": ["every", "odd", "even"]
+        },
+        "classroom": {
+          "type": "string"
+        }
+      }
+    },
+    "course": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "teacher", "color", "schedules"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyId" },
+        "name": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "teacher": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "enum": [
+            "#287B74",
+            "#D96952",
+            "#536FAF",
+            "#9A6AAF",
+            "#B87928",
+            "#46835A"
+          ]
+        },
+        "schedules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/courseSchedule" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "valid": [
+    "empty-schedule.json",
+    "complete-schedule.json"
+  ],
+  "invalid": [
+    "missing-field.json",
+    "missing-semester.json",
+    "invalid-date.json",
+    "invalid-enum.json",
+    "unknown-version.json",
+    "invalid-period-overlap.json",
+    "invalid-week-range.json"
+  ]
+}
