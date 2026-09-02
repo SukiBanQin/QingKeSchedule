@@ -27,6 +27,11 @@
 		A10000000000000000000012 /* missing-field.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* missing-field.json */; };
 		A10000000000000000000013 /* unknown-version.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* unknown-version.json */; };
 		A10000000000000000000014 /* missing-semester.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* missing-semester.json */; };
+		A10000000000000000000015 /* ScheduleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* ScheduleModels.swift */; };
+		A10000000000000000000016 /* ScheduleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* ScheduleRepository.swift */; };
+		A10000000000000000000017 /* SwiftDataScheduleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001A /* SwiftDataScheduleRepository.swift */; };
+		A10000000000000000000018 /* ScheduleAppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001B /* ScheduleAppState.swift */; };
+		A10000000000000000000019 /* SwiftDataScheduleRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001C /* SwiftDataScheduleRepositoryTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +75,11 @@
 		A20000000000000000000015 /* missing-field.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "missing-field.json"; sourceTree = "<group>"; };
 		A20000000000000000000016 /* unknown-version.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "unknown-version.json"; sourceTree = "<group>"; };
 		A20000000000000000000017 /* missing-semester.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "missing-semester.json"; sourceTree = "<group>"; };
+		A20000000000000000000018 /* ScheduleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleModels.swift; sourceTree = "<group>"; };
+		A20000000000000000000019 /* ScheduleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleRepository.swift; sourceTree = "<group>"; };
+		A2000000000000000000001A /* SwiftDataScheduleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataScheduleRepository.swift; sourceTree = "<group>"; };
+		A2000000000000000000001B /* ScheduleAppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleAppState.swift; sourceTree = "<group>"; };
+		A2000000000000000000001C /* SwiftDataScheduleRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataScheduleRepositoryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +123,8 @@
 			children = (
 				A50000000000000000000002 /* App */,
 				A50000000000000000000006 /* Domain */,
+				A5000000000000000000000B /* Persistence */,
+				A5000000000000000000000C /* State */,
 			);
 			path = QingKeSchedule;
 			sourceTree = "<group>";
@@ -132,6 +144,7 @@
 				A20000000000000000000003 /* QingKeScheduleTests.swift */,
 				A2000000000000000000000B /* SharedFixtureTests.swift */,
 				A2000000000000000000000C /* ScheduleRulesTests.swift */,
+				A2000000000000000000001C /* SwiftDataScheduleRepositoryTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -205,6 +218,24 @@
 				A20000000000000000000016 /* unknown-version.json */,
 			);
 			path = invalid;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000B /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000018 /* ScheduleModels.swift */,
+				A20000000000000000000019 /* ScheduleRepository.swift */,
+				A2000000000000000000001A /* SwiftDataScheduleRepository.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000C /* State */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000001B /* ScheduleAppState.swift */,
+			);
+			path = State;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -351,6 +382,10 @@
 				A10000000000000000000005 /* ScheduleDTOs.swift in Sources */,
 				A10000000000000000000006 /* ScheduleRules.swift in Sources */,
 				A10000000000000000000007 /* ScheduleValidation.swift in Sources */,
+				A10000000000000000000015 /* ScheduleModels.swift in Sources */,
+				A10000000000000000000016 /* ScheduleRepository.swift in Sources */,
+				A10000000000000000000017 /* SwiftDataScheduleRepository.swift in Sources */,
+				A10000000000000000000018 /* ScheduleAppState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -361,6 +396,7 @@
 				A10000000000000000000003 /* QingKeScheduleTests.swift in Sources */,
 				A10000000000000000000008 /* SharedFixtureTests.swift in Sources */,
 				A10000000000000000000009 /* ScheduleRulesTests.swift in Sources */,
+				A10000000000000000000019 /* SwiftDataScheduleRepositoryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

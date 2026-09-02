@@ -34,4 +34,5 @@ xcodebuild test \
     -project "${PROJECT_PATH}" \
     -scheme QingKeSchedule \
     -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
-    -derivedDataPath "${DERIVED_DATA_PATH}"
+    -derivedDataPath "${DERIVED_DATA_PATH}" \
+    "$@"
