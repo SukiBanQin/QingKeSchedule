@@ -165,6 +165,16 @@ xcodebuild test -project ios/QingKeSchedule.xcodeproj -scheme QingKeSchedule -de
 
 免费 Personal Team 的描述文件通常在 7 天后到期。首次真机运行成功后，安装脚本可以使用本机已有的 Automatic Signing 配置重新 build、install 和 launch，但不能保证在账号需要重新认证时完全无人值守。
 
+保持 iPhone 解锁并连接后，在仓库根目录运行：
+
+```bash
+./scripts/ios-install.sh
+```
+
+脚本通过 `devicectl` 动态发现唯一一台已配对、已启动且已连接的 iPhone，使用 Automatic Signing 覆盖构建和安装，并从构建产物读取 Bundle Identifier 后启动 App。它不会把设备标识、Team ID 或 Apple Account 凭据写入仓库；如果同时连接多台 iPhone，会要求断开多余设备而不是猜测目标。
+
+重新签名失败时，先在 Xcode 的 Signing & Capabilities 中确认 Apple Account 仍已登录、Personal Team 和原 Bundle Identifier 仍然有效，再重新运行脚本。不要通过更换 Bundle Identifier 或删除 App 来规避签名错误。
+
 每次覆盖安装应保持相同 Bundle Identifier。不得为了修复签名问题删除 App，因为删除会清除 SwiftData 本地课表；先导出备份，再处理确需删除的情况。
 
 ## 9. Git 与 GitHub 工作流
