@@ -3,9 +3,12 @@
 This local Web prototype is the visual sandbox for the QingKe iOS redesign.
 It does not replace or modify the production iOS data model or business logic.
 
-The first blue-and-white P3R-inspired concept has been frozen under
-`design-archive/p3r-concept/`. The live entry points temporarily re-export that
-snapshot while the next visual direction is being planned.
+The active concept currently covers the Today screen. Its visual system uses a
+flat academic-terminal layout, condensed typography, restrained signal colors,
+acrylic content panels, and a Liquid Glass-inspired bottom navigation bar.
+
+The earlier blue-and-white P3R-inspired concept remains frozen under
+`design-archive/p3r-concept/` for later review.
 
 ## Local preview
 

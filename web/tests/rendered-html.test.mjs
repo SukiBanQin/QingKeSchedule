@@ -23,22 +23,24 @@ async function render() {
   );
 }
 
-test("server-renders the archived QingKe concept", async () => {
+test("server-renders the terminal-style Today concept", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>青课 · iPhone UI Concept<\/title>/i);
-  assert.match(html, /QINGKE \/ DAILY LOG/);
+  assert.match(html, /<title>青课 · 今日终端 UI Concept<\/title>/i);
+  assert.match(html, /QINGKE/);
+  assert.match(html, /ACADEMIC TERMINAL/);
+  assert.match(html, /SCHEDULE :\/\/ TODAY/);
+  assert.match(html, /ACTIVE MISSION/);
   assert.match(html, /交互设计基础/);
-  assert.match(html, /今日/);
-  assert.match(html, /课表/);
-  assert.match(html, /设置/);
+  assert.match(html, /课程序列/);
+  assert.match(html, /aria-current="page"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("keeps the P3R direction isolated as a replaceable archive", async () => {
+test("implements the iPhone layout, glass navigation, and reduced-motion fallback", async () => {
   const [page, css, archivePage, archiveCss, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -53,14 +55,19 @@ test("keeps the P3R direction isolated as a replaceable archive", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /design-archive\/p3r-concept\/page/);
-  assert.match(css, /design-archive\/p3r-concept\/globals\.css/);
-  assert.match(archivePage, /data-screen="today"/);
-  assert.match(archivePage, /data-screen="schedule"/);
-  assert.match(archivePage, /data-screen="settings"/);
-  assert.match(archivePage, /data-screen="editor"/);
-  assert.match(archiveCss, /width:\s*min\(430px, 100%\)/);
-  assert.match(archiveCss, /prefers-reduced-motion:\s*reduce/);
+  assert.match(page, /data-screen="today"/);
+  assert.match(page, /className="liquid-nav"/);
+  assert.match(page, /className="floating-add"/);
+  assert.match(page, /aria-live="polite"/);
+  assert.doesNotMatch(page, /design-archive\/p3r-concept/);
+  assert.match(css, /width:\s*min\(430px, 100%\)/);
+  assert.match(css, /backdrop-filter:\s*blur\(28px\) saturate\(160%\)/);
+  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /prefers-contrast:\s*more/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+
+  assert.match(archivePage, /QINGKE \/ DAILY LOG/);
+  assert.match(archiveCss, /--blue-bright:/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 
   await assert.rejects(
