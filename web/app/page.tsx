@@ -356,10 +356,9 @@ function CourseRow({ course, selected, onSelect }: {
   );
 }
 
-function TodayScreen({ courses, onEdit, onAdd, notify }: {
+function TodayScreen({ courses, onEdit, notify }: {
   courses: Course[];
   onEdit: (courseId: string) => void;
-  onAdd: () => void;
   notify: (message: string) => void;
 }) {
   const [selectedCourse, setSelectedCourse] = useState("design");
@@ -440,19 +439,14 @@ function TodayScreen({ courses, onEdit, onAdd, notify }: {
       </section>
 
       <p className="end-marker">END OF SCHEDULE // 20:05</p>
-      <button type="button" className="floating-add" aria-label="添加课程" onClick={onAdd}>
-        <Plus size={25} strokeWidth={1.6} />
-        <span>ADD</span>
-      </button>
     </div>
   );
 }
 
-function ScheduleScreen({ courses, periods, onEdit, onAdd }: {
+function ScheduleScreen({ courses, periods, onEdit }: {
   courses: Course[];
   periods: Period[];
   onEdit: (courseId: string) => void;
-  onAdd: () => void;
 }) {
   const [week, setWeek] = useState(1);
   const [selectedDay, setSelectedDay] = useState(5);
@@ -561,10 +555,6 @@ function ScheduleScreen({ courses, periods, onEdit, onAdd }: {
         )}
       </section>
 
-      <button type="button" className="floating-add" aria-label="添加课程" onClick={onAdd}>
-        <Plus size={25} strokeWidth={1.6} />
-        <span>ADD</span>
-      </button>
     </div>
   );
 }
@@ -1046,7 +1036,6 @@ export default function Home() {
             <TodayScreen
               courses={courses}
               onEdit={(courseId) => setEditorRoute({ mode: "edit", courseId })}
-              onAdd={() => setEditorRoute({ mode: "create" })}
               notify={notify}
             />
           )}
@@ -1055,7 +1044,6 @@ export default function Home() {
               courses={courses}
               periods={periods}
               onEdit={(courseId) => setEditorRoute({ mode: "edit", courseId })}
-              onAdd={() => setEditorRoute({ mode: "create" })}
             />
           )}
           {activeView === "settings" && (
@@ -1073,6 +1061,18 @@ export default function Home() {
             />
           )}
         </div>
+
+        {activeView !== "settings" && (
+          <button
+            type="button"
+            className="floating-add"
+            aria-label="添加课程"
+            onClick={() => setEditorRoute({ mode: "create" })}
+          >
+            <Plus size={25} strokeWidth={1.6} />
+            <span>ADD</span>
+          </button>
+        )}
 
         <BottomNavigation activeView={activeView} onChange={setActiveView} />
         <div className={`system-toast${notice ? " is-visible" : ""}`} role="status" aria-live="polite">{notice}</div>

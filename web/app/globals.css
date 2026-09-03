@@ -807,12 +807,13 @@ button:focus-visible {
 }
 
 .floating-add {
-  position: relative;
+  position: absolute;
   z-index: 5;
+  right: 22px;
+  bottom: 112px;
   display: grid;
   width: 54px;
   height: 54px;
-  margin: 16px 0 0 auto;
   place-items: center;
   color: var(--ink);
   background: var(--signal);

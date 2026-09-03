@@ -59,6 +59,8 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(page, /data-screen=\{activeView\}/);
   assert.match(page, /className="liquid-nav"/);
   assert.match(page, /className="floating-add"/);
+  assert.equal(page.match(/className="floating-add"/g)?.length, 1);
+  assert.match(page, /activeView !== "settings"/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /data-view="schedule"/);
   assert.match(page, /data-view="settings"/);
@@ -88,8 +90,9 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.equal(palette.match(/#[0-9a-f]{6}/gi)?.length, 5);
 
   const floatingAddRule = css.match(/\.floating-add\s*\{([^}]+)\}/s)?.[1] ?? "";
-  assert.match(floatingAddRule, /position:\s*relative/);
-  assert.doesNotMatch(floatingAddRule, /position:\s*absolute/);
+  assert.match(floatingAddRule, /position:\s*absolute/);
+  assert.match(floatingAddRule, /right:\s*22px/);
+  assert.match(floatingAddRule, /bottom:\s*112px/);
   assert.match(css, /url\("\/qingke-logo-lockup\.png"\)/);
 
   assert.match(archivePage, /QINGKE \/ DAILY LOG/);
