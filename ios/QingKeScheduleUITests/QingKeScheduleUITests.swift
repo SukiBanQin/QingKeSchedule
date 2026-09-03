@@ -53,8 +53,11 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.waitForExistence(timeout: 5))
 
         app.staticTexts["课程 B"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["course-delete-toolbar"].waitForExistence(timeout: 5))
-        app.buttons["course-delete-toolbar"].tap()
+        XCTAssertFalse(app.buttons["course-delete-toolbar"].exists)
+        let deleteButton = app.buttons["course-delete"]
+        scrollToElement(deleteButton, in: app)
+        XCTAssertEqual(app.buttons.matching(identifier: "course-delete").count, 1)
+        deleteButton.tap()
         XCTAssertTrue(app.alerts["删除这门课程？"].waitForExistence(timeout: 5))
         app.alerts.buttons["确认删除"].tap()
         XCTAssertFalse(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 2))

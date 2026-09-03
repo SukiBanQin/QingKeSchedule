@@ -94,14 +94,6 @@ struct CourseEditorView: View {
                 Button("保存") { save() }
                     .accessibilityIdentifier("course-save")
             }
-            if editingCourse != nil {
-                ToolbarItem(placement: .bottomBar) {
-                    Button("删除课程", role: .destructive) {
-                        showsDeleteConfirmation = true
-                    }
-                    .accessibilityIdentifier("course-delete-toolbar")
-                }
-            }
         }
         .interactiveDismissDisabled(draft.isDirty)
         .confirmationDialog(
