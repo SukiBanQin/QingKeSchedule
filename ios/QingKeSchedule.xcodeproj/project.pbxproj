@@ -48,6 +48,8 @@
 		A10000000000000000000027 /* ScheduleDataTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002A /* ScheduleDataTransfer.swift */; };
 		A10000000000000000000028 /* DataTransferSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002B /* DataTransferSection.swift */; };
 		A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002C /* ScheduleDataTransferTests.swift */; };
+		A1000000000000000000002A /* NotificationScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002D /* NotificationScheduling.swift */; };
+		A1000000000000000000002B /* NotificationSchedulingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002E /* NotificationSchedulingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -112,6 +114,8 @@
 		A2000000000000000000002A /* ScheduleDataTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDataTransfer.swift; sourceTree = "<group>"; };
 		A2000000000000000000002B /* DataTransferSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTransferSection.swift; sourceTree = "<group>"; };
 		A2000000000000000000002C /* ScheduleDataTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDataTransferTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000002D /* NotificationScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduling.swift; sourceTree = "<group>"; };
+		A2000000000000000000002E /* NotificationSchedulingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSchedulingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +162,7 @@
 				A5000000000000000000000B /* Persistence */,
 				A5000000000000000000000C /* State */,
 				A5000000000000000000000E /* Transfer */,
+				A5000000000000000000000F /* Notifications */,
 				A5000000000000000000000D /* Features */,
 			);
 			path = QingKeSchedule;
@@ -183,6 +188,7 @@
 				A20000000000000000000025 /* SchedulePresentationTests.swift */,
 				A20000000000000000000028 /* CourseDraftTests.swift */,
 				A2000000000000000000002C /* ScheduleDataTransferTests.swift */,
+				A2000000000000000000002E /* NotificationSchedulingTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -300,6 +306,14 @@
 				A2000000000000000000002A /* ScheduleDataTransfer.swift */,
 			);
 			path = Transfer;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000F /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000002D /* NotificationScheduling.swift */,
+			);
+			path = Notifications;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -462,6 +476,7 @@
 				A10000000000000000000024 /* CourseEditorView.swift in Sources */,
 				A10000000000000000000027 /* ScheduleDataTransfer.swift in Sources */,
 				A10000000000000000000028 /* DataTransferSection.swift in Sources */,
+				A1000000000000000000002A /* NotificationScheduling.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -477,6 +492,7 @@
 				A10000000000000000000022 /* SchedulePresentationTests.swift in Sources */,
 				A10000000000000000000025 /* CourseDraftTests.swift in Sources */,
 				A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */,
+				A1000000000000000000002B /* NotificationSchedulingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
