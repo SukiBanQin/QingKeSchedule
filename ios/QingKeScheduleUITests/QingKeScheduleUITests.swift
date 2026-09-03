@@ -137,6 +137,56 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testDeniedNotificationsCanBeDisabledWithoutBlockingApp() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--ui-testing-notifications-denied",
+            "--ui-testing-reminders-enabled",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        app.buttons["semester-save-toolbar"].tap()
+        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+
+        app.tabBars.buttons["设置"].tap()
+        let reminderToggle = app.switches["reminders-toggle"]
+        scrollToElement(reminderToggle, in: app)
+        XCTAssertEqual(reminderToggle.value as? String, "1")
+
+        let deniedStatus = app.staticTexts.matching(NSPredicate(
+            format: "identifier == %@ AND label CONTAINS %@",
+            "reminders-status",
+            "系统通知权限已关闭"
+        )).firstMatch
+        XCTAssertTrue(deniedStatus.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["system-notification-settings"].waitForExistence(timeout: 5))
+
+        app.tabBars.buttons["今日"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["today-empty"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["设置"].tap()
+
+        let reminderToggleAgain = app.switches["reminders-toggle"]
+        scrollToElement(reminderToggleAgain, in: app)
+        reminderToggleAgain.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)
+        ).tap()
+        let disabledToggle = app.switches.matching(NSPredicate(
+            format: "identifier == %@ AND value == %@",
+            "reminders-toggle",
+            "0"
+        )).firstMatch
+        XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5))
+        let disabledStatus = app.staticTexts.matching(NSPredicate(
+            format: "identifier == %@",
+            "reminders-status"
+        )).firstMatch
+        XCTAssertTrue(disabledStatus.waitForExistence(timeout: 5))
+        XCTAssertEqual(disabledStatus.label, "提醒已关闭")
+    }
+
+    @MainActor
     private func launchAndCreateSemester() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]

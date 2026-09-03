@@ -111,6 +111,10 @@ struct SemesterFormView: View {
                 }
             }
 
+            if !isOnboarding, let dataTransferState {
+                ReminderSettingsSection(state: dataTransferState)
+            }
+
             if let dataTransferState {
                 DataTransferSection(state: dataTransferState)
             }

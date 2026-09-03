@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppRootView: View {
     @Bindable var state: ScheduleAppState
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -23,6 +24,11 @@ struct AppRootView: View {
         .task {
             if !state.isLoaded {
                 state.load()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                state.appBecameActive()
             }
         }
         .alert(

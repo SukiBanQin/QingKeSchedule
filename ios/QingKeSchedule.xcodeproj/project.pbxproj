@@ -50,6 +50,9 @@
 		A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002C /* ScheduleDataTransferTests.swift */; };
 		A1000000000000000000002A /* NotificationScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002D /* NotificationScheduling.swift */; };
 		A1000000000000000000002B /* NotificationSchedulingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002E /* NotificationSchedulingTests.swift */; };
+		A1000000000000000000002C /* ReminderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002F /* ReminderSettings.swift */; };
+		A1000000000000000000002D /* ReminderSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* ReminderSettingsSection.swift */; };
+		A1000000000000000000002E /* ReminderSettingsAndStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* ReminderSettingsAndStateTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -116,6 +119,9 @@
 		A2000000000000000000002C /* ScheduleDataTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDataTransferTests.swift; sourceTree = "<group>"; };
 		A2000000000000000000002D /* NotificationScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduling.swift; sourceTree = "<group>"; };
 		A2000000000000000000002E /* NotificationSchedulingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSchedulingTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000002F /* ReminderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSettings.swift; sourceTree = "<group>"; };
+		A20000000000000000000030 /* ReminderSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSettingsSection.swift; sourceTree = "<group>"; };
+		A20000000000000000000031 /* ReminderSettingsAndStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSettingsAndStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,6 +195,7 @@
 				A20000000000000000000028 /* CourseDraftTests.swift */,
 				A2000000000000000000002C /* ScheduleDataTransferTests.swift */,
 				A2000000000000000000002E /* NotificationSchedulingTests.swift */,
+				A20000000000000000000031 /* ReminderSettingsAndStateTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -296,6 +303,7 @@
 				A20000000000000000000026 /* CourseDraft.swift */,
 				A20000000000000000000027 /* CourseEditorView.swift */,
 				A2000000000000000000002B /* DataTransferSection.swift */,
+				A20000000000000000000030 /* ReminderSettingsSection.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -312,6 +320,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000000000000000000002D /* NotificationScheduling.swift */,
+				A2000000000000000000002F /* ReminderSettings.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
@@ -477,6 +486,8 @@
 				A10000000000000000000027 /* ScheduleDataTransfer.swift in Sources */,
 				A10000000000000000000028 /* DataTransferSection.swift in Sources */,
 				A1000000000000000000002A /* NotificationScheduling.swift in Sources */,
+				A1000000000000000000002C /* ReminderSettings.swift in Sources */,
+				A1000000000000000000002D /* ReminderSettingsSection.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -493,6 +504,7 @@
 				A10000000000000000000025 /* CourseDraftTests.swift in Sources */,
 				A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */,
 				A1000000000000000000002B /* NotificationSchedulingTests.swift in Sources */,
+				A1000000000000000000002E /* ReminderSettingsAndStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
