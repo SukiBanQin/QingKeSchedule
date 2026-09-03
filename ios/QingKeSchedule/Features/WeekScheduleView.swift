@@ -5,24 +5,33 @@ struct WeekScheduleView: View {
     let courses: [CourseDTO]
     let now: Date
     let calendar: Calendar
+    let onAddCourse: () -> Void
+    let onSelectCourse: (CourseDTO) -> Void
 
     @State private var selectedWeek: Int
+    @State private var visibleDay: Int?
 
     init(
         semester: SemesterDTO,
         courses: [CourseDTO],
         now: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        onAddCourse: @escaping () -> Void,
+        onSelectCourse: @escaping (CourseDTO) -> Void
     ) {
         self.semester = semester
         self.courses = courses
         self.now = now
         self.calendar = calendar
+        self.onAddCourse = onAddCourse
+        self.onSelectCourse = onSelectCourse
         _selectedWeek = State(initialValue: WeekSchedulePresentation.initialWeek(
             semester: semester,
             now: now,
             calendar: calendar
         ))
+        let sundayBasedWeekday = calendar.component(.weekday, from: now)
+        _visibleDay = State(initialValue: sundayBasedWeekday == 1 ? 7 : sundayBasedWeekday - 1)
     }
 
     private var presentation: WeekSchedulePresentation {
@@ -44,15 +53,25 @@ struct WeekScheduleView: View {
                     ForEach(presentation.days) { day in
                         dayColumn(day)
                             .containerRelativeFrame(.horizontal, count: 1, spacing: 12)
+                            .id(day.id)
                     }
                 }
                 .scrollTargetLayout()
                 .padding()
             }
             .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $visibleDay)
         }
         .navigationTitle("课表")
         .accessibilityIdentifier("week-schedule")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onAddCourse) {
+                    Label("添加课程", systemImage: "plus")
+                }
+                .accessibilityIdentifier("add-course-week-toolbar")
+            }
+        }
     }
 
     private var weekControls: some View {
@@ -128,28 +147,33 @@ struct WeekScheduleView: View {
 
     private func weekCourseCard(_ item: WeekCourseItem) -> some View {
         let occurrence = item.occurrence
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(occurrence.course.name)
-                    .font(.headline)
-                Spacer()
-                if item.isConflicting {
-                    Label("冲突", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.bold())
-                        .foregroundStyle(.red)
+        return Button {
+            onSelectCourse(occurrence.course)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(occurrence.course.name)
+                        .font(.headline)
+                    Spacer()
+                    if item.isConflicting {
+                        Label("冲突", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(.red)
+                    }
+                }
+                Text("\(ScheduleDisplayText.periodRange(occurrence.schedule)) · \(ScheduleDisplayText.timeRange(occurrence.schedule, semester: semester))")
+                    .font(.subheadline.monospacedDigit())
+                if !occurrence.schedule.classroom.isEmpty {
+                    Label(occurrence.schedule.classroom, systemImage: "mappin.and.ellipse")
+                        .font(.subheadline)
+                }
+                if !occurrence.course.teacher.isEmpty {
+                    Label(occurrence.course.teacher, systemImage: "person")
+                        .font(.caption)
                 }
             }
-            Text("\(ScheduleDisplayText.periodRange(occurrence.schedule)) · \(ScheduleDisplayText.timeRange(occurrence.schedule, semester: semester))")
-                .font(.subheadline.monospacedDigit())
-            if !occurrence.schedule.classroom.isEmpty {
-                Label(occurrence.schedule.classroom, systemImage: "mappin.and.ellipse")
-                    .font(.subheadline)
-            }
-            if !occurrence.course.teacher.isEmpty {
-                Label(occurrence.course.teacher, systemImage: "person")
-                    .font(.caption)
-            }
         }
+        .buttonStyle(.plain)
         .foregroundStyle(.primary)
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

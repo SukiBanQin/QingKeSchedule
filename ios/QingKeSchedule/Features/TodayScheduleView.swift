@@ -5,6 +5,8 @@ struct TodayScheduleView: View {
     let courses: [CourseDTO]
     let now: Date
     let calendar: Calendar
+    let onAddCourse: () -> Void
+    let onSelectCourse: (CourseDTO) -> Void
 
     private var presentation: TodaySchedulePresentation {
         TodaySchedulePresentation(
@@ -18,11 +20,15 @@ struct TodayScheduleView: View {
     var body: some View {
         Group {
             if presentation.items.isEmpty {
-                ContentUnavailableView(
-                    "今天没有课程",
-                    systemImage: "sun.max",
-                    description: Text(presentation.emptyMessage)
-                )
+                ContentUnavailableView {
+                    Label("今天没有课程", systemImage: "sun.max")
+                } description: {
+                    Text(presentation.emptyMessage)
+                } actions: {
+                    Button("添加课程", action: onAddCourse)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("add-course-today")
+                }
                 .accessibilityIdentifier("today-empty")
             } else {
                 List {
@@ -54,46 +60,57 @@ struct TodayScheduleView: View {
                     }
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onAddCourse) {
+                    Label("添加课程", systemImage: "plus")
+                }
+                .accessibilityIdentifier("add-course-today-toolbar")
+            }
         }
     }
 
     @ViewBuilder
     private func courseRow(_ item: TodayCourseItem, emphasized: Bool) -> some View {
         let occurrence = item.occurrence
-        HStack(alignment: .top, spacing: 12) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color(courseHex: occurrence.course.color))
-                .frame(width: 5)
-                .accessibilityHidden(true)
+        Button {
+            onSelectCourse(occurrence.course)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(courseHex: occurrence.course.color))
+                    .frame(width: 5)
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(occurrence.course.name)
-                        .font(emphasized ? .headline : .body.weight(.semibold))
-                    Spacer()
-                    Label(item.status.displayName, systemImage: item.status.systemImage)
-                        .font(.caption)
-                        .foregroundStyle(
-                            item.status == .ongoing ? Color.accentColor : Color.secondary
-                        )
-                }
-                Text("\(ScheduleDisplayText.periodRange(occurrence.schedule)) · \(ScheduleDisplayText.timeRange(occurrence.schedule, semester: semester))")
-                    .font(.subheadline.monospacedDigit())
-                let details = [occurrence.schedule.classroom, occurrence.course.teacher]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: " · ")
-                if !details.isEmpty {
-                    Text(details)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                if emphasized {
-                    Text("下一门")
-                        .font(.caption.bold())
-                        .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(occurrence.course.name)
+                            .font(emphasized ? .headline : .body.weight(.semibold))
+                        Spacer()
+                        Label(item.status.displayName, systemImage: item.status.systemImage)
+                            .font(.caption)
+                            .foregroundStyle(
+                                item.status == .ongoing ? Color.accentColor : Color.secondary
+                            )
+                    }
+                    Text("\(ScheduleDisplayText.periodRange(occurrence.schedule)) · \(ScheduleDisplayText.timeRange(occurrence.schedule, semester: semester))")
+                        .font(.subheadline.monospacedDigit())
+                    let details = [occurrence.schedule.classroom, occurrence.course.teacher]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: " · ")
+                    if !details.isEmpty {
+                        Text(details)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    if emphasized {
+                        Text("下一门")
+                            .font(.caption.bold())
+                            .foregroundStyle(.tint)
+                    }
                 }
             }
         }
+        .buttonStyle(.plain)
         .padding(.vertical, 5)
         .opacity(item.status == .finished ? 0.62 : 1)
         .accessibilityElement(children: .combine)

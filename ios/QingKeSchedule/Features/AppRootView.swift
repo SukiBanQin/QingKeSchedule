@@ -42,6 +42,7 @@ struct AppRootView: View {
 
 private struct MainTabView: View {
     @Bindable var state: ScheduleAppState
+    @State private var editorRoute: CourseEditorRoute?
 
     var body: some View {
         TabView {
@@ -51,7 +52,9 @@ private struct MainTabView: View {
                         semester: semester,
                         courses: state.courses,
                         now: state.now,
-                        calendar: state.calendar
+                        calendar: state.calendar,
+                        onAddCourse: { editorRoute = CourseEditorRoute(course: nil) },
+                        onSelectCourse: { editorRoute = CourseEditorRoute(course: $0) }
                     )
                 }
             }
@@ -64,7 +67,9 @@ private struct MainTabView: View {
                         semester: semester,
                         courses: state.courses,
                         now: state.now,
-                        calendar: state.calendar
+                        calendar: state.calendar,
+                        onAddCourse: { editorRoute = CourseEditorRoute(course: nil) },
+                        onSelectCourse: { editorRoute = CourseEditorRoute(course: $0) }
                     )
                 }
             }
@@ -81,5 +86,25 @@ private struct MainTabView: View {
             .tabItem { Label("设置", systemImage: "gearshape") }
             .accessibilityIdentifier("settings-tab")
         }
+        .sheet(item: $editorRoute) { route in
+            if let semester = state.semester {
+                NavigationStack {
+                    CourseEditorView(
+                        semester: semester,
+                        existingCourses: state.courses,
+                        course: route.course,
+                        now: state.now,
+                        calendar: state.calendar,
+                        onSave: state.saveCourse,
+                        onDelete: state.deleteCourse
+                    )
+                }
+            }
+        }
     }
+}
+
+private struct CourseEditorRoute: Identifiable {
+    let id = UUID()
+    let course: CourseDTO?
 }
