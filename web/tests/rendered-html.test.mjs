@@ -33,7 +33,8 @@ test("server-renders the terminal-style Today concept", async () => {
   assert.match(html, /QINGKE/);
   assert.match(html, /ACADEMIC TERMINAL/);
   assert.match(html, /SCHEDULE :\/\/ TODAY/);
-  assert.match(html, /ACTIVE MISSION/);
+  assert.match(html, /CURRENT CLASS/);
+  assert.match(html, /进度更新于 15:02/);
   assert.match(html, /交互设计基础/);
   assert.match(html, /课程序列/);
   assert.match(html, /aria-current="page"/);
@@ -66,6 +67,8 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(page, /role="switch"/);
   assert.match(page, /repeatLabels/);
   assert.match(page, /IMPORT \/\//);
+  assert.match(page, /type="color"/);
+  assert.match(page, /className="brand-logo"/);
   assert.equal(
     page.match(/className="delete-course-button"/g)?.length,
     1,
@@ -81,9 +84,22 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(css, /prefers-contrast:\s*more/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 
+  const palette = page.match(/const coursePalette = \[([^\]]+)\]/)?.[1] ?? "";
+  assert.equal(palette.match(/#[0-9a-f]{6}/gi)?.length, 5);
+
+  const floatingAddRule = css.match(/\.floating-add\s*\{([^}]+)\}/s)?.[1] ?? "";
+  assert.match(floatingAddRule, /position:\s*relative/);
+  assert.doesNotMatch(floatingAddRule, /position:\s*absolute/);
+  assert.match(css, /url\("\/qingke-logo-lockup\.png"\)/);
+
   assert.match(archivePage, /QINGKE \/ DAILY LOG/);
   assert.match(archiveCss, /--blue-bright:/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+
+  const logo = await readFile(
+    new URL("../public/qingke-logo-lockup.png", import.meta.url),
+  );
+  assert.deepEqual([...logo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
 
   await assert.rejects(
     access(new URL("../app/_sites-preview/SkeletonPreview.tsx", import.meta.url)),

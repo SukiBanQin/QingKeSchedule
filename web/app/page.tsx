@@ -289,11 +289,8 @@ function BrandHeader({
   return (
     <header className="command-header">
       <div className="brand-lockup">
-        <span className="brand-symbol" aria-hidden="true">Q</span>
-        <span>
-          <b>QINGKE</b>
-          <small>ACADEMIC TERMINAL</small>
-        </span>
+        <span className="brand-logo" role="img" aria-label="青课 QINGKE" />
+        <span className="visually-hidden">QINGKE 青课 / ACADEMIC TERMINAL</span>
       </div>
       <div className="system-meta">
         <span>{code}</span>
@@ -393,8 +390,8 @@ function TodayScreen({ courses, onEdit, onAdd, notify }: {
       </section>
 
       <div className="section-rail" aria-hidden="true">
-        <span>ACTIVE MISSION</span>
-        <span>SYNC 15:02:46</span>
+        <span>当前课程 / CURRENT CLASS</span>
+        <span>进度更新于 15:02</span>
       </div>
 
       <section className="active-course" aria-label="当前课程">
@@ -836,6 +833,13 @@ function CourseEditor({ course, periods, totalWeeks, onSave, onDelete, onClose }
               {color === option && <Check size={14} />}
             </button>
           ))}</div></div>
+          <label className="custom-color-picker">
+            <span className="custom-color-swatch" style={{ "--custom-color": color } as CSSProperties}>
+              <input type="color" value={color} onChange={(event) => setColor(event.target.value)} aria-label="自定义课程识别色" />
+            </span>
+            <span><b>自定义颜色</b><small>CUSTOM COLOR</small></span>
+            <code>{color.toUpperCase()}</code>
+          </label>
         </section>
 
         {schedules.map((schedule, index) => (

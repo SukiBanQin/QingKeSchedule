@@ -8,7 +8,8 @@ the week matrix, course creation and editing, semester and period settings,
 reminders, data-transfer entry points, and the first-run setup flow. Its visual
 system uses a flat academic-terminal layout, condensed typography, restrained
 signal colors, acrylic content panels, and a Liquid Glass-inspired bottom
-navigation bar.
+navigation bar. Course editing includes five quick color presets plus a native
+custom color picker, and the header uses the project-provided QingKe logo.
 
 The earlier blue-and-white P3R-inspired concept remains frozen under
 `design-archive/p3r-concept/` for later review.
