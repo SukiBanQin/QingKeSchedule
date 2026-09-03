@@ -71,6 +71,11 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(page, /IMPORT \/\//);
   assert.match(page, /type="color"/);
   assert.match(page, /className="brand-logo"/);
+  assert.match(page, /customLeadActive/);
+  assert.match(page, /自定义提前提醒分钟数/);
+  assert.match(page, /type="number"/);
+  assert.match(page, /min="1"/);
+  assert.match(page, /max="180"/);
   assert.equal(
     page.match(/className="delete-course-button"/g)?.length,
     1,
@@ -82,6 +87,7 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(css, /\.week-matrix\s*\{/);
   assert.match(css, /\.overlay-screen\s*\{/);
   assert.match(css, /\.onboarding-actions\s*\{/);
+  assert.match(css, /\.custom-lead-control\s*\{/);
   assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(css, /prefers-contrast:\s*more/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
@@ -94,6 +100,7 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(floatingAddRule, /right:\s*22px/);
   assert.match(floatingAddRule, /bottom:\s*112px/);
   assert.match(css, /url\("\/qingke-logo-lockup\.png"\)/);
+  assert.doesNotMatch(css, /mix-blend-mode:\s*multiply/);
 
   assert.match(archivePage, /QINGKE \/ DAILY LOG/);
   assert.match(archiveCss, /--blue-bright:/);
@@ -103,6 +110,7 @@ test("implements the complete interactive demo and keeps the previous concept ar
     new URL("../public/qingke-logo-lockup.png", import.meta.url),
   );
   assert.deepEqual([...logo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(logo[25], 6, "logo asset should preserve RGBA transparency");
 
   await assert.rejects(
     access(new URL("../app/_sites-preview/SkeletonPreview.tsx", import.meta.url)),

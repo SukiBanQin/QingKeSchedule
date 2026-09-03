@@ -588,6 +588,10 @@ function SettingsScreen({
   setRemindersEnabled,
   leadMinutes,
   setLeadMinutes,
+  customLeadActive,
+  setCustomLeadActive,
+  customLeadMinutes,
+  setCustomLeadMinutes,
   notify,
   onOnboarding,
 }: {
@@ -599,6 +603,10 @@ function SettingsScreen({
   setRemindersEnabled: (enabled: boolean) => void;
   leadMinutes: number;
   setLeadMinutes: (minutes: number) => void;
+  customLeadActive: boolean;
+  setCustomLeadActive: (active: boolean) => void;
+  customLeadMinutes: number;
+  setCustomLeadMinutes: (minutes: number) => void;
   notify: (message: string) => void;
   onOnboarding: () => void;
 }) {
@@ -615,6 +623,12 @@ function SettingsScreen({
       start: last?.end ?? "20:15",
       end: "21:45",
     }]);
+  }
+
+  function updateCustomLeadMinutes(value: number) {
+    const normalized = Math.min(180, Math.max(1, value));
+    setCustomLeadMinutes(normalized);
+    setLeadMinutes(normalized);
   }
 
   return (
@@ -672,13 +686,52 @@ function SettingsScreen({
         {remindersEnabled && (
           <div className="lead-selector" aria-label="提醒提前时间">
             {[0, 5, 10, 15, 30].map((minutes) => (
-              <button type="button" className={leadMinutes === minutes ? "is-active" : ""} key={minutes} onClick={() => setLeadMinutes(minutes)}>
+              <button
+                type="button"
+                className={!customLeadActive && leadMinutes === minutes ? "is-active" : ""}
+                key={minutes}
+                onClick={() => {
+                  setCustomLeadActive(false);
+                  setLeadMinutes(minutes);
+                }}
+              >
                 <b>{minutes}</b><small>{minutes === 0 ? "准时" : "MIN"}</small>
               </button>
             ))}
+            <button
+              type="button"
+              className={customLeadActive ? "is-active" : ""}
+              onClick={() => {
+                setCustomLeadActive(true);
+                setLeadMinutes(customLeadMinutes);
+              }}
+            >
+              <b>自定</b><small>CUSTOM</small>
+            </button>
           </div>
         )}
-        <p className="setting-note"><i /> 通知权限正常 · 未来 60 条提醒将自动维护</p>
+        {remindersEnabled && customLeadActive && (
+          <div className="custom-lead-control">
+            <span><small>CUSTOM LEAD</small><b>自定义提前时间</b></span>
+            <div>
+              <button type="button" aria-label="减少自定义提醒时间" onClick={() => updateCustomLeadMinutes(customLeadMinutes - 1)}>−</button>
+              <label>
+                <input
+                  type="number"
+                  min="1"
+                  max="180"
+                  inputMode="numeric"
+                  value={customLeadMinutes}
+                  onChange={(event) => updateCustomLeadMinutes(Number(event.target.value) || 1)}
+                  aria-label="自定义提前提醒分钟数"
+                />
+                <small>MIN</small>
+              </label>
+              <button type="button" aria-label="增加自定义提醒时间" onClick={() => updateCustomLeadMinutes(customLeadMinutes + 1)}>＋</button>
+            </div>
+          </div>
+        )}
+        <p className="setting-note"><i /> 通知权限正常 · {leadMinutes === 0 ? "将在上课时提醒" : `将在上课前 ${leadMinutes} 分钟提醒`}</p>
       </section>
 
       <section className="settings-group">
@@ -996,6 +1049,8 @@ export default function Home() {
   const [periods, setPeriods] = useState(initialPeriods);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
   const [leadMinutes, setLeadMinutes] = useState(10);
+  const [customLeadActive, setCustomLeadActive] = useState(false);
+  const [customLeadMinutes, setCustomLeadMinutes] = useState(20);
 
   const editingCourse = editorRoute?.courseId
     ? courses.find((course) => course.id === editorRoute.courseId)
@@ -1056,6 +1111,10 @@ export default function Home() {
               setRemindersEnabled={setRemindersEnabled}
               leadMinutes={leadMinutes}
               setLeadMinutes={setLeadMinutes}
+              customLeadActive={customLeadActive}
+              setCustomLeadActive={setCustomLeadActive}
+              customLeadMinutes={customLeadMinutes}
+              setCustomLeadMinutes={setCustomLeadMinutes}
               notify={notify}
               onOnboarding={() => setOnboardingVisible(true)}
             />

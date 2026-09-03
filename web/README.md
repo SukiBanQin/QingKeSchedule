@@ -9,7 +9,10 @@ reminders, data-transfer entry points, and the first-run setup flow. Its visual
 system uses a flat academic-terminal layout, condensed typography, restrained
 signal colors, acrylic content panels, and a Liquid Glass-inspired bottom
 navigation bar. Course editing includes five quick color presets plus a native
-custom color picker, and the header uses the project-provided QingKe logo.
+custom color picker, and the header uses the project-provided transparent
+QingKe logo without background blending.
+Reminder settings keep the common presets and also support a custom lead time
+from 1 to 180 minutes.
 
 The earlier blue-and-white P3R-inspired concept remains frozen under
 `design-archive/p3r-concept/` for later review.
