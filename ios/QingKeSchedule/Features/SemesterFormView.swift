@@ -3,6 +3,7 @@ import SwiftUI
 struct SemesterFormView: View {
     let isOnboarding: Bool
     let onSave: (SemesterDTO) -> Bool
+    let dataTransferState: ScheduleAppState?
 
     @State private var draft: SemesterDraft
     @State private var issues: [ScheduleValidationIssue] = []
@@ -12,10 +13,12 @@ struct SemesterFormView: View {
         semester: SemesterDTO?,
         isOnboarding: Bool,
         now: Date = Date(),
+        dataTransferState: ScheduleAppState? = nil,
         onSave: @escaping (SemesterDTO) -> Bool
     ) {
         self.isOnboarding = isOnboarding
         self.onSave = onSave
+        self.dataTransferState = dataTransferState
         _draft = State(initialValue: SemesterDraft(semester: semester, now: now))
     }
 
@@ -106,6 +109,10 @@ struct SemesterFormView: View {
                     Label(savedMessage, systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 }
+            }
+
+            if let dataTransferState {
+                DataTransferSection(state: dataTransferState)
             }
 
             Section {

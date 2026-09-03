@@ -84,6 +84,59 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testValidImportPreviewCancelConfirmAndExportEntry() throws {
+        let app = launchForTransferTest(
+            fixture: "shared/fixtures/valid/web-export.json"
+        )
+        let testImportButton = app.buttons["schedule-import-test-file"]
+        scrollToElement(testImportButton, in: app)
+
+        XCTAssertTrue(app.buttons["schedule-import"].exists)
+        testImportButton.tap()
+        XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@",
+            "学期：2026 秋季学期"
+        )).firstMatch.exists)
+        app.alerts.buttons["取消"].tap()
+        XCTAssertFalse(app.tabBars.buttons["今日"].exists)
+        XCTAssertTrue(testImportButton.exists)
+
+        testImportButton.tap()
+        XCTAssertTrue(app.buttons["替换当前课表"].waitForExistence(timeout: 5))
+        app.alerts.buttons["替换当前课表"].tap()
+        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+
+        app.tabBars.buttons["设置"].tap()
+        let semesterName = app.textFields["semester-name"]
+        XCTAssertTrue(semesterName.waitForExistence(timeout: 5))
+        XCTAssertEqual(semesterName.value as? String, "2026 秋季学期")
+        let exportButton = app.buttons["schedule-export"]
+        scrollToElement(exportButton, in: app)
+        XCTAssertTrue(exportButton.exists)
+        XCTAssertEqual(exportButton.label, "分享课表备份")
+    }
+
+    @MainActor
+    func testInvalidImportShowsErrorAndPreservesOnboarding() throws {
+        let app = launchForTransferTest(
+            fixture: "shared/fixtures/invalid/unknown-version.json"
+        )
+        let testImportButton = app.buttons["schedule-import-test-file"]
+        scrollToElement(testImportButton, in: app)
+
+        testImportButton.tap()
+        XCTAssertTrue(app.alerts["无法导入课表"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@",
+            "暂不支持版本 2"
+        )).firstMatch.exists)
+        app.alerts.buttons["好"].tap()
+        XCTAssertFalse(app.tabBars.buttons["今日"].exists)
+        XCTAssertTrue(testImportButton.exists)
+    }
+
+    @MainActor
     private func launchAndCreateSemester() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
@@ -94,6 +147,32 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["semester-save-toolbar"].tap()
         XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
         return app
+    }
+
+    @MainActor
+    private func launchForTransferTest(fixture: String) -> XCUIApplication {
+        let testSourceURL = URL(fileURLWithPath: #filePath)
+        let repositoryURL = testSourceURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fixtureURL = repositoryURL.appendingPathComponent(fixture)
+        let contents = try! String(contentsOf: fixtureURL, encoding: .utf8)
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-transfer-controls"]
+        app.launchEnvironment["UI_TEST_IMPORT_JSON"] = contents
+        app.launch()
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        return app
+    }
+
+    @MainActor
+    private func scrollToElement(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<8 where !element.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        XCTAssertTrue(element.isHittable)
     }
 
     @MainActor

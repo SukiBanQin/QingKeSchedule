@@ -12,6 +12,7 @@ struct AppRootView: View {
                     SemesterFormView(
                         semester: nil,
                         isOnboarding: true,
+                        dataTransferState: state,
                         onSave: state.saveSemester
                     )
                 }
@@ -80,6 +81,7 @@ private struct MainTabView: View {
                 SemesterFormView(
                     semester: state.semester,
                     isOnboarding: false,
+                    dataTransferState: state,
                     onSave: state.saveSemester
                 )
             }

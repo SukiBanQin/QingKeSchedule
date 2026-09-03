@@ -45,6 +45,9 @@
 		A10000000000000000000024 /* CourseEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000027 /* CourseEditorView.swift */; };
 		A10000000000000000000025 /* CourseDraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* CourseDraftTests.swift */; };
 		A10000000000000000000026 /* web-export.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* web-export.json */; };
+		A10000000000000000000027 /* ScheduleDataTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002A /* ScheduleDataTransfer.swift */; };
+		A10000000000000000000028 /* DataTransferSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002B /* DataTransferSection.swift */; };
+		A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002C /* ScheduleDataTransferTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +109,9 @@
 		A20000000000000000000027 /* CourseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseEditorView.swift; sourceTree = "<group>"; };
 		A20000000000000000000028 /* CourseDraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDraftTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000029 /* web-export.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "web-export.json"; sourceTree = "<group>"; };
+		A2000000000000000000002A /* ScheduleDataTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDataTransfer.swift; sourceTree = "<group>"; };
+		A2000000000000000000002B /* DataTransferSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTransferSection.swift; sourceTree = "<group>"; };
+		A2000000000000000000002C /* ScheduleDataTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleDataTransferTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +157,7 @@
 				A50000000000000000000006 /* Domain */,
 				A5000000000000000000000B /* Persistence */,
 				A5000000000000000000000C /* State */,
+				A5000000000000000000000E /* Transfer */,
 				A5000000000000000000000D /* Features */,
 			);
 			path = QingKeSchedule;
@@ -175,6 +182,7 @@
 				A20000000000000000000020 /* SemesterDraftTests.swift */,
 				A20000000000000000000025 /* SchedulePresentationTests.swift */,
 				A20000000000000000000028 /* CourseDraftTests.swift */,
+				A2000000000000000000002C /* ScheduleDataTransferTests.swift */,
 			);
 			path = QingKeScheduleTests;
 			sourceTree = "<group>";
@@ -281,8 +289,17 @@
 				A20000000000000000000024 /* WeekScheduleView.swift */,
 				A20000000000000000000026 /* CourseDraft.swift */,
 				A20000000000000000000027 /* CourseEditorView.swift */,
+				A2000000000000000000002B /* DataTransferSection.swift */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000E /* Transfer */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000002A /* ScheduleDataTransfer.swift */,
+			);
+			path = Transfer;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -443,6 +460,8 @@
 				A10000000000000000000021 /* WeekScheduleView.swift in Sources */,
 				A10000000000000000000023 /* CourseDraft.swift in Sources */,
 				A10000000000000000000024 /* CourseEditorView.swift in Sources */,
+				A10000000000000000000027 /* ScheduleDataTransfer.swift in Sources */,
+				A10000000000000000000028 /* DataTransferSection.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -457,6 +476,7 @@
 				A1000000000000000000001D /* SemesterDraftTests.swift in Sources */,
 				A10000000000000000000022 /* SchedulePresentationTests.swift in Sources */,
 				A10000000000000000000025 /* CourseDraftTests.swift in Sources */,
+				A10000000000000000000029 /* ScheduleDataTransferTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

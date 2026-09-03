@@ -74,6 +74,23 @@ final class ScheduleAppState {
         presentedError = nil
     }
 
+    func previewImport(contents: Data) throws -> ScheduleImportPreview {
+        try ScheduleDataTransfer.previewImport(contents: contents, calendar: calendar)
+    }
+
+    @discardableResult
+    func confirmImport(_ preview: ScheduleImportPreview) -> Bool {
+        replace(with: preview.data)
+    }
+
+    func exportDocument() throws -> ScheduleExportDocument {
+        try ScheduleDataTransfer.exportDocument(
+            data: data,
+            exportedAt: now,
+            calendar: calendar
+        )
+    }
+
     private func perform(_ operation: () throws -> Void) -> Bool {
         do {
             try operation()
