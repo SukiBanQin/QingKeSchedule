@@ -89,7 +89,7 @@ final class QingKeScheduleUITests: XCTestCase {
     @MainActor
     func testValidImportPreviewCancelConfirmAndExportEntry() throws {
         let app = launchForTransferTest(
-            fixture: "shared/fixtures/valid/web-export.json"
+            fixture: "Shared/fixtures/valid/web-export.json"
         )
         let testImportButton = app.buttons["schedule-import-test-file"]
         scrollToElement(testImportButton, in: app)
@@ -123,7 +123,7 @@ final class QingKeScheduleUITests: XCTestCase {
     @MainActor
     func testInvalidImportShowsErrorAndPreservesOnboarding() throws {
         let app = launchForTransferTest(
-            fixture: "shared/fixtures/invalid/unknown-version.json"
+            fixture: "Shared/fixtures/invalid/unknown-version.json"
         )
         let testImportButton = app.buttons["schedule-import-test-file"]
         scrollToElement(testImportButton, in: app)
@@ -205,11 +205,10 @@ final class QingKeScheduleUITests: XCTestCase {
     @MainActor
     private func launchForTransferTest(fixture: String) -> XCUIApplication {
         let testSourceURL = URL(fileURLWithPath: #filePath)
-        let repositoryURL = testSourceURL
+        let iosRootURL = testSourceURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let fixtureURL = repositoryURL.appendingPathComponent(fixture)
+        let fixtureURL = iosRootURL.appendingPathComponent(fixture)
         let contents = try! String(contentsOf: fixtureURL, encoding: .utf8)
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-transfer-controls"]

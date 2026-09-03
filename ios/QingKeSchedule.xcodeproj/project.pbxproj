@@ -235,7 +235,7 @@
 				A50000000000000000000008 /* fixtures */,
 			);
 			name = Shared;
-			path = ../shared;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		A50000000000000000000008 /* fixtures */ = {

@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-TEST_ROOT="${REPO_ROOT}/.build/ios-install-script-tests"
+IOS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+TEST_ROOT="${IOS_ROOT}/.build/ios-install-script-tests"
 CALL_LOG="${TEST_ROOT}/calls.log"
 
 IOS_PROJECT_PATH="${TEST_ROOT}/QingKeSchedule.xcodeproj"
@@ -17,7 +17,7 @@ mkdir -p "${IOS_PROJECT_PATH}" "${IOS_DERIVED_DATA_PATH}"
 : > "${CALL_LOG}"
 
 # shellcheck source=../ios-install.sh
-source "${REPO_ROOT}/scripts/ios-install.sh"
+source "${IOS_ROOT}/scripts/ios-install.sh"
 
 fail() {
     echo "FAIL: $*" >&2

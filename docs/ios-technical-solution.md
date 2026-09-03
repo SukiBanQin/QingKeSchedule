@@ -2,22 +2,22 @@
 
 ## 1. 文档目的
 
-本文档依据[iOS MVP 产品设计文档](./ios-product-design.md)，并结合仓库中已经完成的 Web MVP，明确原生 iPhone 应用的技术选型、模块边界、跨端数据协议、本地通知、导入导出、测试和个人免费签名方案。
+本文档依据[iOS MVP 产品设计文档](./ios-product-design.md)，并结合仓库中曾经完成的 Web MVP，明确原生 iPhone 应用的技术选型、模块边界、跨实现数据协议、本地通知、导入导出、测试和个人免费签名方案。
 
 本文档是 iOS 实施基线。实际开发应同时遵守仓库根目录的 `AGENTS.md`，每次改动都必须补充或更新测试、完成验证并创建独立 Git commit。
 
 ## 2. 当前项目基线
 
-仓库当前已经包含可运行的 Web MVP，而不只是产品文档。iOS 实现必须先阅读并对齐以下现有代码：
+仓库当前以 `ios/` 下的原生应用为主，`web/` 是为未来重做预留的空目录。当前实现必须阅读并对齐：
 
-- `src/domain/types.ts`：Web 端领域类型和跨端数据字段的当前事实来源。
-- `src/domain/rules.ts`：教学周、单双周、课程筛选、状态和冲突检测规则。
-- `src/domain/validation.ts`：学期与课程输入校验。
-- `src/storage/localStorageRepository.ts`：`schemaVersion: 1` 数据解析和本地保存格式。
-- `tests/unit/rules.test.ts`：核心规则的已验证样例。
-- `tests/unit/storage.test.ts`：数据格式的已验证样例。
+- `ios/Shared/schedule-data.schema.json`：`schemaVersion: 1` 数据协议的当前事实来源。
+- `ios/Shared/fixtures/`：有效、无效和旧 Web 导出的兼容样例。
+- `ios/QingKeSchedule/Domain/ScheduleDTOs.swift`：Swift Codable DTO。
+- `ios/QingKeSchedule/Domain/ScheduleRules.swift`：教学周、单双周、课程筛选、状态和冲突检测规则。
+- `ios/QingKeSchedule/Domain/ScheduleValidation.swift`：学期与课程输入校验。
+- `ios/QingKeScheduleTests/` 与 `ios/QingKeScheduleUITests/`：当前已验证行为。
 
-Web 端目前尚未实现课表文件导出。iOS 可以先支持手动创建课表，但在“从 Web 导入 iOS”的端到端验收前，需要为 Web 版另行增加兼容导出功能，并以独立变更提交。
+旧 Web MVP 完整实现已从工作树移除，可从 Git 标签 `pre-ios-web-restructure` 恢复；其产品与技术文档保留在 `docs/`。未来重做 Web 时必须继续读取 `ios/Shared/`，并用 Web 测试验证同一组 fixtures。
 
 ## 3. 技术选型结论
 
@@ -107,7 +107,7 @@ SwiftData / UserNotifications / File System
 
 ## 5. 建议工程结构
 
-iOS 项目放在仓库根目录的 `ios/` 下，与现有 Web 工程并存：
+iOS 项目、共享协议和 iOS 脚本统一放在仓库根目录的 `ios/` 下；`web/` 当前为空：
 
 ```text
 ios/
@@ -129,13 +129,14 @@ ios/
   QingKeScheduleTests/
   QingKeScheduleUITests/
   Config/
-scripts/
-  ios-build.sh
-  ios-test.sh
-  ios-install.sh
-shared/
-  fixtures/
-  schedule-data.schema.json
+  Shared/
+    fixtures/
+    schedule-data.schema.json
+  scripts/
+    ios-build.sh
+    ios-test.sh
+    ios-install.sh
+web/
 ```
 
 初次实现时不要求一次创建所有空目录；目录应在出现对应代码时建立。Xcode 工程文件需要提交到 Git。用户专属的 Team ID、证书、设备标识和本地签名配置不得提交。
@@ -144,7 +145,7 @@ shared/
 
 ### 6.1 版本 1 的事实来源
 
-在正式创建 `shared/schedule-data.schema.json` 前，版本 1 以 Web 端 `src/domain/types.ts` 和 `src/storage/localStorageRepository.ts` 为准。iOS 的 `Codable` DTO 必须保留以下字段名和枚举原始值：
+版本 1 以 `ios/Shared/schedule-data.schema.json` 和其中的 fixtures 为当前事实来源；该协议最初提取自已归档 Web MVP。iOS 的 `Codable` DTO 必须保留以下字段名和枚举原始值：
 
 ```swift
 enum RepeatRule: String, Codable {
@@ -463,7 +464,7 @@ xcodebuild test（单元与集成测试）
 4. 连接或配对 iPhone，并按系统提示启用开发者模式。
 5. 在设备上处理信任和通知权限提示。
 
-这些账号和设备操作不能由脚本绕过。首次从 Xcode 成功运行后，再建立 `scripts/ios-install.sh` 封装后续构建和安装命令。
+这些账号和设备操作不能由脚本绕过。首次从 Xcode 成功运行后，再使用 `ios/scripts/ios-install.sh` 封装后续构建和安装命令。
 
 ### 13.3 七天重新签名
 
@@ -481,7 +482,7 @@ xcodebuild test（单元与集成测试）
 
 1. 在 MacBook 安装并初始化 Xcode，确认模拟器和命令行构建可用。
 2. 在 `ios/` 创建 SwiftUI App、Swift Testing 和 UI Testing targets。
-3. 建立跨端 JSON Schema 与共享 fixtures，并为 Web 补充导出能力。
+3. 建立跨端 JSON Schema 与共享 fixtures，并用当时的 Web 实现验证导出能力。
 4. 用 Swift 纯函数实现领域模型、校验和业务规则，通过共享 fixtures。
 5. 实现 SwiftData 仓库和应用级状态。
 6. 完成首次使用、今日、周课表、课程编辑和设置页面。
@@ -496,7 +497,7 @@ xcodebuild test（单元与集成测试）
 
 | 风险 | 应对 |
 | --- | --- |
-| Web 与 iOS 数据字段逐渐不一致 | JSON Schema、共享 fixtures 和两端契约测试 |
+| 未来 Web 与 iOS 数据字段逐渐不一致 | JSON Schema、共享 fixtures 和两端契约测试 |
 | 日历与时区导致教学周偏移 | 固定星期一规则，使用 Calendar 做日期运算，覆盖时区测试 |
 | 待发送通知数量受系统限制 | 按时间滚动维护最近通知，前台时补充，真机记录行为 |
 | 课程修改后旧通知残留 | 稳定通知 ID，加统一 reconcile 流程 |
@@ -509,7 +510,7 @@ xcodebuild test（单元与集成测试）
 iOS MVP 只有在以下条件同时满足时才算完成：
 
 - iOS 产品文档中的 MVP 验收标准全部满足。
-- 与 Web `schemaVersion: 1` 数据文件双向兼容。
+- 与已归档 Web 的 `schemaVersion: 1` 数据文件双向兼容。
 - 所有 Swift Testing、集成测试和 UI tests 通过。
 - 模拟器构建稳定通过。
 - 本地通知、导入导出和免费签名在真实 iPhone 验证通过。

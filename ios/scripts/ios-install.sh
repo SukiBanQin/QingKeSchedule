@@ -3,9 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PROJECT_PATH="${IOS_PROJECT_PATH:-${REPO_ROOT}/ios/QingKeSchedule.xcodeproj}"
-DERIVED_DATA_PATH="${IOS_DERIVED_DATA_PATH:-${REPO_ROOT}/.build/ios-device}"
+IOS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_PATH="${IOS_PROJECT_PATH:-${IOS_ROOT}/QingKeSchedule.xcodeproj}"
+DERIVED_DATA_PATH="${IOS_DERIVED_DATA_PATH:-${IOS_ROOT}/.build/ios-device}"
 SCHEME="${IOS_SCHEME:-QingKeSchedule}"
 APP_PATH="${DERIVED_DATA_PATH}/Build/Products/Debug-iphoneos/QingKeSchedule.app"
 

@@ -31,6 +31,11 @@ $requiredDecisions = @(
     'schemaVersion'
 )
 
+$requiredArchiveMarkers = @(
+    'pre-ios-web-restructure',
+    'web/'
+)
+
 foreach ($heading in $requiredHeadings) {
     if (-not $content.Contains($heading)) {
         throw "Required section is missing: $heading"
@@ -40,6 +45,12 @@ foreach ($heading in $requiredHeadings) {
 foreach ($decision in $requiredDecisions) {
     if (-not $content.Contains($decision)) {
         throw "Required technical decision is missing: $decision"
+    }
+}
+
+foreach ($marker in $requiredArchiveMarkers) {
+    if (-not $content.Contains($marker)) {
+        throw "Web technical history is missing archive marker: $marker"
     }
 }
 

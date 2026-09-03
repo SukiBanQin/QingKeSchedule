@@ -3,9 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PROJECT_PATH="${REPOSITORY_ROOT}/ios/QingKeSchedule.xcodeproj"
-DERIVED_DATA_PATH="${REPOSITORY_ROOT}/.build/ios"
+IOS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_PATH="${IOS_ROOT}/QingKeSchedule.xcodeproj"
+DERIVED_DATA_PATH="${IOS_ROOT}/.build/ios"
 
 discover_iphone_simulator() {
     xcrun simctl list devices available | awk '
@@ -29,10 +29,9 @@ if [[ -z "${SIMULATOR_UDID}" ]]; then
     exit 1
 fi
 
-echo "Testing QingKeSchedule with an automatically discovered iPhone Simulator."
-xcodebuild test \
+echo "Building QingKeSchedule with an automatically discovered iPhone Simulator."
+xcodebuild build \
     -project "${PROJECT_PATH}" \
     -scheme QingKeSchedule \
     -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
-    -derivedDataPath "${DERIVED_DATA_PATH}" \
-    "$@"
+    -derivedDataPath "${DERIVED_DATA_PATH}"

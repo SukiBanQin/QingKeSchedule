@@ -19,8 +19,8 @@ $technicalMarkers = @(
     'SwiftData',
     'UserNotifications',
     'schemaVersion: 1',
-    'src/domain/types.ts',
-    'src/domain/rules.ts',
+    'ios/Shared/schedule-data.schema.json',
+    'ios/QingKeSchedule/Domain/ScheduleRules.swift',
     'schedule-data.schema.json',
     'fileImporter',
     'Swift Testing',
@@ -39,13 +39,14 @@ $handoffMarkers = @(
     'xcodebuild -version',
     'xcrun simctl list devices available',
     '0b97a6d',
+    'pre-ios-web-restructure',
     '阶段一：Xcode 工程与构建循环',
-    'scripts/ios-install.sh',
+    'ios/scripts/ios-install.sh',
     'Personal Team',
     'GitHub 仓库',
     'Public',
     'https://github.com/SukiBanQin/School_timetable.git',
-    '## 11. 给 MacBook Codex 的首次提示词'
+    '## 11. 给 MacBook Codex 的后续提示词'
 )
 
 foreach ($marker in $technicalMarkers) {
