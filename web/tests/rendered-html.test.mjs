@@ -29,7 +29,7 @@ test("server-renders the terminal-style Today concept", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>青课 · 今日终端 UI Concept<\/title>/i);
+  assert.match(html, /<title>青课 · 终端课表 UI Demo<\/title>/i);
   assert.match(html, /QINGKE/);
   assert.match(html, /ACADEMIC TERMINAL/);
   assert.match(html, /SCHEDULE :\/\/ TODAY/);
@@ -40,7 +40,7 @@ test("server-renders the terminal-style Today concept", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("implements the iPhone layout, glass navigation, and reduced-motion fallback", async () => {
+test("implements the complete interactive demo and keeps the previous concept archived", async () => {
   const [page, css, archivePage, archiveCss, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -55,13 +55,28 @@ test("implements the iPhone layout, glass navigation, and reduced-motion fallbac
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /data-screen="today"/);
+  assert.match(page, /data-screen=\{activeView\}/);
   assert.match(page, /className="liquid-nav"/);
   assert.match(page, /className="floating-add"/);
   assert.match(page, /aria-live="polite"/);
+  assert.match(page, /data-view="schedule"/);
+  assert.match(page, /data-view="settings"/);
+  assert.match(page, /data-overlay="course-editor"/);
+  assert.match(page, /data-overlay="onboarding"/);
+  assert.match(page, /role="switch"/);
+  assert.match(page, /repeatLabels/);
+  assert.match(page, /IMPORT \/\//);
+  assert.equal(
+    page.match(/className="delete-course-button"/g)?.length,
+    1,
+    "course editor must expose one delete-course action",
+  );
   assert.doesNotMatch(page, /design-archive\/p3r-concept/);
   assert.match(css, /width:\s*min\(430px, 100%\)/);
   assert.match(css, /backdrop-filter:\s*blur\(28px\) saturate\(160%\)/);
+  assert.match(css, /\.week-matrix\s*\{/);
+  assert.match(css, /\.overlay-screen\s*\{/);
+  assert.match(css, /\.onboarding-actions\s*\{/);
   assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(css, /prefers-contrast:\s*more/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);

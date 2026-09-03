@@ -3,9 +3,12 @@
 This local Web prototype is the visual sandbox for the QingKe iOS redesign.
 It does not replace or modify the production iOS data model or business logic.
 
-The active concept currently covers the Today screen. Its visual system uses a
-flat academic-terminal layout, condensed typography, restrained signal colors,
-acrylic content panels, and a Liquid Glass-inspired bottom navigation bar.
+The active concept is a complete, session-only interaction demo covering Today,
+the week matrix, course creation and editing, semester and period settings,
+reminders, data-transfer entry points, and the first-run setup flow. Its visual
+system uses a flat academic-terminal layout, condensed typography, restrained
+signal colors, acrylic content panels, and a Liquid Glass-inspired bottom
+navigation bar.
 
 The earlier blue-and-white P3R-inspired concept remains frozen under
 `design-archive/p3r-concept/` for later review.
