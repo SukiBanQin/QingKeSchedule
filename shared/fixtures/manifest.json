@@ -1,7 +1,8 @@
 {
   "valid": [
     "empty-schedule.json",
-    "complete-schedule.json"
+    "complete-schedule.json",
+    "web-export.json"
   ],
   "invalid": [
     "missing-field.json",

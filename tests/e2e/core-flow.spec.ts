@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
@@ -67,4 +68,22 @@ test('冲突课程提示后仍可保存，并支持编辑与删除', async ({ pa
   await page.getByRole('button', { name: '删除课程' }).click()
   await page.getByRole('button', { name: '确认删除' }).click()
   await expect(page.getByRole('button', { name: /编辑 操作系统导论/ })).toHaveCount(0)
+})
+
+test('设置页导出 schemaVersion 1 JSON 备份', async ({ page }) => {
+  await page.getByRole('button', { name: '保存并添加课程' }).click()
+  await page.goto('/settings')
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '导出课表 JSON' }).click()
+  const download = await downloadPromise
+  const downloadPath = await download.path()
+
+  expect(download.suggestedFilename()).toMatch(/^qingke-schedule-\d{4}-\d{2}-\d{2}\.json$/)
+  expect(downloadPath).not.toBeNull()
+  const exported = JSON.parse(readFileSync(downloadPath!, 'utf8')) as Record<string, unknown>
+  expect(exported.schemaVersion).toBe(1)
+  expect(exported.semester).toBeTruthy()
+  expect(exported.courses).toEqual([])
+  await expect(page.getByRole('status')).toContainText('已导出 qingke-schedule-')
 })

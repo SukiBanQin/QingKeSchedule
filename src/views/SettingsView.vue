@@ -3,9 +3,10 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { createId, getWeekRangeLabel, toLocalDateString } from '../domain/rules'
-import type { Period, Semester } from '../domain/types'
+import type { Period, Semester, StoredScheduleData } from '../domain/types'
 import { validateSemester, type ValidationIssue } from '../domain/validation'
 import { useSchedule } from '../composables/useSchedule'
+import { downloadScheduleExport } from '../transfer/scheduleDataExport'
 import { cloneData } from '../utils/clone'
 
 const router = useRouter()
@@ -40,6 +41,7 @@ const form = reactive(initialSemester)
 const issues = ref<ValidationIssue[]>([])
 const saved = ref(false)
 const clearDialogOpen = ref(false)
+const exportMessage = ref('')
 const isOnboarding = computed(() => !store.semester.value)
 const weekOneLabel = computed(() => {
   const preview = { ...form, startDate: form.startDate || toLocalDateString(now) }
@@ -87,6 +89,17 @@ const clearAll = async () => {
   clearDialogOpen.value = false
   if (!store.clearAll()) return
   await router.replace('/settings')
+}
+
+const exportData = () => {
+  try {
+    const data = cloneData(store.state.data) as StoredScheduleData
+    const file = downloadScheduleExport(data)
+    exportMessage.value = `已导出 ${file.fileName}`
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : '浏览器未能创建下载文件'
+    exportMessage.value = `导出失败：${detail}`
+  }
 }
 </script>
 
@@ -237,6 +250,33 @@ const clearAll = async () => {
           role="alert"
         >
           {{ issues.find((issue) => issue.path.startsWith('periods'))?.message }}
+        </p>
+      </section>
+
+      <section
+        v-if="!isOnboarding"
+        class="surface-card form-section data-section"
+      >
+        <div class="section-title-row data-title-row">
+          <div>
+            <span class="section-kicker">数据备份</span>
+            <h2>保存一份课表副本</h2>
+            <p>导出标准 JSON 文件，可用于轻课课表 iOS 版或以后恢复数据。</p>
+          </div>
+          <button
+            class="secondary-button"
+            type="button"
+            @click="exportData"
+          >
+            导出课表 JSON
+          </button>
+        </div>
+        <p
+          v-if="exportMessage"
+          class="export-message"
+          role="status"
+        >
+          {{ exportMessage }}
         </p>
       </section>
 

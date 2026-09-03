@@ -44,6 +44,7 @@
 		A10000000000000000000023 /* CourseDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* CourseDraft.swift */; };
 		A10000000000000000000024 /* CourseEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000027 /* CourseEditorView.swift */; };
 		A10000000000000000000025 /* CourseDraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* CourseDraftTests.swift */; };
+		A10000000000000000000026 /* web-export.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* web-export.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +105,7 @@
 		A20000000000000000000026 /* CourseDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDraft.swift; sourceTree = "<group>"; };
 		A20000000000000000000027 /* CourseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseEditorView.swift; sourceTree = "<group>"; };
 		A20000000000000000000028 /* CourseDraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDraftTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000029 /* web-export.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "web-export.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -230,6 +232,7 @@
 			children = (
 				A2000000000000000000000F /* complete-schedule.json */,
 				A20000000000000000000010 /* empty-schedule.json */,
+				A20000000000000000000029 /* web-export.json */,
 			);
 			path = valid;
 			sourceTree = "<group>";
@@ -397,6 +400,7 @@
 				A1000000000000000000000B /* manifest.json in Resources */,
 				A1000000000000000000000C /* complete-schedule.json in Resources */,
 				A1000000000000000000000D /* empty-schedule.json in Resources */,
+				A10000000000000000000026 /* web-export.json in Resources */,
 				A1000000000000000000000E /* invalid-date.json in Resources */,
 				A1000000000000000000000F /* invalid-enum.json in Resources */,
 				A10000000000000000000010 /* invalid-period-overlap.json in Resources */,
