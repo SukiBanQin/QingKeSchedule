@@ -17,6 +17,6 @@ metadata="$(sips -g format -g pixelWidth -g pixelHeight -g hasAlpha "${LOGO_PATH
 [[ "${metadata}" == *"format: png"* ]] || fail "logo preview must be a PNG"
 [[ "${metadata}" == *"pixelWidth: 1672"* ]] || fail "logo preview width must be 1672 pixels"
 [[ "${metadata}" == *"pixelHeight: 941"* ]] || fail "logo preview height must be 941 pixels"
-[[ "${metadata}" == *"hasAlpha: no"* ]] || fail "logo preview must have an opaque background"
+[[ "${metadata}" == *"hasAlpha: yes"* ]] || fail "logo preview must preserve its transparent background"
 
 echo "Source logo preview tests passed."
