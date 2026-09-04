@@ -42,6 +42,12 @@ struct CourseEditorView: View {
 
     var body: some View {
         Form {
+            Section {
+                TerminalBrandHeader(code: editingCourse == nil ? "CREATE / 04" : "EDIT / 04")
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
             Section("课程信息") {
                 TextField("课程名称", text: $draft.name)
                     .accessibilityIdentifier("course-name")
@@ -83,6 +89,9 @@ struct CourseEditorView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { TerminalBackdrop() }
+        .tint(QingKeTheme.cyan)
         .navigationTitle(editingCourse == nil ? "添加课程" : "编辑课程")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -126,8 +135,8 @@ struct CourseEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("课程颜色")
                 .font(.subheadline)
-            HStack(spacing: 14) {
-                ForEach(Self.palette, id: \.value) { option in
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 42), spacing: 12)], spacing: 12) {
+                ForEach(CourseColorPalette.presets, id: \.value) { option in
                     Button {
                         draft.color = option.value
                     } label: {
@@ -135,7 +144,7 @@ struct CourseEditorView: View {
                             Circle()
                                 .fill(Color(courseHex: option.value))
                                 .frame(width: 34, height: 34)
-                            if draft.color == option.value {
+                            if draft.color.caseInsensitiveCompare(option.value) == .orderedSame {
                                 Image(systemName: "checkmark")
                                     .font(.caption.bold())
                                     .foregroundStyle(.white)
@@ -144,10 +153,35 @@ struct CourseEditorView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(option.name)
-                    .accessibilityAddTraits(draft.color == option.value ? .isSelected : [])
+                    .accessibilityAddTraits(
+                        draft.color.caseInsensitiveCompare(option.value) == .orderedSame
+                            ? .isSelected
+                            : []
+                    )
                 }
             }
             .frame(maxWidth: .infinity)
+
+            Divider()
+
+            ColorPicker(
+                "自定义颜色",
+                selection: Binding(
+                    get: { Color(courseHex: draft.color) },
+                    set: { selectedColor in
+                        if let value = selectedColor.courseHexValue {
+                            draft.color = value
+                        }
+                    }
+                ),
+                supportsOpacity: false
+            )
+            .accessibilityIdentifier("course-custom-color")
+
+            Text("当前色值  \(draft.color.uppercased())")
+                .font(.terminal(10, weight: .bold, relativeTo: .caption))
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -278,13 +312,4 @@ struct CourseEditorView: View {
         guard let editingCourse else { return }
         if onDelete(editingCourse.id) { dismiss() }
     }
-
-    private static let palette: [(name: String, value: String)] = [
-        ("青绿色", "#287B74"),
-        ("珊瑚色", "#D96952"),
-        ("靛蓝色", "#536FAF"),
-        ("紫色", "#9A6AAF"),
-        ("琥珀色", "#B87928"),
-        ("绿色", "#46835A"),
-    ]
 }

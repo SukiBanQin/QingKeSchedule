@@ -138,14 +138,7 @@
         },
         "color": {
           "type": "string",
-          "enum": [
-            "#287B74",
-            "#D96952",
-            "#536FAF",
-            "#9A6AAF",
-            "#B87928",
-            "#46835A"
-          ]
+          "pattern": "^#[0-9A-Fa-f]{6}$"
         },
         "schedules": {
           "type": "array",

@@ -16,4 +16,13 @@ struct QingKeScheduleTests {
         #expect(QingKeVisualSpec.floatingActionSize >= 44)
         #expect(QingKeVisualSpec.gridSpacing > 0)
     }
+
+    @Test("课程快捷色保持可选且互不重复")
+    func courseColorPresets() {
+        #expect(CourseColorPalette.presets.count == 6)
+        #expect(Set(CourseColorPalette.presets.map(\.value)).count == 6)
+        #expect(CourseColorPalette.presets.allSatisfy {
+            $0.value.wholeMatch(of: ScheduleValidator.courseColorPattern) != nil
+        })
+    }
 }

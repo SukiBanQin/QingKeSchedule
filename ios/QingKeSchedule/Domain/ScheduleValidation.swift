@@ -6,14 +6,7 @@ struct ScheduleValidationIssue: Equatable, Sendable {
 }
 
 enum ScheduleValidator {
-    static let courseColors: Set<String> = [
-        "#287B74",
-        "#D96952",
-        "#536FAF",
-        "#9A6AAF",
-        "#B87928",
-        "#46835A",
-    ]
+    static let courseColorPattern = /^#[0-9A-Fa-f]{6}$/
 
     static func validate(
         _ data: ScheduleDataDTO,
@@ -107,8 +100,8 @@ enum ScheduleValidator {
         if course.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append(.init(path: "\(basePath).name", message: "请填写课程名称"))
         }
-        if !courseColors.contains(course.color) {
-            issues.append(.init(path: "\(basePath).color", message: "请选择一个可用的课程颜色"))
+        if course.color.wholeMatch(of: courseColorPattern) == nil {
+            issues.append(.init(path: "\(basePath).color", message: "课程颜色需要使用 #RRGGBB 格式"))
         }
         if course.schedules.isEmpty {
             issues.append(.init(path: "\(basePath).schedules", message: "至少需要一个上课安排"))

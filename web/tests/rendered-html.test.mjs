@@ -105,3 +105,21 @@ test("implements the complete interactive terminal-style demo", async () => {
     access(new URL("../app/_sites-preview/SkeletonPreview.tsx", import.meta.url)),
   );
 });
+
+test("shares the schemaVersion 1 custom course color contract with iOS", async () => {
+  const [schemaText, fixtureText] = await Promise.all([
+    readFile(new URL("../../ios/Shared/schedule-data.schema.json", import.meta.url), "utf8"),
+    readFile(new URL("../../ios/Shared/fixtures/valid/complete-schedule.json", import.meta.url), "utf8"),
+  ]);
+  const schema = JSON.parse(schemaText);
+  const fixture = JSON.parse(fixtureText);
+  const colorRule = schema.$defs.course.properties.color;
+  const pattern = new RegExp(colorRule.pattern);
+
+  assert.equal(schema.properties.schemaVersion.const, 1);
+  assert.equal(colorRule.enum, undefined);
+  assert.equal(colorRule.pattern, "^#[0-9A-Fa-f]{6}$");
+  assert.ok(fixture.courses.some((course) => course.color === "#12ABEF"));
+  assert.ok(fixture.courses.every((course) => pattern.test(course.color)));
+  assert.equal(pattern.test("blue"), false);
+});

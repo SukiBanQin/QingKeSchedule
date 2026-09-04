@@ -1,4 +1,21 @@
 import SwiftUI
+import UIKit
+
+struct CourseColorOption: Equatable, Sendable {
+    let name: String
+    let value: String
+}
+
+enum CourseColorPalette {
+    static let presets: [CourseColorOption] = [
+        .init(name: "青绿色", value: "#287B74"),
+        .init(name: "珊瑚色", value: "#D96952"),
+        .init(name: "靛蓝色", value: "#536FAF"),
+        .init(name: "紫色", value: "#9A6AAF"),
+        .init(name: "琥珀色", value: "#B87928"),
+        .init(name: "绿色", value: "#46835A"),
+    ]
+}
 
 enum QingKeVisualSpec {
     static let brandTitle = "QINGKE"
@@ -271,6 +288,25 @@ extension Color {
             red: Double((number >> 16) & 0xFF) / 255,
             green: Double((number >> 8) & 0xFF) / 255,
             blue: Double(number & 0xFF) / 255
+        )
+    }
+
+    var courseHexValue: String? {
+        let resolved = UIColor(self).resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: .light)
+        )
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return nil
+        }
+        return String(
+            format: "#%02X%02X%02X",
+            Int(round(red * 255)),
+            Int(round(green * 255)),
+            Int(round(blue * 255))
         )
     }
 }

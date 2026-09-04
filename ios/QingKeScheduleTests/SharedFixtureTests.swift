@@ -94,5 +94,48 @@ struct SharedFixtureTests {
         let properties = try #require(object["properties"] as? [String: Any])
         let version = try #require(properties["schemaVersion"] as? [String: Any])
         #expect(version["const"] as? Int == ScheduleDataDTO.supportedSchemaVersion)
+
+        let definitions = try #require(object["$defs"] as? [String: Any])
+        let course = try #require(definitions["course"] as? [String: Any])
+        let courseProperties = try #require(course["properties"] as? [String: Any])
+        let color = try #require(courseProperties["color"] as? [String: Any])
+        #expect(color["pattern"] as? String == "^#[0-9A-Fa-f]{6}$")
+        #expect(color["enum"] == nil)
+    }
+
+    @Test("版本 1 接受任意六位十六进制课程色并拒绝畸形色值")
+    func customCourseColors() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        #expect(data.courses.contains { $0.color == "#12ABEF" })
+        #expect(ScheduleValidator.validate(data, calendar: calendar).isEmpty)
+
+        let semester = try #require(data.semester)
+        let malformed = CourseDTO(
+            id: "malformed-color",
+            name: "无效颜色",
+            teacher: "",
+            color: "blue",
+            schedules: [
+                CourseScheduleDTO(
+                    id: "malformed-color-schedule",
+                    dayOfWeek: 1,
+                    startPeriod: 1,
+                    endPeriod: 1,
+                    startWeek: 1,
+                    endWeek: 1,
+                    repeat: .every,
+                    classroom: ""
+                ),
+            ]
+        )
+        let invalid = ScheduleDataDTO(
+            schemaVersion: ScheduleDataDTO.supportedSchemaVersion,
+            semester: semester,
+            courses: [malformed],
+            updatedAt: "2026-09-04T00:00:00.000Z"
+        )
+        #expect(ScheduleValidator.validate(invalid, calendar: calendar).contains {
+            $0.path == "courses.0.color"
+        })
     }
 }
