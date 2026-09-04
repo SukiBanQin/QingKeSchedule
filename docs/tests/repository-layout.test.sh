@@ -11,11 +11,22 @@ fail() {
 }
 
 [[ -d "${REPOSITORY_ROOT}/ios" ]] || fail "ios/ must contain the iOS app"
-[[ -d "${REPOSITORY_ROOT}/web" ]] || fail "web/ must be reserved for the future Web app"
-[[ -f "${REPOSITORY_ROOT}/web/.gitkeep" ]] || fail "web/.gitkeep must preserve the empty directory"
+[[ -d "${REPOSITORY_ROOT}/web" ]] || fail "web/ must contain the iPhone UI prototype"
 
-unexpected_web_file="$(find "${REPOSITORY_ROOT}/web" -mindepth 1 ! -name '.gitkeep' -print -quit)"
-[[ -z "${unexpected_web_file}" ]] || fail "web/ must remain empty; found ${unexpected_web_file}"
+for required_web_path in \
+    web/.openai/hosting.json \
+    web/app/globals.css \
+    web/app/layout.tsx \
+    web/app/page.tsx \
+    web/package.json \
+    web/public/qingke-logo-lockup.png \
+    web/tests/rendered-html.test.mjs; do
+    [[ -f "${REPOSITORY_ROOT}/${required_web_path}" ]] \
+        || fail "required Web prototype path is missing: ${required_web_path}"
+done
+
+[[ ! -e "${REPOSITORY_ROOT}/web/archive/p3r" ]] \
+    || fail "the retired P3R concept must not remain in the active Web prototype"
 
 for legacy_path in \
     .openai/hosting.json \
