@@ -50,6 +50,7 @@ final class QingKeScheduleUITests: XCTestCase {
         enterCourseName("课程 A", in: app)
         app.buttons["course-save"].tap()
         XCTAssertTrue(app.staticTexts["课程 A"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["today-course-sequence"].exists)
 
         app.buttons["add-course-today-toolbar"].tap()
         enterCourseName("课程 B", in: app)

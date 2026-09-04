@@ -22,7 +22,10 @@ enum QingKeVisualSpec {
     static let brandSubtitle = "ACADEMIC TERMINAL"
     static let signalHex = "#FFD400"
     static let cyanHex = "#28B9D6"
-    static let panelCornerRadius: CGFloat = 8
+    static let panelCornerRadius: CGFloat = 0
+    static let panelLightWashOpacity = 0.28
+    static let panelDarkWashOpacity = 0.05
+    static let brandBackingOpacity = 0.0
     static let floatingActionSize: CGFloat = 64
     static let gridSpacing: CGFloat = 24
 }
@@ -114,7 +117,6 @@ struct TerminalBackdrop: View {
 
 struct TerminalBrandHeader: View {
     let code: String
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -123,7 +125,6 @@ struct TerminalBrandHeader: View {
                 .scaledToFit()
                 .frame(width: 154, height: 54, alignment: .leading)
                 .padding(.horizontal, 5)
-                .background(Color.white.opacity(colorScheme == .dark ? 0.88 : 0.34))
                 .accessibilityHidden(true)
 
             Spacer()
@@ -143,6 +144,29 @@ struct TerminalBrandHeader: View {
         .accessibilityLabel(
             "\(QingKeVisualSpec.brandTitle)，青课，\(QingKeVisualSpec.brandSubtitle)，\(code)"
         )
+    }
+}
+
+struct TerminalAcrylicSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(
+                            colorScheme == .dark
+                                ? QingKeVisualSpec.panelDarkWashOpacity
+                                : QingKeVisualSpec.panelLightWashOpacity
+                        ),
+                        Color.white.opacity(0.02),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
     }
 }
 
@@ -280,7 +304,7 @@ private struct TerminalPanelModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(14)
-            .background(.thinMaterial)
+            .background { TerminalAcrylicSurface() }
             .overlay(alignment: .leading) {
                 if let accent {
                     Rectangle()
@@ -289,10 +313,10 @@ private struct TerminalPanelModifier: ViewModifier {
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: QingKeVisualSpec.panelCornerRadius)
-                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                Rectangle()
+                    .stroke(Color.white.opacity(0.68), lineWidth: 1)
             }
-            .clipShape(RoundedRectangle(cornerRadius: QingKeVisualSpec.panelCornerRadius))
+            .shadow(color: QingKeTheme.ink.opacity(0.09), radius: 10, y: 5)
     }
 }
 

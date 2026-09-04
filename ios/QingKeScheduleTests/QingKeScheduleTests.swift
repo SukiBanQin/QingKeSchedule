@@ -16,6 +16,10 @@ struct QingKeScheduleTests {
         #expect(QingKeVisualSpec.cyanHex == "#28B9D6")
         #expect(QingKeVisualSpec.floatingActionSize >= 44)
         #expect(QingKeVisualSpec.gridSpacing > 0)
+        #expect(QingKeVisualSpec.brandBackingOpacity == 0)
+        #expect(QingKeVisualSpec.panelCornerRadius == 0)
+        #expect(QingKeVisualSpec.panelLightWashOpacity < 0.5)
+        #expect(QingKeVisualSpec.panelDarkWashOpacity < 0.1)
     }
 
     @Test("课程快捷色保持可选且互不重复")

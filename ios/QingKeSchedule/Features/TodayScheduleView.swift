@@ -219,10 +219,11 @@ struct TodayScheduleView: View {
                     }
                 }
             }
-            .background(.thinMaterial)
+            .background { TerminalAcrylicSurface() }
             .overlay {
-                Rectangle().stroke(Color.white.opacity(0.6), lineWidth: 1)
+                Rectangle().stroke(Color.white.opacity(0.68), lineWidth: 1)
             }
+            .shadow(color: QingKeTheme.ink.opacity(0.1), radius: 12, y: 6)
         }
         .buttonStyle(.plain)
         .foregroundStyle(.primary)
@@ -247,6 +248,8 @@ struct TodayScheduleView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 5)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-course-sequence")
     }
 
     private func courseRow(_ item: TodayCourseItem, index: Int) -> some View {
