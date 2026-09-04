@@ -28,6 +28,7 @@ struct CourseDraft {
 
     init(
         course: CourseDTO? = nil,
+        appendingSchedule: Bool = false,
         semester: SemesterDTO,
         now: Date = Date(),
         calendar: Calendar = ScheduleRules.gregorianCalendar()
@@ -43,6 +44,18 @@ struct CourseDraft {
             color = course.color
             schedules = course.schedules.map(Self.makeScheduleDraft)
             baseline = course
+            if appendingSchedule {
+                schedules.append(CourseScheduleDraft(
+                    id: UUID().uuidString,
+                    dayOfWeek: currentDayOfWeek,
+                    startPeriod: firstPeriod,
+                    endPeriod: firstPeriod,
+                    startWeek: 1,
+                    endWeek: semester.totalWeeks,
+                    repeatRule: .every,
+                    classroom: ""
+                ))
+            }
         } else {
             let schedule = CourseScheduleDraft(
                 id: UUID().uuidString,

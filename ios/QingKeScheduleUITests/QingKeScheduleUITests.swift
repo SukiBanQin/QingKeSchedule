@@ -53,6 +53,25 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["today-course-sequence"].exists)
 
         app.buttons["add-course-today-toolbar"].tap()
+        XCTAssertTrue(app.buttons["add-new-course"].waitForExistence(timeout: 5))
+        let reuseCourse = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+            "reuse-course-",
+            "课程 A"
+        )).firstMatch
+        XCTAssertTrue(reuseCourse.exists)
+        reuseCourse.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["reused-course-profile"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["course-name"].exists)
+        app.buttons["course-save"].tap()
+        XCTAssertGreaterThanOrEqual(app.staticTexts.matching(NSPredicate(
+            format: "label == %@",
+            "课程 A"
+        )).count, 2)
+
+        app.buttons["add-course-today-toolbar"].tap()
+        XCTAssertTrue(app.buttons["add-new-course"].waitForExistence(timeout: 5))
+        app.buttons["add-new-course"].tap()
         enterCourseName("课程 B", in: app)
         app.buttons["course-save"].tap()
         XCTAssertTrue(app.staticTexts["检测到课程冲突"].waitForExistence(timeout: 5))

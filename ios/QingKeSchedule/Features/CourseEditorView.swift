@@ -4,6 +4,8 @@ struct CourseEditorView: View {
     let semester: SemesterDTO
     let existingCourses: [CourseDTO]
     let editingCourse: CourseDTO?
+    let appendingScheduleOnly: Bool
+    let originalScheduleCount: Int
     let calendar: Calendar
     let onSave: (CourseDTO) -> Bool
     let onDelete: (String) -> Bool
@@ -21,6 +23,7 @@ struct CourseEditorView: View {
         semester: SemesterDTO,
         existingCourses: [CourseDTO],
         course: CourseDTO?,
+        appendingScheduleOnly: Bool = false,
         now: Date,
         calendar: Calendar,
         onSave: @escaping (CourseDTO) -> Bool,
@@ -29,11 +32,14 @@ struct CourseEditorView: View {
         self.semester = semester
         self.existingCourses = existingCourses
         editingCourse = course
+        self.appendingScheduleOnly = appendingScheduleOnly
+        originalScheduleCount = appendingScheduleOnly ? (course?.schedules.count ?? 0) : 0
         self.calendar = calendar
         self.onSave = onSave
         self.onDelete = onDelete
         _draft = State(initialValue: CourseDraft(
             course: course,
+            appendingSchedule: appendingScheduleOnly,
             semester: semester,
             now: now,
             calendar: calendar
@@ -50,25 +56,14 @@ struct CourseEditorView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18) {
                         TerminalBrandHeader(
-                            code: editingCourse == nil ? "CREATE / 04" : "EDIT / 04"
+                            code: appendingScheduleOnly
+                                ? "APPEND / 04"
+                                : (editingCourse == nil ? "CREATE / 04" : "EDIT / 04")
                         )
 
-                        TerminalFormSection(index: "01", title: "课程信息") {
-                            TextField("课程名称", text: $draft.name)
-                                .textFieldStyle(.plain)
-                                .terminalControl()
-                                .accessibilityIdentifier("course-name")
-                            TerminalFormDivider()
-                            TextField("教师（选填）", text: $draft.teacher)
-                                .textFieldStyle(.plain)
-                                .terminalControl()
-                                .accessibilityIdentifier("course-teacher")
-                            TerminalFormDivider()
-                            colorPicker
-                                .padding(.vertical, 12)
-                        }
+                        courseIdentitySection
 
-                        ForEach(Array(draft.schedules.indices), id: \.self) { index in
+                        ForEach(visibleScheduleIndices, id: \.self) { index in
                             scheduleSection(index: index)
                         }
 
@@ -95,7 +90,7 @@ struct CourseEditorView: View {
                                 .accessibilityIdentifier("course-validation-error")
                         }
 
-                        if editingCourse != nil {
+                        if editingCourse != nil, !appendingScheduleOnly {
                             TerminalFormSection(
                                 index: "99",
                                 title: "危险操作",
@@ -152,9 +147,13 @@ struct CourseEditorView: View {
             Spacer()
 
             VStack(spacing: 1) {
-                Text(editingCourse == nil ? "添加课程" : "编辑课程")
+                Text(appendingScheduleOnly
+                     ? "添加上课安排"
+                     : (editingCourse == nil ? "添加课程" : "编辑课程"))
                     .font(.headline)
-                Text(editingCourse == nil ? "NEW COURSE" : "COURSE PROFILE")
+                Text(appendingScheduleOnly
+                     ? "NEW SCHEDULE"
+                     : (editingCourse == nil ? "NEW COURSE" : "COURSE PROFILE"))
                     .font(.terminal(8, weight: .black, relativeTo: .caption2))
                     .tracking(1)
                     .foregroundStyle(.secondary)
@@ -174,6 +173,56 @@ struct CourseEditorView: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(QingKeTheme.signal).frame(height: 3)
         }
+    }
+
+    @ViewBuilder
+    private var courseIdentitySection: some View {
+        if appendingScheduleOnly {
+            TerminalFormSection(
+                index: "01",
+                title: "沿用课程资料",
+                detail: "REUSED PROFILE",
+                footer: "课程名称、教师和识别色沿用已有课程；这里只新增上课安排。"
+            ) {
+                HStack(spacing: 12) {
+                    Rectangle()
+                        .fill(Color(courseHex: draft.color))
+                        .frame(width: 8, height: 52)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(draft.name)
+                            .font(.title3.bold())
+                        Text(draft.teacher.isEmpty ? "未填写教师" : draft.teacher)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 10)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("reused-course-profile")
+            }
+        } else {
+            TerminalFormSection(index: "01", title: "课程信息") {
+                TextField("课程名称", text: $draft.name)
+                    .textFieldStyle(.plain)
+                    .terminalControl()
+                    .accessibilityIdentifier("course-name")
+                TerminalFormDivider()
+                TextField("教师（选填）", text: $draft.teacher)
+                    .textFieldStyle(.plain)
+                    .terminalControl()
+                    .accessibilityIdentifier("course-teacher")
+                TerminalFormDivider()
+                colorPicker
+                    .padding(.vertical, 12)
+            }
+        }
+    }
+
+    private var visibleScheduleIndices: [Int] {
+        if appendingScheduleOnly {
+            return Array(draft.schedules.indices.dropFirst(originalScheduleCount))
+        }
+        return Array(draft.schedules.indices)
     }
 
     private var colorPicker: some View {

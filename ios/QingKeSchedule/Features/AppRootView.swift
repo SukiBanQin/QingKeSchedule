@@ -84,8 +84,10 @@ private struct MainTabView: View {
                         courses: state.courses,
                         now: state.now,
                         calendar: state.calendar,
-                        onAddCourse: { editorRoute = CourseEditorRoute(course: nil) },
-                        onSelectCourse: { editorRoute = CourseEditorRoute(course: $0) }
+                        onAddCourse: presentCourseCreation,
+                        onSelectCourse: {
+                            editorRoute = CourseEditorRoute.editor(course: $0)
+                        }
                     )
                 }
             case .week:
@@ -95,8 +97,10 @@ private struct MainTabView: View {
                         courses: state.courses,
                         now: state.now,
                         calendar: state.calendar,
-                        onAddCourse: { editorRoute = CourseEditorRoute(course: nil) },
-                        onSelectCourse: { editorRoute = CourseEditorRoute(course: $0) }
+                        onAddCourse: presentCourseCreation,
+                        onSelectCourse: {
+                            editorRoute = CourseEditorRoute.editor(course: $0)
+                        }
                     )
                 }
             case .settings:
@@ -113,11 +117,24 @@ private struct MainTabView: View {
             TerminalTabBar(selection: $selectedTab)
         }
         .fullScreenCover(item: $editorRoute) { route in
-            if let semester = state.semester {
+            if route.showsChooser {
+                if let semester = state.semester {
+                    CourseAddChoiceView(
+                        semester: semester,
+                        courses: state.courses,
+                        now: state.now,
+                        calendar: state.calendar,
+                        onCancel: { editorRoute = nil },
+                        onSave: state.saveCourse,
+                        onDelete: state.deleteCourse
+                    )
+                }
+            } else if let semester = state.semester {
                 CourseEditorView(
                     semester: semester,
                     existingCourses: state.courses,
                     course: route.course,
+                    appendingScheduleOnly: route.appendingScheduleOnly,
                     now: state.now,
                     calendar: state.calendar,
                     onSave: state.saveCourse,
@@ -126,6 +143,11 @@ private struct MainTabView: View {
             }
         }
     }
+
+    private func presentCourseCreation() {
+        editorRoute = state.courses.isEmpty ? .editor(course: nil) : .chooser()
+    }
+
 }
 
 private enum MainTab: String, CaseIterable, Identifiable {
@@ -222,4 +244,160 @@ private struct TerminalTabBar: View {
 private struct CourseEditorRoute: Identifiable {
     let id = UUID()
     let course: CourseDTO?
+    let appendingScheduleOnly: Bool
+    let showsChooser: Bool
+
+    static func chooser() -> Self {
+        Self(course: nil, appendingScheduleOnly: false, showsChooser: true)
+    }
+
+    static func editor(course: CourseDTO?) -> Self {
+        Self(course: course, appendingScheduleOnly: false, showsChooser: false)
+    }
+
+    static func appendSchedule(to course: CourseDTO) -> Self {
+        Self(course: course, appendingScheduleOnly: true, showsChooser: false)
+    }
+}
+
+private struct CourseAddChoiceView: View {
+    let semester: SemesterDTO
+    let courses: [CourseDTO]
+    let now: Date
+    let calendar: Calendar
+    let onCancel: () -> Void
+    let onSave: (CourseDTO) -> Bool
+    let onDelete: (String) -> Bool
+
+    @State private var selection: CourseAddSelection?
+
+    var body: some View {
+        if let selection {
+            CourseEditorView(
+                semester: semester,
+                existingCourses: courses,
+                course: selection.course,
+                appendingScheduleOnly: selection.appendingScheduleOnly,
+                now: now,
+                calendar: calendar,
+                onSave: onSave,
+                onDelete: onDelete
+            )
+        } else {
+            choiceContent
+        }
+    }
+
+    private var choiceContent: some View {
+        ZStack {
+            TerminalBackdrop()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button("取消", action: onCancel)
+                        .font(.headline)
+                    Spacer()
+                    VStack(spacing: 1) {
+                        Text("添加课程")
+                            .font(.headline)
+                        Text("SELECT PROFILE")
+                            .font(.terminal(8, weight: .black, relativeTo: .caption2))
+                            .tracking(1)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Color.clear.frame(width: 34, height: 1)
+                }
+                .padding(.horizontal, 20)
+                .frame(height: 58)
+                .foregroundStyle(.white)
+                .background(QingKeTheme.ink.opacity(0.96))
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(QingKeTheme.signal).frame(height: 3)
+                }
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        TerminalBrandHeader(code: "PROFILE / 04")
+                        TerminalFormSection(
+                            index: "01",
+                            title: "创建方式",
+                            detail: "COURSE DATA",
+                            footer: "已有课程会复用名称、教师和识别色，只新增一条上课安排。"
+                        ) {
+                            Label("新建一门课程", systemImage: "plus.square")
+                                .terminalControl()
+                                .onTapGesture {
+                                    selection = .newCourse
+                                }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityAction {
+                                    selection = .newCourse
+                                }
+                                .accessibilityIdentifier("add-new-course")
+                        }
+
+                        TerminalFormSection(
+                            index: "02",
+                            title: "已有课程",
+                            detail: "REUSE / \(courses.count)"
+                        ) {
+                            ForEach(Array(courses.sorted { $0.name < $1.name }.enumerated()), id: \.element.id) { index, course in
+                                if index > 0 { TerminalFormDivider() }
+                                HStack(spacing: 12) {
+                                    Rectangle()
+                                        .fill(Color(courseHex: course.color))
+                                        .frame(width: 6, height: 42)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(course.name)
+                                            .font(.headline)
+                                        Text(course.teacher.isEmpty ? "未填写教师" : course.teacher)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text("添加安排")
+                                        .font(.terminal(9, weight: .black, relativeTo: .caption2))
+                                        .foregroundStyle(QingKeTheme.cyan)
+                                }
+                                .terminalControl()
+                                .onTapGesture {
+                                    selection = .append(course)
+                                }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityLabel("为 \(course.name) 添加上课安排")
+                                .accessibilityAction {
+                                    selection = .append(course)
+                                }
+                                .accessibilityIdentifier("reuse-course-\(course.id)")
+                            }
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+        }
+        .tint(QingKeTheme.cyan)
+    }
+}
+
+private enum CourseAddSelection {
+    case newCourse
+    case append(CourseDTO)
+
+    var course: CourseDTO? {
+        switch self {
+        case .newCourse: nil
+        case .append(let course): course
+        }
+    }
+
+    var appendingScheduleOnly: Bool {
+        switch self {
+        case .newCourse: false
+        case .append: true
+        }
+    }
 }

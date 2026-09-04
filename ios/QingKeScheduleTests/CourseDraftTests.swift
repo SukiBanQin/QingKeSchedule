@@ -56,6 +56,30 @@ struct CourseDraftTests {
         #expect(draft.schedules.count == 1)
     }
 
+    @Test("复用已有课程时只新增安排并继承课程资料")
+    func appendingScheduleReusesCourseProfile() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let existing = try #require(data.courses.first)
+        let originalScheduleIDs = Set(existing.schedules.map(\.id))
+        let draft = CourseDraft(
+            course: existing,
+            appendingSchedule: true,
+            semester: semester,
+            now: try date(2026, 9, 4),
+            calendar: calendar
+        )
+
+        #expect(draft.id == existing.id)
+        #expect(draft.name == existing.name)
+        #expect(draft.teacher == existing.teacher)
+        #expect(draft.color == existing.color)
+        #expect(draft.schedules.count == existing.schedules.count + 1)
+        #expect(!originalScheduleIDs.contains(try #require(draft.schedules.last).id))
+        #expect(draft.schedules.last?.dayOfWeek == 5)
+        #expect(draft.isDirty)
+    }
+
     @Test("冲突需要确认，但编辑课程不会与自身冲突")
     func conflictEvaluation() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
