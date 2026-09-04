@@ -91,6 +91,22 @@ struct SchedulePresentationTests {
         #expect(evenMonday.map(\.occurrence.course.id).contains("course-even"))
         #expect(evenWeek.currentWeek == 2)
         #expect(evenWeek.days[2].items.map(\.occurrence.schedule.id) == ["schedule-wednesday"])
+
+        let matrix = WeekMatrixPresentation(semester: semester, days: oddWeek.days)
+        #expect(matrix.periods.map(\.number) == [1, 2, 3, 4])
+        #expect(matrix.items.count == 6)
+        let every = try #require(matrix.items.first { $0.id == "schedule-every" })
+        let odd = try #require(matrix.items.first { $0.id == "schedule-odd" })
+        #expect(every.dayColumn == 0)
+        #expect(every.startRow == 0)
+        #expect(every.rowSpan == 2)
+        #expect(every.laneCount == 2)
+        #expect(odd.lane != every.lane)
+        let wednesday = try #require(matrix.items.first { $0.id == "schedule-wednesday" })
+        #expect(wednesday.dayColumn == 2)
+        #expect(wednesday.startRow == 2)
+        #expect(wednesday.rowSpan == 1)
+        #expect(wednesday.laneCount == 1)
     }
 
     @Test("默认周次限制在学期范围内")

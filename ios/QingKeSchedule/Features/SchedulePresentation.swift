@@ -119,6 +119,120 @@ struct WeekDayPresentation: Equatable, Identifiable {
     var id: Int { dayOfWeek }
 }
 
+struct WeekMatrixItem: Equatable, Identifiable {
+    let occurrence: CourseOccurrenceDTO
+    let isConflicting: Bool
+    let dayColumn: Int
+    let startRow: Int
+    let rowSpan: Int
+    let lane: Int
+    let laneCount: Int
+
+    var id: String { occurrence.schedule.id }
+}
+
+struct WeekMatrixPresentation: Equatable {
+    let periods: [PeriodDTO]
+    let items: [WeekMatrixItem]
+
+    init(semester: SemesterDTO, days: [WeekDayPresentation]) {
+        periods = semester.periods.sorted { $0.number < $1.number }
+        let periodRows = Dictionary(uniqueKeysWithValues: periods.enumerated().map {
+            ($0.element.number, $0.offset)
+        })
+
+        items = days
+            .filter { (1...5).contains($0.dayOfWeek) }
+            .flatMap { day in
+                let drafts = day.items.compactMap { item -> Draft? in
+                    guard
+                        let startRow = periodRows[item.occurrence.schedule.startPeriod],
+                        let endRow = periodRows[item.occurrence.schedule.endPeriod],
+                        endRow >= startRow
+                    else {
+                        return nil
+                    }
+                    return Draft(
+                        item: item,
+                        dayColumn: day.dayOfWeek - 1,
+                        startRow: startRow,
+                        rowSpan: endRow - startRow + 1
+                    )
+                }
+                return Self.laidOut(drafts)
+            }
+            .sorted {
+                if $0.dayColumn != $1.dayColumn { return $0.dayColumn < $1.dayColumn }
+                if $0.startRow != $1.startRow { return $0.startRow < $1.startRow }
+                if $0.lane != $1.lane { return $0.lane < $1.lane }
+                return $0.id < $1.id
+            }
+    }
+
+    private struct Draft {
+        let item: WeekCourseItem
+        let dayColumn: Int
+        let startRow: Int
+        let rowSpan: Int
+
+        var endRow: Int { startRow + rowSpan - 1 }
+    }
+
+    private static func laidOut(_ drafts: [Draft]) -> [WeekMatrixItem] {
+        let sorted = drafts.sorted {
+            if $0.startRow != $1.startRow { return $0.startRow < $1.startRow }
+            if $0.endRow != $1.endRow { return $0.endRow < $1.endRow }
+            return $0.item.id < $1.item.id
+        }
+        var result: [WeekMatrixItem] = []
+        var component: [Draft] = []
+        var componentEnd = -1
+
+        for draft in sorted {
+            if !component.isEmpty, draft.startRow > componentEnd {
+                result.append(contentsOf: layoutComponent(component))
+                component.removeAll(keepingCapacity: true)
+                componentEnd = -1
+            }
+            component.append(draft)
+            componentEnd = max(componentEnd, draft.endRow)
+        }
+        result.append(contentsOf: layoutComponent(component))
+        return result
+    }
+
+    private static func layoutComponent(_ drafts: [Draft]) -> [WeekMatrixItem] {
+        guard !drafts.isEmpty else { return [] }
+        var laneEndRows: [Int] = []
+        var placements: [(draft: Draft, lane: Int)] = []
+
+        for draft in drafts {
+            let lane: Int
+            if let reusableLane = laneEndRows.firstIndex(where: { $0 < draft.startRow }) {
+                lane = reusableLane
+                laneEndRows[lane] = draft.endRow
+            } else {
+                lane = laneEndRows.count
+                laneEndRows.append(draft.endRow)
+            }
+            placements.append((draft, lane))
+        }
+
+        let laneCount = laneEndRows.count
+        return placements.map { placement in
+            WeekMatrixItem(
+                occurrence: placement.draft.item.occurrence,
+                isConflicting: placement.draft.item.isConflicting,
+                dayColumn: placement.draft.dayColumn,
+                startRow: placement.draft.startRow,
+                rowSpan: placement.draft.rowSpan,
+                lane: placement.lane,
+                laneCount: laneCount
+            )
+        }
+    }
+}
+
 struct WeekSchedulePresentation: Equatable {
     let week: Int
     let currentWeek: Int?

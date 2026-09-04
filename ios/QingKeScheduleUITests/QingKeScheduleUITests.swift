@@ -65,9 +65,32 @@ final class QingKeScheduleUITests: XCTestCase {
 
         app.tabBars.buttons["课表"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.scrollViews["week-matrix"].waitForExistence(timeout: 5))
+        for day in 1...5 {
+            XCTAssertTrue(app.staticTexts["week-matrix-day-\(day)"].exists)
+        }
         XCTAssertTrue(app.buttons["add-course-week-toolbar"].isHittable)
-        XCTAssertTrue(app.staticTexts["课程 A"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["冲突"].firstMatch.exists)
+        let matrixCourse = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+            "week-matrix-course-",
+            "课程 A"
+        )).firstMatch
+        XCTAssertTrue(matrixCourse.waitForExistence(timeout: 5))
+        XCTAssertTrue(matrixCourse.label.contains("存在冲突"))
+
+        let selectedWeek = app.buttons["selected-week"]
+        app.buttons["week-next"].tap()
+        let nextWeekSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "第 2 周"),
+            object: selectedWeek
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [nextWeekSelected], timeout: 5), .completed)
+        app.buttons["week-previous"].tap()
+        let firstWeekSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "第 1 周"),
+            object: selectedWeek
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [firstWeekSelected], timeout: 5), .completed)
 
         app.tabBars.buttons["今日"].tap()
         app.staticTexts["课程 A"].firstMatch.tap()

@@ -44,6 +44,10 @@ struct WeekScheduleView: View {
         )
     }
 
+    private var matrixPresentation: WeekMatrixPresentation {
+        WeekMatrixPresentation(semester: semester, days: presentation.days)
+    }
+
     private var selectedDayPresentation: WeekDayPresentation {
         presentation.days.first(where: { $0.dayOfWeek == selectedDay })
             ?? presentation.days[0]
@@ -59,11 +63,14 @@ struct WeekScheduleView: View {
                     screenTitle
                     weekControls
                     weekdayStrip
+                    matrixOverview
                     dayManifest
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 100)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("week-schedule")
             }
 
             VStack {
@@ -118,6 +125,7 @@ struct WeekScheduleView: View {
             }
             .disabled(selectedWeek <= 1)
             .accessibilityLabel("上一周")
+            .accessibilityIdentifier("week-previous")
 
             Rectangle()
                 .fill(Color.primary.opacity(0.15))
@@ -159,8 +167,9 @@ struct WeekScheduleView: View {
             }
             .disabled(selectedWeek >= semester.totalWeeks)
             .accessibilityLabel("下一周")
+            .accessibilityIdentifier("week-next")
         }
-        .background(.thinMaterial)
+        .background { TerminalAcrylicSurface() }
         .overlay {
             Rectangle().stroke(Color.primary.opacity(0.2), lineWidth: 1)
         }
@@ -205,6 +214,149 @@ struct WeekScheduleView: View {
         }
     }
 
+    private var matrixOverview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TerminalSectionHeader(
+                index: "05",
+                title: "周视图",
+                detail: "MON–FRI / (matrixPresentation.periods.count) PERIODS"
+            )
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                matrixCanvas
+            }
+            .accessibilityIdentifier("week-matrix")
+
+            Text("横向滑动查看完整周课表；点按课程方块可直接编辑。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var matrixCanvas: some View {
+        let matrix = matrixPresentation
+        let width = matrixTimeColumnWidth + matrixDayColumnWidth * 5
+        let height = matrixHeaderHeight
+            + matrixRowHeight * CGFloat(matrix.periods.count)
+
+        return ZStack(alignment: .topLeading) {
+            TerminalAcrylicSurface()
+
+            ForEach(0...matrix.periods.count, id: \.self) { row in
+                Rectangle()
+                    .fill(Color.primary.opacity(row == 0 ? 0.3 : 0.13))
+                    .frame(width: width, height: 1)
+                    .offset(y: row == 0
+                            ? matrixHeaderHeight
+                            : matrixHeaderHeight + CGFloat(row) * matrixRowHeight)
+            }
+
+            ForEach(0...5, id: \.self) { column in
+                Rectangle()
+                    .fill(Color.primary.opacity(column == 0 ? 0.3 : 0.13))
+                    .frame(width: 1, height: height)
+                    .offset(x: column == 0
+                            ? matrixTimeColumnWidth
+                            : matrixTimeColumnWidth + CGFloat(column) * matrixDayColumnWidth)
+            }
+
+            Text("TIME")
+                .font(.terminal(9, weight: .black, relativeTo: .caption2))
+                .tracking(0.8)
+                .foregroundStyle(.secondary)
+                .frame(width: matrixTimeColumnWidth, height: matrixHeaderHeight)
+
+            ForEach(0..<5, id: \.self) { dayColumn in
+                Text(ScheduleDisplayText.weekdayNames[dayColumn])
+                    .font(.terminal(10, weight: .black, relativeTo: .caption))
+                    .tracking(0.5)
+                    .frame(width: matrixDayColumnWidth, height: matrixHeaderHeight)
+                    .offset(x: matrixTimeColumnWidth + CGFloat(dayColumn) * matrixDayColumnWidth)
+                    .accessibilityIdentifier("week-matrix-day-\(dayColumn + 1)")
+            }
+
+            ForEach(Array(matrix.periods.enumerated()), id: \.element.number) { row, period in
+                VStack(spacing: 1) {
+                    Text(String(format: "%02d", period.number))
+                        .font(.terminal(13, weight: .black, relativeTo: .caption))
+                    Text(period.startTime)
+                        .font(.terminal(7, weight: .semibold, relativeTo: .caption2))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: matrixTimeColumnWidth, height: matrixRowHeight)
+                .offset(y: matrixHeaderHeight + CGFloat(row) * matrixRowHeight)
+            }
+
+            ForEach(matrix.items) { item in
+                matrixCourseBlock(item)
+            }
+        }
+        .frame(width: width, height: height)
+        .overlay {
+            Rectangle()
+                .stroke(Color.white.opacity(0.7), lineWidth: 1)
+        }
+    }
+
+    private func matrixCourseBlock(_ item: WeekMatrixItem) -> some View {
+        let laneWidth = matrixDayColumnWidth / CGFloat(item.laneCount)
+        let accent = item.isConflicting
+            ? QingKeTheme.signal
+            : Color(courseHex: item.occurrence.course.color)
+        let blockHeight = matrixRowHeight * CGFloat(item.rowSpan) - 4
+
+        return Button {
+            onSelectCourse(item.occurrence.course)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                if item.isConflicting {
+                    Text("CONFLICT")
+                        .font(.terminal(7, weight: .black, relativeTo: .caption2))
+                        .foregroundStyle(QingKeTheme.signal)
+                }
+                Text(item.occurrence.course.name)
+                    .font(.terminal(11, weight: .bold, relativeTo: .caption))
+                    .lineLimit(item.rowSpan > 1 ? 2 : 1)
+                    .minimumScaleFactor(0.72)
+                if !item.occurrence.schedule.classroom.isEmpty {
+                    Text(item.occurrence.schedule.classroom)
+                        .font(.terminal(8, relativeTo: .caption2))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.leading, 8)
+            .padding(.trailing, 4)
+            .padding(.vertical, 5)
+            .frame(
+                width: laneWidth - 4,
+                height: blockHeight,
+                alignment: .topLeading
+            )
+            .background(QingKeTheme.ink.opacity(0.91))
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(accent)
+                    .frame(width: 4)
+            }
+            .overlay {
+                Rectangle()
+                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
+            }
+        }
+        .buttonStyle(.plain)
+        .offset(
+            x: matrixTimeColumnWidth
+                + CGFloat(item.dayColumn) * matrixDayColumnWidth
+                + CGFloat(item.lane) * laneWidth
+                + 2,
+            y: matrixHeaderHeight + CGFloat(item.startRow) * matrixRowHeight + 2
+        )
+        .accessibilityLabel(matrixCourseAccessibilityLabel(item))
+        .accessibilityIdentifier("week-matrix-course-\(item.id)")
+    }
+
     private var dayManifest: some View {
         VStack(alignment: .leading, spacing: 12) {
             TerminalSectionHeader(
@@ -212,7 +364,6 @@ struct WeekScheduleView: View {
                 title: ScheduleDisplayText.weekdayNames[selectedDay - 1],
                 detail: "\(selectedDayPresentation.items.count) ENTRIES"
             )
-            .accessibilityIdentifier("week-schedule")
 
             if selectedDayPresentation.items.isEmpty {
                 emptyDay
@@ -349,4 +500,20 @@ struct WeekScheduleView: View {
             ? ScheduleDisplayText.periodRange(occurrence.schedule)
             : values.joined(separator: " / ")
     }
+
+    private func matrixCourseAccessibilityLabel(_ item: WeekMatrixItem) -> String {
+        let schedule = item.occurrence.schedule
+        let parts = [
+            ScheduleDisplayText.weekdayNames[schedule.dayOfWeek - 1],
+            ScheduleDisplayText.periodRange(schedule),
+            item.occurrence.course.name,
+            item.isConflicting ? "存在冲突" : nil,
+        ].compactMap { $0 }
+        return parts.joined(separator: "，")
+    }
+
+    private var matrixTimeColumnWidth: CGFloat { 54 }
+    private var matrixDayColumnWidth: CGFloat { 124 }
+    private var matrixHeaderHeight: CGFloat { 38 }
+    private var matrixRowHeight: CGFloat { 68 }
 }
