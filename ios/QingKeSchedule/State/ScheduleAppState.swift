@@ -138,7 +138,7 @@ final class ScheduleAppState {
 
     func setReminderLeadMinutes(_ minutes: Int) {
         guard
-            ReminderSettings.allowedLeadMinutes.contains(minutes),
+            ReminderSettings.isValidLeadMinutes(minutes),
             reminderSettings.reminderLeadMinutes != minutes
         else {
             return

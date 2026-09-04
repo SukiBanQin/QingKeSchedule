@@ -1,7 +1,8 @@
 import Foundation
 
 struct ReminderSettings: Equatable, Sendable {
-    static let allowedLeadMinutes = [0, 5, 10, 15, 30, 60]
+    static let presetLeadMinutes = [0, 5, 10, 15, 30]
+    static let validLeadMinutes = 0...180
 
     var remindersEnabled: Bool
     var reminderLeadMinutes: Int
@@ -10,6 +11,10 @@ struct ReminderSettings: Equatable, Sendable {
         remindersEnabled: false,
         reminderLeadMinutes: 10
     )
+
+    static func isValidLeadMinutes(_ minutes: Int) -> Bool {
+        validLeadMinutes.contains(minutes)
+    }
 }
 
 @MainActor
@@ -38,7 +43,7 @@ final class UserDefaultsReminderSettingsStore: ReminderSettingsStore {
         let storedLeadMinutes = defaults.object(forKey: Key.reminderLeadMinutes) == nil
             ? ReminderSettings.defaults.reminderLeadMinutes
             : defaults.integer(forKey: Key.reminderLeadMinutes)
-        let leadMinutes = ReminderSettings.allowedLeadMinutes.contains(storedLeadMinutes)
+        let leadMinutes = ReminderSettings.isValidLeadMinutes(storedLeadMinutes)
             ? storedLeadMinutes
             : ReminderSettings.defaults.reminderLeadMinutes
         return ReminderSettings(

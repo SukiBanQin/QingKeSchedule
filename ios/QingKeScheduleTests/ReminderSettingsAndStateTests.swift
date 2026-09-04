@@ -18,11 +18,16 @@ struct ReminderSettingsAndStateTests {
 
         #expect(store.load() == .defaults)
 
-        store.save(ReminderSettings(remindersEnabled: true, reminderLeadMinutes: 30))
+        store.save(ReminderSettings(remindersEnabled: true, reminderLeadMinutes: 37))
         #expect(store.load() == ReminderSettings(
             remindersEnabled: true,
-            reminderLeadMinutes: 30
+            reminderLeadMinutes: 37
         ))
+
+        #expect(ReminderSettings.presetLeadMinutes == [0, 5, 10, 15, 30])
+        #expect(ReminderSettings.isValidLeadMinutes(0))
+        #expect(ReminderSettings.isValidLeadMinutes(180))
+        #expect(!ReminderSettings.isValidLeadMinutes(181))
 
         defaults.set(999, forKey: "reminderLeadMinutes")
         #expect(store.load().reminderLeadMinutes == ReminderSettings.defaults.reminderLeadMinutes)
@@ -57,7 +62,7 @@ struct ReminderSettingsAndStateTests {
         await state.waitForNotificationWork()
         #expect(state.replace(with: fixture))
         await state.waitForNotificationWork()
-        state.setReminderLeadMinutes(30)
+        state.setReminderLeadMinutes(37)
         await state.waitForNotificationWork()
         state.appBecameActive()
         await state.waitForNotificationWork()
@@ -66,7 +71,7 @@ struct ReminderSettingsAndStateTests {
         #expect(calls.count == 7)
         #expect(calls.last?.data == fixture)
         #expect(calls.last?.remindersEnabled == true)
-        #expect(calls.last?.leadMinutes == 30)
+        #expect(calls.last?.leadMinutes == 37)
         #expect(state.lastNotificationReconciliation?.permissionStatus == .authorized)
     }
 

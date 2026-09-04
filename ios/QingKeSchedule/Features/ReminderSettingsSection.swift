@@ -5,6 +5,7 @@ struct ReminderSettingsSection: View {
     @Bindable var state: ScheduleAppState
     @Environment(\.openURL) private var openURL
     @State private var permissionExplanationPresented = false
+    @State private var customLeadMinutes = 20
 
     var body: some View {
         Section {
@@ -29,16 +30,34 @@ struct ReminderSettingsSection: View {
                 Picker(
                     "提醒时间",
                     selection: Binding(
-                        get: { state.reminderSettings.reminderLeadMinutes },
-                        set: state.setReminderLeadMinutes
+                        get: { leadSelection },
+                        set: updateLeadSelection
                     )
                 ) {
-                    ForEach(ReminderSettings.allowedLeadMinutes, id: \.self) { minutes in
+                    ForEach(ReminderSettings.presetLeadMinutes, id: \.self) { minutes in
                         Text(minutes == 0 ? "准时" : "提前 \(minutes) 分钟")
-                            .tag(minutes)
+                            .tag(ReminderLeadSelection.preset(minutes))
                     }
+                    Text("自定义…")
+                        .tag(ReminderLeadSelection.custom)
                 }
                 .accessibilityIdentifier("reminder-lead-minutes")
+
+                if leadSelection == .custom {
+                    Stepper(
+                        "提前 \(customLeadMinutes) 分钟",
+                        value: $customLeadMinutes,
+                        in: 1...ReminderSettings.validLeadMinutes.upperBound
+                    )
+                    .onChange(of: customLeadMinutes) { _, newValue in
+                        state.setReminderLeadMinutes(newValue)
+                    }
+                    .accessibilityIdentifier("reminder-custom-lead-minutes")
+
+                    Text("可自定义 1–180 分钟；0 分钟请在上方选择“准时”。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             HStack {
@@ -64,6 +83,7 @@ struct ReminderSettingsSection: View {
         } footer: {
             Text("提醒仅保存在这台 iPhone，并按课程开始时间维护最近 60 条。")
         }
+        .onAppear(perform: synchronizeCustomLeadMinutes)
     }
 
     private var statusSystemImage: String {
@@ -87,4 +107,32 @@ struct ReminderSettingsSection: View {
             state.setRemindersEnabled(enabled)
         }
     }
+
+    private var leadSelection: ReminderLeadSelection {
+        let minutes = state.reminderSettings.reminderLeadMinutes
+        return ReminderSettings.presetLeadMinutes.contains(minutes)
+            ? .preset(minutes)
+            : .custom
+    }
+
+    private func updateLeadSelection(_ selection: ReminderLeadSelection) {
+        switch selection {
+        case .preset(let minutes):
+            state.setReminderLeadMinutes(minutes)
+        case .custom:
+            state.setReminderLeadMinutes(customLeadMinutes)
+        }
+    }
+
+    private func synchronizeCustomLeadMinutes() {
+        let stored = state.reminderSettings.reminderLeadMinutes
+        if !ReminderSettings.presetLeadMinutes.contains(stored), stored > 0 {
+            customLeadMinutes = stored
+        }
+    }
+}
+
+private enum ReminderLeadSelection: Hashable {
+    case preset(Int)
+    case custom
 }

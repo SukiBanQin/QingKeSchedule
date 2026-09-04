@@ -191,6 +191,31 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testCustomReminderLeadTimeIsAvailable() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--ui-testing-reminders-enabled",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        app.buttons["semester-save-toolbar"].tap()
+        XCTAssertTrue(app.tabBars.buttons["设置"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["设置"].tap()
+
+        let picker = app.buttons["reminder-lead-minutes"]
+        scrollToElement(picker, in: app)
+        picker.tap()
+        XCTAssertTrue(app.buttons["自定义…"].waitForExistence(timeout: 5))
+        app.buttons["自定义…"].tap()
+
+        let customStepper = app.steppers["reminder-custom-lead-minutes"]
+        XCTAssertTrue(customStepper.waitForExistence(timeout: 5))
+        XCTAssertTrue(customStepper.label.contains("提前 20 分钟"))
+    }
+
+    @MainActor
     private func launchAndCreateSemester() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"]
