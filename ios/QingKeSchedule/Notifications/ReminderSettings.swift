@@ -98,15 +98,68 @@ struct MakeupTeachingDay: Codable, Equatable, Hashable, Identifiable, Sendable {
     var id: String { date }
 }
 
+struct ScheduleBreakSettings: Codable, Equatable, Sendable {
+    var isEnabled: Bool
+    var title: String
+    var startTime: String
+    var endTime: String
+
+    static let defaultLunch = ScheduleBreakSettings(
+        isEnabled: true,
+        title: "午休",
+        startTime: "11:40",
+        endTime: "14:00"
+    )
+
+    var isValid: Bool {
+        guard
+            let start = ScheduleRules.minutes(from: startTime),
+            let end = ScheduleRules.minutes(from: endTime)
+        else {
+            return false
+        }
+        return start < end
+    }
+
+    func sanitized() -> ScheduleBreakSettings {
+        guard isValid else {
+            var fallback = Self.defaultLunch
+            fallback.isEnabled = isEnabled
+            return fallback
+        }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ScheduleBreakSettings(
+            isEnabled: isEnabled,
+            title: trimmedTitle.isEmpty ? Self.defaultLunch.title : trimmedTitle,
+            startTime: startTime,
+            endTime: endTime
+        )
+    }
+}
+
 struct AcademicCalendarSettings: Codable, Equatable, Sendable {
     var weekendsAreNonTeachingDays: Bool
     var nonTeachingDates: [String]
     var makeupTeachingDays: [MakeupTeachingDay]
+    var lunchBreak: ScheduleBreakSettings
+
+    init(
+        weekendsAreNonTeachingDays: Bool,
+        nonTeachingDates: [String],
+        makeupTeachingDays: [MakeupTeachingDay],
+        lunchBreak: ScheduleBreakSettings = .defaultLunch
+    ) {
+        self.weekendsAreNonTeachingDays = weekendsAreNonTeachingDays
+        self.nonTeachingDates = nonTeachingDates
+        self.makeupTeachingDays = makeupTeachingDays
+        self.lunchBreak = lunchBreak
+    }
 
     static let defaults = AcademicCalendarSettings(
         weekendsAreNonTeachingDays: false,
         nonTeachingDates: [],
-        makeupTeachingDays: []
+        makeupTeachingDays: [],
+        lunchBreak: .defaultLunch
     )
 
     func resolution(for date: Date, calendar: Calendar) -> AcademicDayResolution {
@@ -174,8 +227,36 @@ struct AcademicCalendarSettings: Codable, Equatable, Sendable {
         return AcademicCalendarSettings(
             weekendsAreNonTeachingDays: weekendsAreNonTeachingDays,
             nonTeachingDates: validNonTeachingDates.sorted(),
-            makeupTeachingDays: validMakeupByDate.values.sorted { $0.date < $1.date }
+            makeupTeachingDays: validMakeupByDate.values.sorted { $0.date < $1.date },
+            lunchBreak: lunchBreak.sanitized()
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case weekendsAreNonTeachingDays
+        case nonTeachingDates
+        case makeupTeachingDays
+        case lunchBreak
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weekendsAreNonTeachingDays = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .weekendsAreNonTeachingDays
+        ) ?? Self.defaults.weekendsAreNonTeachingDays
+        nonTeachingDates = try container.decodeIfPresent(
+            [String].self,
+            forKey: .nonTeachingDates
+        ) ?? []
+        makeupTeachingDays = try container.decodeIfPresent(
+            [MakeupTeachingDay].self,
+            forKey: .makeupTeachingDays
+        ) ?? []
+        lunchBreak = try container.decodeIfPresent(
+            ScheduleBreakSettings.self,
+            forKey: .lunchBreak
+        ) ?? .defaultLunch
     }
 
     static func dateString(from date: Date, calendar: Calendar) -> String {

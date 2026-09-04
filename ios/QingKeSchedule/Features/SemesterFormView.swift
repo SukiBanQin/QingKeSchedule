@@ -317,10 +317,20 @@ private struct AcademicCalendarSettingsSection: View {
     @State private var followsDayOfWeek = 1
     @State private var mode = ExceptionMode.nonTeaching
     @State private var calendarExpanded = false
+    @State private var lunchStartTime: Date
+    @State private var lunchEndTime: Date
 
     init(state: ScheduleAppState, initialDate: Date) {
         self.state = state
         _selectedDate = State(initialValue: initialDate)
+        _lunchStartTime = State(initialValue: Self.timeDate(
+            state.academicCalendarSettings.lunchBreak.startTime,
+            calendar: state.calendar
+        ))
+        _lunchEndTime = State(initialValue: Self.timeDate(
+            state.academicCalendarSettings.lunchBreak.endTime,
+            calendar: state.calendar
+        ))
     }
 
     var body: some View {
@@ -339,6 +349,44 @@ private struct AcademicCalendarSettingsSection: View {
             )
             .terminalControl()
             .accessibilityIdentifier("weekends-non-teaching-toggle")
+
+            TerminalFormDivider()
+
+            Toggle(
+                "在周课表显示午休",
+                isOn: Binding(
+                    get: { state.academicCalendarSettings.lunchBreak.isEnabled },
+                    set: state.setLunchBreakEnabled
+                )
+            )
+            .terminalControl()
+            .accessibilityIdentifier("lunch-break-toggle")
+
+            if state.academicCalendarSettings.lunchBreak.isEnabled {
+                HStack(spacing: 12) {
+                    DatePicker(
+                        "开始",
+                        selection: $lunchStartTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    DatePicker(
+                        "结束",
+                        selection: $lunchEndTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                }
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .padding(.vertical, 10)
+                .onChange(of: lunchStartTime) { _, _ in persistLunchBreak() }
+                .onChange(of: lunchEndTime) { _, _ in persistLunchBreak() }
+                .accessibilityIdentifier("lunch-break-times")
+
+                if !lunchTimesAreValid {
+                    Text("午休开始时间必须早于结束时间。")
+                        .font(.caption)
+                        .foregroundStyle(QingKeTheme.danger)
+                }
+            }
 
             TerminalFormDivider()
 
@@ -501,6 +549,35 @@ private struct AcademicCalendarSettingsSection: View {
         return date.formatted(
             .dateTime.locale(Locale(identifier: "zh_CN")).year().month().day().weekday()
         )
+    }
+
+    private var lunchTimesAreValid: Bool {
+        timeString(lunchStartTime) < timeString(lunchEndTime)
+    }
+
+    private func persistLunchBreak() {
+        _ = state.setLunchBreak(
+            startTime: timeString(lunchStartTime),
+            endTime: timeString(lunchEndTime)
+        )
+    }
+
+    private func timeString(_ date: Date) -> String {
+        let components = state.calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", components.hour ?? 0, components.minute ?? 0)
+    }
+
+    private static func timeDate(_ value: String, calendar: Calendar) -> Date {
+        let minutes = ScheduleRules.minutes(from: value) ?? 0
+        return calendar.date(from: DateComponents(
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            year: 2001,
+            month: 1,
+            day: 1,
+            hour: minutes / 60,
+            minute: minutes % 60
+        )) ?? Date(timeIntervalSinceReferenceDate: 0)
     }
 }
 

@@ -227,6 +227,23 @@ final class ScheduleAppState {
         persistAcademicCalendarSettings()
     }
 
+    func setLunchBreakEnabled(_ enabled: Bool) {
+        guard academicCalendarSettings.lunchBreak.isEnabled != enabled else { return }
+        academicCalendarSettings.lunchBreak.isEnabled = enabled
+        persistAcademicCalendarSettings()
+    }
+
+    @discardableResult
+    func setLunchBreak(startTime: String, endTime: String) -> Bool {
+        var updated = academicCalendarSettings.lunchBreak
+        updated.startTime = startTime
+        updated.endTime = endTime
+        guard updated.isValid else { return false }
+        academicCalendarSettings.lunchBreak = updated.sanitized()
+        persistAcademicCalendarSettings()
+        return true
+    }
+
     func appBecameActive() {
         guard isLoaded else { return }
         scheduleNotificationReconciliation()

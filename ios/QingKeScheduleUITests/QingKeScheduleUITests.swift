@@ -20,6 +20,7 @@ final class QingKeScheduleUITests: XCTestCase {
         scrollToElement(calendarSettings, in: app)
         XCTAssertTrue(calendarSettings.exists)
         XCTAssertTrue(app.switches["weekends-non-teaching-toggle"].exists)
+        XCTAssertTrue(app.switches["lunch-break-toggle"].exists)
     }
 
     @MainActor

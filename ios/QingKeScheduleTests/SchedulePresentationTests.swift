@@ -171,6 +171,7 @@ struct SchedulePresentationTests {
     @Test("周课表摘要和课程紧凑信息使用真实数据")
     func weekMatrixLabels() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
         let course = try #require(data.courses.first { !$0.teacher.isEmpty })
         let schedule = try #require(course.schedules.first { !$0.classroom.isEmpty })
 
@@ -179,6 +180,35 @@ struct SchedulePresentationTests {
             ScheduleDisplayText.compactCourseDetails(course: course, schedule: schedule)
                 == "\(schedule.classroom) · \(course.teacher)"
         )
+
+        let week = WeekSchedulePresentation(
+            week: 1,
+            semester: semester,
+            courses: data.courses,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        var settings = AcademicCalendarSettings.defaults
+        settings.lunchBreak.startTime = "09:40"
+        settings.lunchBreak.endTime = "10:00"
+        let matrix = WeekMatrixPresentation(
+            semester: semester,
+            days: week.days,
+            academicCalendarSettings: settings
+        )
+        #expect(matrix.scheduleBreak == WeekMatrixBreak(
+            title: "午休",
+            startTime: "09:40",
+            endTime: "10:00",
+            insertionRow: 2
+        ))
+
+        settings.lunchBreak.isEnabled = false
+        #expect(WeekMatrixPresentation(
+            semester: semester,
+            days: week.days,
+            academicCalendarSettings: settings
+        ).scheduleBreak == nil)
     }
 
     private func date(

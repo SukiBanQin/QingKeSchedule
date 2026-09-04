@@ -174,12 +174,28 @@ struct WeekMatrixItem: Equatable, Identifiable {
 
 }
 
+struct WeekMatrixBreak: Equatable {
+    let title: String
+    let startTime: String
+    let endTime: String
+    let insertionRow: Int
+}
+
 struct WeekMatrixPresentation: Equatable {
     let periods: [PeriodDTO]
     let items: [WeekMatrixItem]
+    let scheduleBreak: WeekMatrixBreak?
 
-    init(semester: SemesterDTO, days: [WeekDayPresentation]) {
+    init(
+        semester: SemesterDTO,
+        days: [WeekDayPresentation],
+        academicCalendarSettings: AcademicCalendarSettings = .defaults
+    ) {
         periods = semester.periods.sorted { $0.number < $1.number }
+        scheduleBreak = Self.makeBreak(
+            academicCalendarSettings.lunchBreak,
+            periods: periods
+        )
         let periodRows = Dictionary(uniqueKeysWithValues: periods.enumerated().map {
             ($0.element.number, $0.offset)
         })
@@ -210,6 +226,32 @@ struct WeekMatrixPresentation: Equatable {
                 if $0.lane != $1.lane { return $0.lane < $1.lane }
                 return $0.id < $1.id
             }
+    }
+
+    private static func makeBreak(
+        _ settings: ScheduleBreakSettings,
+        periods: [PeriodDTO]
+    ) -> WeekMatrixBreak? {
+        guard
+            settings.isEnabled,
+            let breakStart = ScheduleRules.minutes(from: settings.startTime),
+            let breakEnd = ScheduleRules.minutes(from: settings.endTime),
+            let insertionRow = periods.firstIndex(where: {
+                guard let start = ScheduleRules.minutes(from: $0.startTime) else { return false }
+                return start >= breakEnd
+            }),
+            insertionRow > 0,
+            let previousEnd = ScheduleRules.minutes(from: periods[insertionRow - 1].endTime),
+            previousEnd <= breakStart
+        else {
+            return nil
+        }
+        return WeekMatrixBreak(
+            title: settings.title,
+            startTime: settings.startTime,
+            endTime: settings.endTime,
+            insertionRow: insertionRow
+        )
     }
 
     private struct Draft {

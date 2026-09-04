@@ -73,6 +73,9 @@ struct ReminderSettingsAndStateTests {
                 MakeupTeachingDay(date: "2026-10-10", followsDayOfWeek: 3),
             ]
         ))
+
+        defaults.set(Data(#"{"weekendsAreNonTeachingDays":true,"nonTeachingDates":[],"makeupTeachingDays":[]}"#.utf8), forKey: "academicCalendarSettings")
+        #expect(store.load().lunchBreak == .defaultLunch)
     }
 
     @Test("停课日优先于调课和周末规则")
@@ -118,11 +121,20 @@ struct ReminderSettingsAndStateTests {
         await state.waitForNotificationWork()
         state.addNonTeachingDate(date)
         await state.waitForNotificationWork()
+        #expect(state.setLunchBreak(startTime: "12:10", endTime: "13:20"))
+        await state.waitForNotificationWork()
+        #expect(!state.setLunchBreak(startTime: "14:00", endTime: "13:00"))
 
         let expected = AcademicCalendarSettings(
             weekendsAreNonTeachingDays: true,
             nonTeachingDates: ["2026-10-01"],
-            makeupTeachingDays: []
+            makeupTeachingDays: [],
+            lunchBreak: ScheduleBreakSettings(
+                isEnabled: true,
+                title: "午休",
+                startTime: "12:10",
+                endTime: "13:20"
+            )
         )
         #expect(state.academicCalendarSettings == expected)
         #expect(settingsStore.load() == expected)

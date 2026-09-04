@@ -49,7 +49,11 @@ struct WeekScheduleView: View {
     }
 
     private var matrixPresentation: WeekMatrixPresentation {
-        WeekMatrixPresentation(semester: semester, days: presentation.days)
+        WeekMatrixPresentation(
+            semester: semester,
+            days: presentation.days,
+            academicCalendarSettings: academicCalendarSettings
+        )
     }
 
     private var selectedDayPresentation: WeekDayPresentation {
@@ -253,9 +257,7 @@ struct WeekScheduleView: View {
                 Rectangle()
                     .fill(Color.primary.opacity(row == 0 ? 0.3 : 0.13))
                     .frame(width: width, height: 1)
-                    .offset(y: row == 0
-                            ? matrixHeaderHeight
-                            : matrixHeaderHeight + CGFloat(row) * matrixRowHeight)
+                    .offset(y: matrixY(forRow: row))
             }
 
             ForEach(0...5, id: \.self) { column in
@@ -291,7 +293,36 @@ struct WeekScheduleView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(width: matrixTimeColumnWidth, height: matrixRowHeight)
-                .offset(y: matrixHeaderHeight + CGFloat(row) * matrixRowHeight)
+                .offset(y: matrixY(forRow: row))
+            }
+
+            if let scheduleBreak = matrix.scheduleBreak {
+                HStack(spacing: 8) {
+                    Text(scheduleBreak.title)
+                        .font(.terminal(9, weight: .black, relativeTo: .caption2))
+                        .tracking(1)
+                    Rectangle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(height: 1)
+                    Text("\(scheduleBreak.startTime)–\(scheduleBreak.endTime)")
+                        .font(.terminal(8, weight: .bold, relativeTo: .caption2))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .frame(width: width, height: matrixBreakHeight)
+                .background(QingKeTheme.cyan.opacity(0.92))
+                .overlay {
+                    Rectangle().stroke(Color.white.opacity(0.7), lineWidth: 0.8)
+                }
+                .offset(
+                    y: matrixHeaderHeight
+                        + CGFloat(scheduleBreak.insertionRow) * matrixRowHeight
+                )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    "\(scheduleBreak.title)，\(scheduleBreak.startTime)到\(scheduleBreak.endTime)"
+                )
+                .accessibilityIdentifier("week-matrix-break")
             }
 
             ForEach(matrix.items) { item in
@@ -313,7 +344,13 @@ struct WeekScheduleView: View {
         let accent = item.isConflicting
             ? QingKeTheme.signal
             : Color(courseHex: item.occurrence.course.color)
-        let blockHeight = matrixRowHeight * CGFloat(item.rowSpan) - 4
+        let crossesBreak = matrixPresentation.scheduleBreak.map {
+            item.startRow < $0.insertionRow
+                && item.startRow + item.rowSpan > $0.insertionRow
+        } ?? false
+        let blockHeight = matrixRowHeight * CGFloat(item.rowSpan)
+            + (crossesBreak ? matrixBreakHeight : 0)
+            - 4
 
         return Button {
             onSelectCourse(item.occurrence.course)
@@ -366,7 +403,7 @@ struct WeekScheduleView: View {
                 + CGFloat(item.dayColumn) * dayColumnWidth
                 + CGFloat(item.lane) * laneWidth
                 + 2,
-            y: matrixHeaderHeight + CGFloat(item.startRow) * matrixRowHeight + 2
+            y: matrixY(forRow: item.startRow) + 2
         )
         .accessibilityLabel(matrixCourseAccessibilityLabel(item))
         .accessibilityIdentifier("week-matrix-course-\(item.id)")
@@ -550,10 +587,24 @@ struct WeekScheduleView: View {
     }
 
     private var matrixCanvasHeight: CGFloat {
-        matrixHeaderHeight + matrixRowHeight * CGFloat(matrixPresentation.periods.count)
+        matrixHeaderHeight
+            + matrixRowHeight * CGFloat(matrixPresentation.periods.count)
+            + (matrixPresentation.scheduleBreak == nil ? 0 : matrixBreakHeight)
+    }
+
+    private func matrixY(forRow row: Int) -> CGFloat {
+        let breakOffset: CGFloat
+        if let scheduleBreak = matrixPresentation.scheduleBreak,
+           row >= scheduleBreak.insertionRow {
+            breakOffset = matrixBreakHeight
+        } else {
+            breakOffset = 0
+        }
+        return matrixHeaderHeight + CGFloat(row) * matrixRowHeight + breakOffset
     }
 
     private var matrixTimeColumnWidth: CGFloat { 44 }
     private var matrixHeaderHeight: CGFloat { 38 }
     private var matrixRowHeight: CGFloat { 68 }
+    private var matrixBreakHeight: CGFloat { 30 }
 }
