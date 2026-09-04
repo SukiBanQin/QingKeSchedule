@@ -1,5 +1,265 @@
 import SwiftUI
 
+enum QingKeVisualSpec {
+    static let brandTitle = "QINGKE"
+    static let brandSubtitle = "ACADEMIC TERMINAL"
+    static let signalHex = "#FFD400"
+    static let cyanHex = "#28B9D6"
+    static let panelCornerRadius: CGFloat = 8
+    static let floatingActionSize: CGFloat = 64
+    static let gridSpacing: CGFloat = 24
+}
+
+enum QingKeTheme {
+    static let ink = Color(red: 0.035, green: 0.065, blue: 0.073)
+    static let paper = Color(red: 0.89, green: 0.92, blue: 0.92)
+    static let signal = Color(courseHex: QingKeVisualSpec.signalHex)
+    static let cyan = Color(courseHex: QingKeVisualSpec.cyanHex)
+    static let muted = Color(red: 0.38, green: 0.44, blue: 0.45)
+    static let danger = Color(red: 0.82, green: 0.19, blue: 0.15)
+}
+
+extension Font {
+    static func terminal(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        relativeTo textStyle: Font.TextStyle = .body
+    ) -> Font {
+        .custom("Avenir Next Condensed", size: size, relativeTo: textStyle)
+            .weight(weight)
+    }
+}
+
+struct TerminalBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                (colorScheme == .dark ? QingKeTheme.ink : QingKeTheme.paper)
+
+                Canvas { context, size in
+                    let gridColor = colorScheme == .dark
+                        ? Color.white.opacity(0.055)
+                        : QingKeTheme.ink.opacity(0.07)
+                    var grid = Path()
+                    var x: CGFloat = 0
+                    while x <= size.width {
+                        grid.move(to: CGPoint(x: x, y: 0))
+                        grid.addLine(to: CGPoint(x: x, y: size.height))
+                        x += QingKeVisualSpec.gridSpacing
+                    }
+                    var y: CGFloat = 0
+                    while y <= size.height {
+                        grid.move(to: CGPoint(x: 0, y: y))
+                        grid.addLine(to: CGPoint(x: size.width, y: y))
+                        y += QingKeVisualSpec.gridSpacing
+                    }
+                    context.stroke(grid, with: .color(gridColor), lineWidth: 0.5)
+
+                    let diameter = max(size.width * 0.88, 320)
+                    let origin = CGPoint(
+                        x: size.width * 0.56,
+                        y: size.height * 0.27
+                    )
+                    for inset in [CGFloat(0), 42, 90] {
+                        let ring = Path(ellipseIn: CGRect(
+                            x: origin.x - inset,
+                            y: origin.y - inset,
+                            width: diameter + inset * 2,
+                            height: diameter + inset * 2
+                        ))
+                        context.stroke(
+                            ring,
+                            with: .color(gridColor.opacity(1.5)),
+                            lineWidth: 1
+                        )
+                    }
+                }
+
+                LinearGradient(
+                    colors: [
+                        .clear,
+                        colorScheme == .dark
+                            ? QingKeTheme.cyan.opacity(0.06)
+                            : Color.white.opacity(0.48),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
+struct TerminalBrandHeader: View {
+    let code: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Rectangle()
+                    .fill(QingKeTheme.ink)
+                    .frame(width: 42, height: 42)
+                Text("Q")
+                    .font(.terminal(28, weight: .black, relativeTo: .title))
+                    .italic()
+                    .foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                Rectangle()
+                    .fill(QingKeTheme.cyan)
+                    .frame(width: 15, height: 4)
+            }
+
+            VStack(alignment: .leading, spacing: -1) {
+                Text(QingKeVisualSpec.brandTitle)
+                    .font(.terminal(20, weight: .black, relativeTo: .headline))
+                    .tracking(1.5)
+                Text(QingKeVisualSpec.brandSubtitle)
+                    .font(.terminal(9, weight: .bold, relativeTo: .caption2))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(code)
+                .font(.terminal(10, weight: .bold, relativeTo: .caption))
+                .tracking(1)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 12)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.24))
+                .frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct TerminalSectionHeader: View {
+    let index: String
+    let title: String
+    var detail: String? = nil
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Text(index)
+                .font(.terminal(13, weight: .black, relativeTo: .caption))
+                .foregroundStyle(QingKeTheme.cyan)
+            Text(title)
+                .font(.title3.weight(.bold))
+            Spacer()
+            if let detail {
+                Text(detail.uppercased())
+                    .font(.terminal(8, weight: .bold, relativeTo: .caption2))
+                    .tracking(1)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.bottom, 7)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.35))
+                .frame(height: 1)
+        }
+    }
+}
+
+struct TerminalStatusTag: View {
+    let text: String
+    var tint: Color = QingKeTheme.cyan
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.terminal(9, weight: .black, relativeTo: .caption2))
+            .tracking(0.9)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .foregroundStyle(QingKeTheme.ink)
+            .background(tint)
+    }
+}
+
+struct TerminalFloatingAction: View {
+    let accessibilityIdentifier: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 1) {
+                Image(systemName: "plus")
+                    .font(.system(size: 25, weight: .light))
+                Text("ADD")
+                    .font(.terminal(8, weight: .black, relativeTo: .caption2))
+                    .tracking(0.8)
+            }
+            .foregroundStyle(QingKeTheme.ink)
+            .frame(
+                width: QingKeVisualSpec.floatingActionSize,
+                height: QingKeVisualSpec.floatingActionSize
+            )
+            .background(QingKeTheme.signal)
+            .overlay(alignment: .topTrailing) {
+                TriangleCorner()
+                    .fill(Color.white.opacity(0.75))
+                    .frame(width: 13, height: 13)
+            }
+            .overlay {
+                Rectangle()
+                    .stroke(Color.white.opacity(0.75), lineWidth: 1)
+                    .padding(3)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("添加课程")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+private struct TriangleCorner: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct TerminalPanelModifier: ViewModifier {
+    let accent: Color?
+
+    func body(content: Content) -> some View {
+        content
+            .padding(14)
+            .background(.thinMaterial)
+            .overlay(alignment: .leading) {
+                if let accent {
+                    Rectangle()
+                        .fill(accent)
+                        .frame(width: 4)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: QingKeVisualSpec.panelCornerRadius)
+                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: QingKeVisualSpec.panelCornerRadius))
+    }
+}
+
+extension View {
+    func terminalPanel(accent: Color? = nil) -> some View {
+        modifier(TerminalPanelModifier(accent: accent))
+    }
+}
+
 extension Color {
     init(courseHex value: String) {
         let cleaned = value.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
