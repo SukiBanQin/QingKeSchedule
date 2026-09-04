@@ -170,6 +170,60 @@ struct TerminalAcrylicSurface: View {
     }
 }
 
+struct TerminalFormSection<Content: View>: View {
+    let index: String
+    let title: String
+    var detail: String? = nil
+    var footer: String? = nil
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            TerminalSectionHeader(index: index, title: title, detail: detail)
+            VStack(alignment: .leading, spacing: 0) {
+                content()
+            }
+            .padding(.horizontal, 14)
+            .background { TerminalAcrylicSurface() }
+            .overlay(alignment: .leading) {
+                Rectangle().fill(QingKeTheme.cyan).frame(width: 3)
+            }
+            .overlay {
+                Rectangle().stroke(Color.white.opacity(0.68), lineWidth: 1)
+            }
+
+            if let footer {
+                Text(footer)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 3)
+            }
+        }
+    }
+}
+
+struct TerminalFormDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.13))
+            .frame(height: 1)
+    }
+}
+
+private struct TerminalControlModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    func terminalControl() -> some View {
+        modifier(TerminalControlModifier())
+    }
+}
+
 struct TerminalSectionHeader: View {
     let index: String
     let title: String

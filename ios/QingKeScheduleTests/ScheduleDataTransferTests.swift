@@ -117,4 +117,41 @@ struct ScheduleDataTransferTests {
         let stored = try seedRepository.load()
         #expect(stored == original)
     }
+
+    @Test("应用状态持有稳定的导入确认与错误提示")
+    func appStateOwnsImportPromptLifecycle() throws {
+        let container = try SwiftDataScheduleRepository.makeContainer(inMemory: true)
+        let repository = SwiftDataScheduleRepository(
+            context: ModelContext(container),
+            calendar: calendar
+        )
+        let state = ScheduleAppState(repository: repository, calendar: calendar)
+        state.load()
+
+        state.prepareImport(
+            contents: try SharedFixtureLoader.data(named: "web-export.json")
+        )
+        #expect(state.pendingImportPreview?.courseCount == 6)
+        #expect(state.importFailure == nil)
+        #expect(state.importStatusMessage == nil)
+
+        state.dismissImportPrompt()
+        #expect(state.pendingImportPreview == nil)
+        #expect(state.importFailure == nil)
+
+        state.prepareImport(
+            contents: try SharedFixtureLoader.data(named: "unknown-version.json")
+        )
+        #expect(state.pendingImportPreview == nil)
+        #expect(state.importFailure?.contains("2") == true)
+
+        state.prepareImport(
+            contents: try SharedFixtureLoader.data(named: "web-export.json")
+        )
+        #expect(state.confirmPreparedImport() == 6)
+        #expect(state.pendingImportPreview == nil)
+        #expect(state.importFailure == nil)
+        #expect(state.importStatusMessage == "已导入 6 门课程")
+        #expect(state.courses.count == 6)
+    }
 }

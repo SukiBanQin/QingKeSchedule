@@ -9,11 +9,11 @@ final class QingKeScheduleUITests: XCTestCase {
     func testFirstLaunchCreatesSemesterAndOpensSettings() throws {
         let app = launchAndCreateSemester()
 
-        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["today-empty"].exists)
 
-        app.tabBars.buttons["设置"].tap()
-        XCTAssertTrue(app.navigationBars["学期与节次"].waitForExistence(timeout: 5))
+        app.buttons["settings-tab"].tap()
+        XCTAssertTrue(app.buttons["semester-save-toolbar"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].exists)
         XCTAssertTrue(app.textFields["semester-name"].exists)
     }
@@ -21,8 +21,8 @@ final class QingKeScheduleUITests: XCTestCase {
     @MainActor
     func testBothSemesterSaveActionsShowTerminalFeedback() throws {
         let app = launchAndCreateSemester()
-        app.tabBars.buttons["设置"].tap()
-        XCTAssertTrue(app.navigationBars["学期与节次"].waitForExistence(timeout: 5))
+        app.buttons["settings-tab"].tap()
+        XCTAssertTrue(app.buttons["semester-save-toolbar"].waitForExistence(timeout: 5))
 
         let toast = app.descendants(matching: .any)["semester-save-success"]
         app.buttons["semester-save-toolbar"].tap()
@@ -63,9 +63,10 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["仍然保存"].tap()
         XCTAssertTrue(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 5))
 
-        app.tabBars.buttons["课表"].tap()
+        app.buttons["schedule-tab"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.scrollViews["week-matrix"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["week-matrix"].waitForExistence(timeout: 5))
+        scrollToElement(app.staticTexts["week-matrix-day-1"], in: app)
         for day in 1...5 {
             XCTAssertTrue(app.staticTexts["week-matrix-day-\(day)"].exists)
         }
@@ -75,7 +76,7 @@ final class QingKeScheduleUITests: XCTestCase {
             "week-matrix-course-",
             "课程 A"
         )).firstMatch
-        XCTAssertTrue(matrixCourse.waitForExistence(timeout: 5))
+        scrollToElement(matrixCourse, in: app)
         XCTAssertTrue(matrixCourse.label.contains("存在冲突"))
 
         let selectedWeek = app.buttons["selected-week"]
@@ -92,7 +93,7 @@ final class QingKeScheduleUITests: XCTestCase {
         )
         XCTAssertEqual(XCTWaiter.wait(for: [firstWeekSelected], timeout: 5), .completed)
 
-        app.tabBars.buttons["今日"].tap()
+        app.buttons["today-tab"].tap()
         app.staticTexts["课程 A"].firstMatch.tap()
         let nameField = app.textFields["course-name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
@@ -142,31 +143,29 @@ final class QingKeScheduleUITests: XCTestCase {
         let app = launchForTransferTest(
             fixture: "Shared/fixtures/valid/web-export.json"
         )
-        let testImportButton = app.buttons["schedule-import-test-file"]
-        scrollToElement(testImportButton, in: app)
-
-        let importFormat = app.descendants(matching: .any)["schedule-import-format"]
-        XCTAssertTrue(importFormat.exists)
-        XCTAssertTrue(importFormat.label.contains("仅支持青课 JSON 备份文件"))
-        XCTAssertTrue(importFormat.label.contains("暂不支持 Excel"))
-        XCTAssertTrue(app.buttons["schedule-import"].exists)
-        XCTAssertEqual(app.buttons["schedule-import"].label, "从 JSON 文件导入课表")
-        testImportButton.tap()
         XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(
             format: "label CONTAINS %@",
             "学期：2026 秋季学期"
         )).firstMatch.exists)
-        app.alerts.buttons["取消"].tap()
-        XCTAssertFalse(app.tabBars.buttons["今日"].exists)
-        XCTAssertTrue(testImportButton.exists)
+        app.buttons["取消"].tap()
+        XCTAssertFalse(app.buttons["today-tab"].exists)
 
-        testImportButton.tap()
+        let importButton = app.buttons["schedule-import"]
+        scrollToElement(importButton, in: app)
+        let importFormat = app.descendants(matching: .any)["schedule-import-format"]
+        XCTAssertTrue(importFormat.exists)
+        XCTAssertTrue(importFormat.label.contains("仅支持青课 JSON 备份文件"))
+        XCTAssertTrue(importFormat.label.contains("暂不支持 Excel"))
+        XCTAssertEqual(importButton.label, "从 JSON 文件导入课表")
+
+        app.terminate()
+        app.launch()
         XCTAssertTrue(app.buttons["替换当前课表"].waitForExistence(timeout: 5))
-        app.alerts.buttons["替换当前课表"].tap()
-        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+        app.buttons["替换当前课表"].tap()
+        XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
 
-        app.tabBars.buttons["设置"].tap()
+        app.buttons["settings-tab"].tap()
         let semesterName = app.textFields["semester-name"]
         XCTAssertTrue(semesterName.waitForExistence(timeout: 5))
         XCTAssertEqual(semesterName.value as? String, "2026 秋季学期")
@@ -181,18 +180,14 @@ final class QingKeScheduleUITests: XCTestCase {
         let app = launchForTransferTest(
             fixture: "Shared/fixtures/invalid/unknown-version.json"
         )
-        let testImportButton = app.buttons["schedule-import-test-file"]
-        scrollToElement(testImportButton, in: app)
-
-        testImportButton.tap()
-        XCTAssertTrue(app.alerts["无法导入课表"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.alerts.staticTexts.matching(NSPredicate(
+        XCTAssertTrue(app.staticTexts["无法导入课表"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(
             format: "label CONTAINS %@",
             "暂不支持版本 2"
         )).firstMatch.exists)
-        app.alerts.buttons["好"].tap()
-        XCTAssertFalse(app.tabBars.buttons["今日"].exists)
-        XCTAssertTrue(testImportButton.exists)
+        app.buttons["好"].tap()
+        XCTAssertFalse(app.buttons["today-tab"].exists)
+        XCTAssertTrue(app.staticTexts["onboarding-title"].exists)
     }
 
     @MainActor
@@ -207,9 +202,9 @@ final class QingKeScheduleUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
         app.buttons["semester-save-toolbar"].tap()
-        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
 
-        app.tabBars.buttons["设置"].tap()
+        app.buttons["settings-tab"].tap()
         let reminderToggle = app.switches["reminders-toggle"]
         scrollToElement(reminderToggle, in: app)
         XCTAssertEqual(reminderToggle.value as? String, "1")
@@ -222,9 +217,9 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(deniedStatus.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["system-notification-settings"].waitForExistence(timeout: 5))
 
-        app.tabBars.buttons["今日"].tap()
+        app.buttons["today-tab"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["today-empty"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["设置"].tap()
+        app.buttons["settings-tab"].tap()
 
         let reminderToggleAgain = app.switches["reminders-toggle"]
         scrollToElement(reminderToggleAgain, in: app)
@@ -257,8 +252,8 @@ final class QingKeScheduleUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
         app.buttons["semester-save-toolbar"].tap()
-        XCTAssertTrue(app.tabBars.buttons["设置"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["设置"].tap()
+        XCTAssertTrue(app.buttons["settings-tab"].waitForExistence(timeout: 5))
+        app.buttons["settings-tab"].tap()
 
         let picker = app.buttons["reminder-lead-minutes"]
         scrollToElement(picker, in: app)
@@ -281,7 +276,7 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["semester-name"].exists)
         app.buttons["semester-save-toolbar"].tap()
-        XCTAssertTrue(app.tabBars.buttons["今日"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
         return app
     }
 
@@ -294,10 +289,9 @@ final class QingKeScheduleUITests: XCTestCase {
         let fixtureURL = iosRootURL.appendingPathComponent(fixture)
         let contents = try! String(contentsOf: fixtureURL, encoding: .utf8)
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--ui-testing-transfer-controls"]
+        app.launchArguments = ["--ui-testing", "--ui-testing-auto-import"]
         app.launchEnvironment["UI_TEST_IMPORT_JSON"] = contents
         app.launch()
-        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
         return app
     }
 

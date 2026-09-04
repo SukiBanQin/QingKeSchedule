@@ -14,6 +14,7 @@ struct QingKeScheduleApp: App {
             let repository = SwiftDataScheduleRepository(context: ModelContext(container))
             let reminderSettingsStore: any ReminderSettingsStore
             let notificationClient: any NotificationCenterClient
+            let nowProvider: () -> Date
             if inMemory {
                 let notificationsDenied = ProcessInfo.processInfo.arguments.contains(
                     "--ui-testing-notifications-denied"
@@ -35,14 +36,22 @@ struct QingKeScheduleApp: App {
                     status: notificationsDenied ? .denied : .authorized,
                     authorizationResult: !notificationsDenied
                 )
+                let calendar = ScheduleRules.gregorianCalendar()
+                let fixedDate = ScheduleRules.localDate(
+                    from: "2026-09-04",
+                    calendar: calendar
+                ) ?? Date(timeIntervalSince1970: 1_788_451_200)
+                nowProvider = { fixedDate }
             } else {
                 reminderSettingsStore = UserDefaultsReminderSettingsStore()
                 notificationClient = UserNotificationCenterClient()
+                nowProvider = { Date() }
             }
             let notificationCoordinator = NotificationCoordinator(client: notificationClient)
             self.container = container
             _state = State(initialValue: ScheduleAppState(
                 repository: repository,
+                now: nowProvider,
                 reminderSettingsStore: reminderSettingsStore,
                 notificationCoordinator: notificationCoordinator
             ))

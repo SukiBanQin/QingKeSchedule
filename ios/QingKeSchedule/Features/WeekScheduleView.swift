@@ -228,6 +228,7 @@ struct WeekScheduleView: View {
                 matrixCanvas(width: proxy.size.width)
             }
             .frame(height: matrixCanvasHeight)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("week-matrix")
 
             Text("周一至周五已适配在一屏内；点按课程方块可直接编辑。")

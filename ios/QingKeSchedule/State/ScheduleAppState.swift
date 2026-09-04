@@ -16,6 +16,9 @@ final class ScheduleAppState {
     private(set) var notificationPermission: NotificationPermissionStatus = .notDetermined
     private(set) var lastNotificationReconciliation: NotificationReconciliation?
     private(set) var notificationDiagnostic: String?
+    private(set) var pendingImportPreview: ScheduleImportPreview?
+    private(set) var importFailure: String?
+    private(set) var importStatusMessage: String?
 
     @ObservationIgnored private let repository: any ScheduleRepository
     @ObservationIgnored private let nowProvider: () -> Date
@@ -114,6 +117,38 @@ final class ScheduleAppState {
 
     func previewImport(contents: Data) throws -> ScheduleImportPreview {
         try ScheduleDataTransfer.previewImport(contents: contents, calendar: calendar)
+    }
+
+    func prepareImport(contents: Data) {
+        importStatusMessage = nil
+        do {
+            pendingImportPreview = try previewImport(contents: contents)
+            importFailure = nil
+        } catch {
+            pendingImportPreview = nil
+            importFailure = error.localizedDescription
+        }
+    }
+
+    func presentImportFailure(_ message: String) {
+        importStatusMessage = nil
+        pendingImportPreview = nil
+        importFailure = message
+    }
+
+    func dismissImportPrompt() {
+        pendingImportPreview = nil
+        importFailure = nil
+    }
+
+    @discardableResult
+    func confirmPreparedImport() -> Int? {
+        guard let pendingImportPreview else { return nil }
+        let courseCount = pendingImportPreview.courseCount
+        guard confirmImport(pendingImportPreview) else { return nil }
+        dismissImportPrompt()
+        importStatusMessage = "已导入 \(courseCount) 门课程"
+        return courseCount
     }
 
     @discardableResult

@@ -8,7 +8,12 @@ struct ReminderSettingsSection: View {
     @State private var customLeadMinutes = 20
 
     var body: some View {
-        Section {
+        TerminalFormSection(
+            index: "03",
+            title: "上课提醒",
+            detail: "NOTIFY",
+            footer: "提醒仅保存在这台 iPhone，并按课程开始时间维护最近 60 条。"
+        ) {
             Toggle(
                 "上课提醒",
                 isOn: Binding(
@@ -25,8 +30,10 @@ struct ReminderSettingsSection: View {
             } message: {
                 Text("青课会请求系统通知权限，只用于在课程开始前显示课程名称、时间和教室。")
             }
+            .terminalControl()
 
             if state.reminderSettings.remindersEnabled {
+                TerminalFormDivider()
                 Picker(
                     "提醒时间",
                     selection: Binding(
@@ -41,9 +48,11 @@ struct ReminderSettingsSection: View {
                     Text("自定义…")
                         .tag(ReminderLeadSelection.custom)
                 }
+                .terminalControl()
                 .accessibilityIdentifier("reminder-lead-minutes")
 
                 if leadSelection == .custom {
+                    TerminalFormDivider()
                     Stepper(
                         "提前 \(customLeadMinutes) 分钟",
                         value: $customLeadMinutes,
@@ -55,6 +64,7 @@ struct ReminderSettingsSection: View {
                             usesCustomSelection: true
                         )
                     }
+                    .terminalControl()
                     .accessibilityIdentifier("reminder-custom-lead-minutes")
 
                     Text("可自定义 1–180 分钟；0 分钟请在上方选择“准时”。")
@@ -63,6 +73,7 @@ struct ReminderSettingsSection: View {
                 }
             }
 
+            TerminalFormDivider()
             HStack {
                 Image(systemName: statusSystemImage)
                     .accessibilityHidden(true)
@@ -70,21 +81,20 @@ struct ReminderSettingsSection: View {
                     .accessibilityIdentifier("reminders-status")
             }
             .foregroundStyle(statusColor)
+            .terminalControl()
 
             if state.reminderSettings.remindersEnabled,
                state.notificationPermission == .denied {
+                TerminalFormDivider()
                 Button {
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     openURL(url)
                 } label: {
                     Label("前往系统设置开启通知", systemImage: "gear")
                 }
+                .terminalControl()
                 .accessibilityIdentifier("system-notification-settings")
             }
-        } header: {
-            Text("上课提醒")
-        } footer: {
-            Text("提醒仅保存在这台 iPhone，并按课程开始时间维护最近 60 条。")
         }
         .onAppear(perform: synchronizeCustomLeadMinutes)
     }
