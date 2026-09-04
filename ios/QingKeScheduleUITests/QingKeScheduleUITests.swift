@@ -97,7 +97,12 @@ final class QingKeScheduleUITests: XCTestCase {
         let testImportButton = app.buttons["schedule-import-test-file"]
         scrollToElement(testImportButton, in: app)
 
+        let importFormat = app.descendants(matching: .any)["schedule-import-format"]
+        XCTAssertTrue(importFormat.exists)
+        XCTAssertTrue(importFormat.label.contains("仅支持青课 JSON 备份文件"))
+        XCTAssertTrue(importFormat.label.contains("暂不支持 Excel"))
         XCTAssertTrue(app.buttons["schedule-import"].exists)
+        XCTAssertEqual(app.buttons["schedule-import"].label, "从 JSON 文件导入课表")
         testImportButton.tap()
         XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(

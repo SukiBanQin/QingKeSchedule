@@ -12,10 +12,20 @@ struct DataTransferSection: View {
 
     var body: some View {
         Section {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("仅支持青课 JSON 备份文件", systemImage: "doc.badge.gearshape")
+                    .font(.headline)
+                Text("请选择扩展名为 .json 的青课课表备份；暂不支持 Excel（.xlsx / .xls）文件。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("schedule-import-format")
+
             Button {
                 importerPresented = true
             } label: {
-                Label("从文件导入课表", systemImage: "square.and.arrow.down")
+                Label("从 JSON 文件导入课表", systemImage: "square.and.arrow.down")
             }
             .accessibilityIdentifier("schedule-import")
 
@@ -45,7 +55,7 @@ struct DataTransferSection: View {
         } header: {
             Text("数据备份与迁移")
         } footer: {
-            Text("导入会先校验并要求确认；确认后将替换当前课表。卸载 App 可能清除本地数据，请定期导出备份。")
+            Text("JSON 导入会先校验并要求确认；确认后将替换当前课表。卸载 App 可能清除本地数据，请定期导出备份。")
         }
         .fileImporter(
             isPresented: $importerPresented,
