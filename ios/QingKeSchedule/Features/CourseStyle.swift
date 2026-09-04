@@ -392,4 +392,14 @@ enum ScheduleDisplayText {
         let end = semester.periods.first { $0.number == schedule.endPeriod }?.endTime ?? "--:--"
         return "\(start)–\(end)"
     }
+
+    static func weekMatrixSummary(periodCount: Int) -> String {
+        "MON–FRI / \(periodCount) PERIODS"
+    }
+
+    static func compactCourseDetails(course: CourseDTO, schedule: CourseScheduleDTO) -> String {
+        [schedule.classroom, course.teacher]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
 }

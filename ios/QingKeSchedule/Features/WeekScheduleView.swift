@@ -219,25 +219,27 @@ struct WeekScheduleView: View {
             TerminalSectionHeader(
                 index: "05",
                 title: "周视图",
-                detail: "MON–FRI / (matrixPresentation.periods.count) PERIODS"
+                detail: ScheduleDisplayText.weekMatrixSummary(
+                    periodCount: matrixPresentation.periods.count
+                )
             )
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                matrixCanvas
+            GeometryReader { proxy in
+                matrixCanvas(width: proxy.size.width)
             }
+            .frame(height: matrixCanvasHeight)
             .accessibilityIdentifier("week-matrix")
 
-            Text("横向滑动查看完整周课表；点按课程方块可直接编辑。")
+            Text("周一至周五已适配在一屏内；点按课程方块可直接编辑。")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var matrixCanvas: some View {
+    private func matrixCanvas(width: CGFloat) -> some View {
         let matrix = matrixPresentation
-        let width = matrixTimeColumnWidth + matrixDayColumnWidth * 5
-        let height = matrixHeaderHeight
-            + matrixRowHeight * CGFloat(matrix.periods.count)
+        let dayColumnWidth = max((width - matrixTimeColumnWidth) / 5, 1)
+        let height = matrixCanvasHeight
 
         return ZStack(alignment: .topLeading) {
             TerminalAcrylicSurface()
@@ -257,7 +259,7 @@ struct WeekScheduleView: View {
                     .frame(width: 1, height: height)
                     .offset(x: column == 0
                             ? matrixTimeColumnWidth
-                            : matrixTimeColumnWidth + CGFloat(column) * matrixDayColumnWidth)
+                            : matrixTimeColumnWidth + CGFloat(column) * dayColumnWidth)
             }
 
             Text("TIME")
@@ -268,10 +270,10 @@ struct WeekScheduleView: View {
 
             ForEach(0..<5, id: \.self) { dayColumn in
                 Text(ScheduleDisplayText.weekdayNames[dayColumn])
-                    .font(.terminal(10, weight: .black, relativeTo: .caption))
-                    .tracking(0.5)
-                    .frame(width: matrixDayColumnWidth, height: matrixHeaderHeight)
-                    .offset(x: matrixTimeColumnWidth + CGFloat(dayColumn) * matrixDayColumnWidth)
+                    .font(.terminal(9, weight: .black, relativeTo: .caption))
+                    .minimumScaleFactor(0.7)
+                    .frame(width: dayColumnWidth, height: matrixHeaderHeight)
+                    .offset(x: matrixTimeColumnWidth + CGFloat(dayColumn) * dayColumnWidth)
                     .accessibilityIdentifier("week-matrix-day-\(dayColumn + 1)")
             }
 
@@ -288,7 +290,7 @@ struct WeekScheduleView: View {
             }
 
             ForEach(matrix.items) { item in
-                matrixCourseBlock(item)
+                matrixCourseBlock(item, dayColumnWidth: dayColumnWidth)
             }
         }
         .frame(width: width, height: height)
@@ -298,8 +300,11 @@ struct WeekScheduleView: View {
         }
     }
 
-    private func matrixCourseBlock(_ item: WeekMatrixItem) -> some View {
-        let laneWidth = matrixDayColumnWidth / CGFloat(item.laneCount)
+    private func matrixCourseBlock(
+        _ item: WeekMatrixItem,
+        dayColumnWidth: CGFloat
+    ) -> some View {
+        let laneWidth = dayColumnWidth / CGFloat(item.laneCount)
         let accent = item.isConflicting
             ? QingKeTheme.signal
             : Color(courseHex: item.occurrence.course.color)
@@ -315,14 +320,19 @@ struct WeekScheduleView: View {
                         .foregroundStyle(QingKeTheme.signal)
                 }
                 Text(item.occurrence.course.name)
-                    .font(.terminal(11, weight: .bold, relativeTo: .caption))
+                    .font(.terminal(9, weight: .bold, relativeTo: .caption))
                     .lineLimit(item.rowSpan > 1 ? 2 : 1)
-                    .minimumScaleFactor(0.72)
-                if !item.occurrence.schedule.classroom.isEmpty {
-                    Text(item.occurrence.schedule.classroom)
-                        .font(.terminal(8, relativeTo: .caption2))
+                    .minimumScaleFactor(0.62)
+                let details = ScheduleDisplayText.compactCourseDetails(
+                    course: item.occurrence.course,
+                    schedule: item.occurrence.schedule
+                )
+                if !details.isEmpty {
+                    Text(details)
+                        .font(.terminal(7, relativeTo: .caption2))
                         .foregroundStyle(.white.opacity(0.62))
-                        .lineLimit(1)
+                        .lineLimit(item.rowSpan > 1 ? 2 : 1)
+                        .minimumScaleFactor(0.62)
                 }
             }
             .foregroundStyle(.white)
@@ -348,7 +358,7 @@ struct WeekScheduleView: View {
         .buttonStyle(.plain)
         .offset(
             x: matrixTimeColumnWidth
-                + CGFloat(item.dayColumn) * matrixDayColumnWidth
+                + CGFloat(item.dayColumn) * dayColumnWidth
                 + CGFloat(item.lane) * laneWidth
                 + 2,
             y: matrixHeaderHeight + CGFloat(item.startRow) * matrixRowHeight + 2
@@ -512,8 +522,11 @@ struct WeekScheduleView: View {
         return parts.joined(separator: "，")
     }
 
-    private var matrixTimeColumnWidth: CGFloat { 54 }
-    private var matrixDayColumnWidth: CGFloat { 124 }
+    private var matrixCanvasHeight: CGFloat {
+        matrixHeaderHeight + matrixRowHeight * CGFloat(matrixPresentation.periods.count)
+    }
+
+    private var matrixTimeColumnWidth: CGFloat { 44 }
     private var matrixHeaderHeight: CGFloat { 38 }
     private var matrixRowHeight: CGFloat { 68 }
 }

@@ -125,6 +125,19 @@ struct SchedulePresentationTests {
         ) == 18)
     }
 
+    @Test("周课表摘要和课程紧凑信息使用真实数据")
+    func weekMatrixLabels() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let course = try #require(data.courses.first { !$0.teacher.isEmpty })
+        let schedule = try #require(course.schedules.first { !$0.classroom.isEmpty })
+
+        #expect(ScheduleDisplayText.weekMatrixSummary(periodCount: 4) == "MON–FRI / 4 PERIODS")
+        #expect(
+            ScheduleDisplayText.compactCourseDetails(course: course, schedule: schedule)
+                == "\(schedule.classroom) · \(course.teacher)"
+        )
+    }
+
     private func date(
         _ year: Int,
         _ month: Int,
