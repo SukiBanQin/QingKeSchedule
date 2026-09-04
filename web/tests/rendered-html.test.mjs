@@ -41,18 +41,10 @@ test("server-renders the terminal-style Today concept", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("implements the complete interactive demo and keeps the previous concept archived", async () => {
-  const [page, css, archivePage, archiveCss, packageJson] = await Promise.all([
+test("implements the complete interactive terminal-style demo", async () => {
+  const [page, css, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(
-      new URL("../design-archive/p3r-concept/page.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../design-archive/p3r-concept/globals.css", import.meta.url),
-      "utf8",
-    ),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
@@ -81,7 +73,6 @@ test("implements the complete interactive demo and keeps the previous concept ar
     1,
     "course editor must expose one delete-course action",
   );
-  assert.doesNotMatch(page, /design-archive\/p3r-concept/);
   assert.match(css, /width:\s*min\(430px, 100%\)/);
   assert.match(css, /backdrop-filter:\s*blur\(28px\) saturate\(160%\)/);
   assert.match(css, /\.week-matrix\s*\{/);
@@ -102,8 +93,6 @@ test("implements the complete interactive demo and keeps the previous concept ar
   assert.match(css, /url\("\/qingke-logo-lockup\.png"\)/);
   assert.doesNotMatch(css, /mix-blend-mode:\s*multiply/);
 
-  assert.match(archivePage, /QINGKE \/ DAILY LOG/);
-  assert.match(archiveCss, /--blue-bright:/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 
   const logo = await readFile(

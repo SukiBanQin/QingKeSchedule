@@ -14,9 +14,6 @@ QingKe logo without background blending.
 Reminder settings keep the common presets and also support a custom lead time
 from 1 to 180 minutes.
 
-The earlier blue-and-white P3R-inspired concept remains frozen under
-`design-archive/p3r-concept/` for later review.
-
 ## Local preview
 
 Requires Node.js 22.13 or newer.
