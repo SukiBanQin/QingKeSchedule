@@ -4,8 +4,15 @@ struct TodayCourseItem: Equatable, Identifiable {
     let occurrence: CourseOccurrenceDTO
     let status: CourseStatus
     let isNext: Bool
+    let timingProgress: CourseTimingProgress?
 
     var id: String { occurrence.schedule.id }
+}
+
+struct CourseTimingProgress: Equatable {
+    let elapsedMinutes: Int
+    let remainingMinutes: Int
+    let fraction: Double
 }
 
 struct TodaySchedulePresentation: Equatable {
@@ -45,7 +52,14 @@ struct TodaySchedulePresentation: Equatable {
             TodayCourseItem(
                 occurrence: occurrence,
                 status: statuses[index],
-                isNext: index == nextIndex
+                isNext: index == nextIndex,
+                timingProgress: Self.timingProgress(
+                    occurrence: occurrence,
+                    status: statuses[index],
+                    semester: semester,
+                    now: now,
+                    calendar: calendar
+                )
             )
         }
 
@@ -55,6 +69,38 @@ struct TodaySchedulePresentation: Equatable {
         } else {
             emptyMessage = "当前日期不在这个学期内。"
         }
+    }
+
+    private static func timingProgress(
+        occurrence: CourseOccurrenceDTO,
+        status: CourseStatus,
+        semester: SemesterDTO,
+        now: Date,
+        calendar: Calendar
+    ) -> CourseTimingProgress? {
+        guard status == .ongoing,
+              let startPeriod = semester.periods.first(where: {
+                  $0.number == occurrence.schedule.startPeriod
+              }),
+              let endPeriod = semester.periods.first(where: {
+                  $0.number == occurrence.schedule.endPeriod
+              }),
+              let startMinutes = ScheduleRules.minutes(from: startPeriod.startTime),
+              let endMinutes = ScheduleRules.minutes(from: endPeriod.endTime)
+        else {
+            return nil
+        }
+
+        let time = calendar.dateComponents([.hour, .minute], from: now)
+        guard let hour = time.hour, let minute = time.minute else { return nil }
+        let currentMinutes = hour * 60 + minute
+        let duration = max(endMinutes - startMinutes, 1)
+        let elapsed = min(max(currentMinutes - startMinutes, 0), duration)
+        return CourseTimingProgress(
+            elapsedMinutes: elapsed,
+            remainingMinutes: max(endMinutes - currentMinutes, 0),
+            fraction: Double(elapsed) / Double(duration)
+        )
     }
 }
 

@@ -28,6 +28,13 @@ struct SchedulePresentationTests {
         ])
         #expect(presentation.items.map(\.status) == [.finished, .ongoing, .upcoming, .upcoming])
         #expect(presentation.items.filter(\.isNext).map(\.id) == ["schedule-alpha"])
+        let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
+        #expect(current.timingProgress == CourseTimingProgress(
+            elapsedMinutes: 46,
+            remainingMinutes: 64,
+            fraction: 46.0 / 110.0
+        ))
+        #expect(presentation.items.first?.timingProgress == nil)
     }
 
     @Test("学期外与学期内无课有不同空状态")
