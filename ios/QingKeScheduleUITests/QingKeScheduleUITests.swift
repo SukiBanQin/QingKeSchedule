@@ -19,6 +19,30 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testBothSemesterSaveActionsShowTerminalFeedback() throws {
+        let app = launchAndCreateSemester()
+        app.tabBars.buttons["设置"].tap()
+        XCTAssertTrue(app.navigationBars["学期与节次"].waitForExistence(timeout: 5))
+
+        let toast = app.descendants(matching: .any)["semester-save-success"]
+        app.buttons["semester-save-toolbar"].tap()
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.label.contains("学期与提醒设置已保存"))
+
+        let toastDisappeared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: toast
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [toastDisappeared], timeout: 5), .completed)
+
+        let mainSaveButton = app.buttons["semester-save"]
+        scrollToElement(mainSaveButton, in: app)
+        mainSaveButton.tap()
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        XCTAssertTrue(toast.label.contains("SYSTEM"))
+    }
+
+    @MainActor
     func testCourseCreateConflictEditWeekAndDeleteFlow() throws {
         let app = launchAndCreateSemester()
 

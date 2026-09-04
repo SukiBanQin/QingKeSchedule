@@ -100,13 +100,6 @@ struct SemesterFormView: View {
                 }
             }
 
-            if let savedMessage {
-                Section {
-                    Label(savedMessage, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-            }
-
             if !isOnboarding, let dataTransferState {
                 ReminderSettingsSection(state: dataTransferState)
             }
@@ -147,6 +140,16 @@ struct SemesterFormView: View {
         .background { TerminalBackdrop() }
         .tint(QingKeTheme.cyan)
         .navigationTitle(isOnboarding ? "首次设置" : "学期与节次")
+        .overlay(alignment: .bottom) {
+            if let savedMessage {
+                TerminalToast(message: savedMessage)
+                    .accessibilityIdentifier("semester-save-success")
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.22), value: savedMessage)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(isOnboarding ? "继续" : "保存") {
@@ -203,7 +206,13 @@ struct SemesterFormView: View {
         guard issues.isEmpty else { return }
 
         if onSave(draft.semester()), !isOnboarding {
-            savedMessage = "设置已保存"
+            let message = "SYSTEM // 学期与提醒设置已保存"
+            savedMessage = message
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+                if savedMessage == message {
+                    savedMessage = nil
+                }
+            }
         }
     }
 }

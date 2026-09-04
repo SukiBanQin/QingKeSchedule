@@ -190,6 +190,43 @@ struct TerminalStatusTag: View {
     }
 }
 
+struct TerminalToast: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(QingKeTheme.signal)
+                .frame(width: 7, height: 7)
+
+            Text(message)
+                .font(.terminal(11, weight: .bold, relativeTo: .caption))
+                .tracking(0.7)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "checkmark")
+                .font(.caption.bold())
+                .foregroundStyle(QingKeTheme.signal)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 46)
+        .background(QingKeTheme.ink.opacity(0.94))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(QingKeTheme.signal)
+                .frame(width: 4)
+        }
+        .overlay {
+            Rectangle()
+                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.24), radius: 14, y: 7)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct TerminalFloatingAction: View {
     let accessibilityIdentifier: String
     let action: () -> Void
