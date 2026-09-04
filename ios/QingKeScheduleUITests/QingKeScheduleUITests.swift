@@ -39,6 +39,7 @@ final class QingKeScheduleUITests: XCTestCase {
 
         app.tabBars.buttons["课表"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["add-course-week-toolbar"].isHittable)
         XCTAssertTrue(app.staticTexts["课程 A"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["冲突"].firstMatch.exists)
 
