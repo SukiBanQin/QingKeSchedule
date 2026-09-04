@@ -95,18 +95,61 @@ struct SchedulePresentationTests {
         let matrix = WeekMatrixPresentation(semester: semester, days: oddWeek.days)
         #expect(matrix.periods.map(\.number) == [1, 2, 3, 4])
         #expect(matrix.items.count == 6)
-        let every = try #require(matrix.items.first { $0.id == "schedule-every" })
-        let odd = try #require(matrix.items.first { $0.id == "schedule-odd" })
+        let every = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-every"
+        })
+        let odd = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-odd"
+        })
         #expect(every.dayColumn == 0)
         #expect(every.startRow == 0)
         #expect(every.rowSpan == 2)
         #expect(every.laneCount == 2)
         #expect(odd.lane != every.lane)
-        let wednesday = try #require(matrix.items.first { $0.id == "schedule-wednesday" })
+        let wednesday = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-wednesday"
+        })
         #expect(wednesday.dayColumn == 2)
         #expect(wednesday.startRow == 2)
         #expect(wednesday.rowSpan == 1)
         #expect(wednesday.laneCount == 1)
+    }
+
+    @Test("停课日不显示课程，调课日按指定星期课表展示")
+    func calendarExceptionsAffectTodayAndWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let monday = try date(2026, 8, 31, hour: 9)
+        let saturday = try date(2026, 9, 5)
+        var settings = AcademicCalendarSettings.defaults
+        settings.setNonTeaching(monday, calendar: calendar)
+        settings.setMakeupTeachingDay(saturday, followsDayOfWeek: 1, calendar: calendar)
+
+        let today = TodaySchedulePresentation(
+            semester: semester,
+            courses: data.courses,
+            now: monday,
+            academicCalendarSettings: settings,
+            calendar: calendar
+        )
+        #expect(today.isNonTeachingDay)
+        #expect(today.items.isEmpty)
+        #expect(today.emptyMessage.contains("停课"))
+
+        let week = WeekSchedulePresentation(
+            week: 1,
+            semester: semester,
+            courses: data.courses,
+            now: monday,
+            academicCalendarSettings: settings,
+            calendar: calendar
+        )
+        #expect(week.days[0].isNonTeachingDay)
+        #expect(week.days[0].items.isEmpty)
+        #expect(week.days[5].scheduleSourceDayOfWeek == 1)
+        #expect(!week.days[5].isNonTeachingDay)
+        #expect(week.days[5].items.map(\.occurrence.course.id).contains("course-every"))
+        #expect(week.days[5].items.allSatisfy { $0.displayDayOfWeek == 6 })
     }
 
     @Test("默认周次限制在学期范围内")

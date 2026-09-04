@@ -7,7 +7,7 @@ struct DataTransferSection: View {
     @State private var importerPresented = false
     var body: some View {
         TerminalFormSection(
-            index: "04",
+            index: "05",
             title: "数据备份",
             detail: "TRANSFER",
             footer: "JSON 导入会先校验并要求确认；确认后将替换当前课表。卸载 App 可能清除本地数据，请定期导出备份。"

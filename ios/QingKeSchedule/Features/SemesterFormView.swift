@@ -78,6 +78,13 @@ struct SemesterFormView: View {
                             .accessibilityIdentifier("add-period")
                         }
 
+                        if let dataTransferState {
+                            AcademicCalendarSettingsSection(
+                                state: dataTransferState,
+                                initialDate: draft.startDate
+                            )
+                        }
+
                         if let issue = issues.first {
                             Label(issue.message, systemImage: "exclamationmark.triangle.fill")
                                 .foregroundStyle(QingKeTheme.danger)
@@ -300,6 +307,211 @@ struct SemesterFormView: View {
                     savedMessage = nil
                 }
             }
+        }
+    }
+}
+
+private struct AcademicCalendarSettingsSection: View {
+    @Bindable var state: ScheduleAppState
+    @State private var selectedDate: Date
+    @State private var followsDayOfWeek = 1
+    @State private var mode = ExceptionMode.nonTeaching
+    @State private var calendarExpanded = false
+
+    init(state: ScheduleAppState, initialDate: Date) {
+        self.state = state
+        _selectedDate = State(initialValue: initialDate)
+    }
+
+    var body: some View {
+        TerminalFormSection(
+            index: "03",
+            title: "教学日历",
+            detail: "CALENDAR",
+            footer: "停课日优先级最高；调课日可指定按某个星期的课表上课，适用于节假日调休。"
+        ) {
+            Toggle(
+                "周末默认不上课",
+                isOn: Binding(
+                    get: { state.academicCalendarSettings.weekendsAreNonTeachingDays },
+                    set: state.setWeekendsAreNonTeachingDays
+                )
+            )
+            .terminalControl()
+            .accessibilityIdentifier("weekends-non-teaching-toggle")
+
+            TerminalFormDivider()
+
+            HStack(spacing: 8) {
+                modeButton(.nonTeaching)
+                modeButton(.makeup)
+            }
+            .padding(.vertical, 10)
+
+            TerminalFormDivider()
+
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    calendarExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("日期")
+                    Spacer()
+                    Text(selectedDate.formatted(
+                        .dateTime.locale(Locale(identifier: "zh_CN")).year().month().day()
+                    ))
+                    .foregroundStyle(.secondary)
+                    Image(systemName: calendarExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.bold())
+                }
+                .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+            .terminalControl()
+            .accessibilityIdentifier("calendar-exception-date")
+
+            if calendarExpanded {
+                TerminalFormDivider()
+                DatePicker(
+                    "日期",
+                    selection: $selectedDate,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .tint(QingKeTheme.signal)
+                .accessibilityIdentifier("calendar-exception-date-picker")
+            }
+
+            if mode == .makeup {
+                TerminalFormDivider()
+                Picker("按课表上课", selection: $followsDayOfWeek) {
+                    ForEach(1...7, id: \.self) { day in
+                        Text(ScheduleDisplayText.weekdayNames[day - 1]).tag(day)
+                    }
+                }
+                .terminalControl()
+                .accessibilityIdentifier("makeup-source-weekday")
+            }
+
+            TerminalFormDivider()
+
+            Button(action: addException) {
+                Text(mode == .nonTeaching ? "添加停课日" : "添加调课日")
+                    .font(.headline)
+                    .foregroundStyle(QingKeTheme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(QingKeTheme.signal)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("add-calendar-exception")
+
+            if !state.academicCalendarSettings.nonTeachingDates.isEmpty {
+                TerminalFormDivider()
+                exceptionHeader("停课日 / OFF")
+                ForEach(state.academicCalendarSettings.nonTeachingDates, id: \.self) { date in
+                    exceptionRow(date: date, detail: "不显示课程") {
+                        state.removeNonTeachingDate(date)
+                    }
+                }
+            }
+
+            if !state.academicCalendarSettings.makeupTeachingDays.isEmpty {
+                TerminalFormDivider()
+                exceptionHeader("调课日 / MAKEUP")
+                ForEach(state.academicCalendarSettings.makeupTeachingDays) { day in
+                    exceptionRow(
+                        date: day.date,
+                        detail: "按\(ScheduleDisplayText.weekdayNames[day.followsDayOfWeek - 1])课表"
+                    ) {
+                        state.removeMakeupTeachingDay(day.date)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("academic-calendar-settings")
+    }
+
+    private func modeButton(_ candidate: ExceptionMode) -> some View {
+        Button {
+            mode = candidate
+        } label: {
+            Text(candidate.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(mode == candidate ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 42)
+                .background(mode == candidate ? QingKeTheme.ink : Color.clear)
+                .overlay {
+                    Rectangle().stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(mode == candidate ? .isSelected : [])
+    }
+
+    private func exceptionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.terminal(9, weight: .black, relativeTo: .caption2))
+            .tracking(1)
+            .foregroundStyle(.secondary)
+            .padding(.top, 12)
+    }
+
+    private func exceptionRow(
+        date: String,
+        detail: String,
+        onDelete: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(localizedDate(date))
+                    .font(.headline)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("删除 \(localizedDate(date))")
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func addException() {
+        switch mode {
+        case .nonTeaching:
+            state.addNonTeachingDate(selectedDate)
+        case .makeup:
+            state.addMakeupTeachingDay(selectedDate, followsDayOfWeek: followsDayOfWeek)
+        }
+        calendarExpanded = false
+    }
+
+    private func localizedDate(_ value: String) -> String {
+        guard let date = ScheduleRules.localDate(from: value, calendar: state.calendar) else {
+            return value
+        }
+        return date.formatted(
+            .dateTime.locale(Locale(identifier: "zh_CN")).year().month().day().weekday()
+        )
+    }
+}
+
+private enum ExceptionMode: Equatable {
+    case nonTeaching
+    case makeup
+
+    var title: String {
+        switch self {
+        case .nonTeaching: "停课日"
+        case .makeup: "调课上课"
         }
     }
 }

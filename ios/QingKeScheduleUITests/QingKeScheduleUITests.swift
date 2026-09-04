@@ -16,6 +16,10 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["semester-save-toolbar"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].exists)
         XCTAssertTrue(app.textFields["semester-name"].exists)
+        let calendarSettings = app.descendants(matching: .any)["academic-calendar-settings"]
+        scrollToElement(calendarSettings, in: app)
+        XCTAssertTrue(calendarSettings.exists)
+        XCTAssertTrue(app.switches["weekends-non-teaching-toggle"].exists)
     }
 
     @MainActor

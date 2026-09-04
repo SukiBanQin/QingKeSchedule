@@ -86,6 +86,168 @@ final class InMemoryReminderSettingsStore: ReminderSettingsStore {
     }
 }
 
+enum AcademicDayResolution: Equatable, Sendable {
+    case teaching(sourceDayOfWeek: Int, isMakeup: Bool)
+    case nonTeaching(reason: String)
+}
+
+struct MakeupTeachingDay: Codable, Equatable, Hashable, Identifiable, Sendable {
+    var date: String
+    var followsDayOfWeek: Int
+
+    var id: String { date }
+}
+
+struct AcademicCalendarSettings: Codable, Equatable, Sendable {
+    var weekendsAreNonTeachingDays: Bool
+    var nonTeachingDates: [String]
+    var makeupTeachingDays: [MakeupTeachingDay]
+
+    static let defaults = AcademicCalendarSettings(
+        weekendsAreNonTeachingDays: false,
+        nonTeachingDates: [],
+        makeupTeachingDays: []
+    )
+
+    func resolution(for date: Date, calendar: Calendar) -> AcademicDayResolution {
+        let dateString = Self.dateString(from: date, calendar: calendar)
+        if nonTeachingDates.contains(dateString) {
+            return .nonTeaching(reason: "已设为停课日")
+        }
+        if let makeup = makeupTeachingDays.first(where: { $0.date == dateString }) {
+            return .teaching(sourceDayOfWeek: makeup.followsDayOfWeek, isMakeup: true)
+        }
+
+        let dayOfWeek = Self.dayOfWeek(for: date, calendar: calendar)
+        if weekendsAreNonTeachingDays, dayOfWeek >= 6 {
+            return .nonTeaching(reason: "周末默认停课")
+        }
+        return .teaching(sourceDayOfWeek: dayOfWeek, isMakeup: false)
+    }
+
+    mutating func setNonTeaching(_ date: Date, calendar: Calendar) {
+        let dateString = Self.dateString(from: date, calendar: calendar)
+        guard ScheduleRules.localDate(from: dateString, calendar: calendar) != nil else { return }
+        makeupTeachingDays.removeAll { $0.date == dateString }
+        if !nonTeachingDates.contains(dateString) {
+            nonTeachingDates.append(dateString)
+            nonTeachingDates.sort()
+        }
+    }
+
+    mutating func removeNonTeachingDate(_ dateString: String) {
+        nonTeachingDates.removeAll { $0 == dateString }
+    }
+
+    mutating func setMakeupTeachingDay(
+        _ date: Date,
+        followsDayOfWeek: Int,
+        calendar: Calendar
+    ) {
+        guard (1...7).contains(followsDayOfWeek) else { return }
+        let dateString = Self.dateString(from: date, calendar: calendar)
+        guard ScheduleRules.localDate(from: dateString, calendar: calendar) != nil else { return }
+        nonTeachingDates.removeAll { $0 == dateString }
+        makeupTeachingDays.removeAll { $0.date == dateString }
+        makeupTeachingDays.append(MakeupTeachingDay(
+            date: dateString,
+            followsDayOfWeek: followsDayOfWeek
+        ))
+        makeupTeachingDays.sort { $0.date < $1.date }
+    }
+
+    mutating func removeMakeupTeachingDay(_ dateString: String) {
+        makeupTeachingDays.removeAll { $0.date == dateString }
+    }
+
+    func sanitized(calendar: Calendar) -> AcademicCalendarSettings {
+        let validNonTeachingDates = Set(nonTeachingDates.filter {
+            ScheduleRules.localDate(from: $0, calendar: calendar) != nil
+        })
+        var validMakeupByDate: [String: MakeupTeachingDay] = [:]
+        for day in makeupTeachingDays where
+            ScheduleRules.localDate(from: day.date, calendar: calendar) != nil
+                && (1...7).contains(day.followsDayOfWeek)
+                && !validNonTeachingDates.contains(day.date) {
+            validMakeupByDate[day.date] = day
+        }
+        return AcademicCalendarSettings(
+            weekendsAreNonTeachingDays: weekendsAreNonTeachingDays,
+            nonTeachingDates: validNonTeachingDates.sorted(),
+            makeupTeachingDays: validMakeupByDate.values.sorted { $0.date < $1.date }
+        )
+    }
+
+    static func dateString(from date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+    }
+
+    private static func dayOfWeek(for date: Date, calendar: Calendar) -> Int {
+        let sundayBasedWeekday = calendar.component(.weekday, from: date)
+        return sundayBasedWeekday == 1 ? 7 : sundayBasedWeekday - 1
+    }
+}
+
+@MainActor
+protocol AcademicCalendarSettingsStore: AnyObject {
+    func load() -> AcademicCalendarSettings
+    func save(_ settings: AcademicCalendarSettings)
+}
+
+@MainActor
+final class UserDefaultsAcademicCalendarSettingsStore: AcademicCalendarSettingsStore {
+    private static let key = "academicCalendarSettings"
+
+    private let defaults: UserDefaults
+    private let calendar: Calendar
+
+    init(
+        defaults: UserDefaults = .standard,
+        calendar: Calendar = ScheduleRules.gregorianCalendar()
+    ) {
+        self.defaults = defaults
+        self.calendar = calendar
+    }
+
+    func load() -> AcademicCalendarSettings {
+        guard
+            let data = defaults.data(forKey: Self.key),
+            let decoded = try? JSONDecoder().decode(AcademicCalendarSettings.self, from: data)
+        else {
+            return .defaults
+        }
+        return decoded.sanitized(calendar: calendar)
+    }
+
+    func save(_ settings: AcademicCalendarSettings) {
+        let sanitized = settings.sanitized(calendar: calendar)
+        if let data = try? JSONEncoder().encode(sanitized) {
+            defaults.set(data, forKey: Self.key)
+        }
+    }
+}
+
+@MainActor
+final class InMemoryAcademicCalendarSettingsStore: AcademicCalendarSettingsStore {
+    private var settings: AcademicCalendarSettings
+
+    init(settings: AcademicCalendarSettings = .defaults) {
+        self.settings = settings
+    }
+
+    func load() -> AcademicCalendarSettings { settings }
+
+    func save(_ settings: AcademicCalendarSettings) {
+        self.settings = settings
+    }
+}
+
 actor InMemoryNotificationCenterClient: NotificationCenterClient {
     private var status: NotificationPermissionStatus
     private let authorizationResult: Bool

@@ -4,6 +4,7 @@ struct TodayScheduleView: View {
     let semester: SemesterDTO
     let courses: [CourseDTO]
     let now: Date
+    let academicCalendarSettings: AcademicCalendarSettings
     let calendar: Calendar
     let onAddCourse: () -> Void
     let onSelectCourse: (CourseDTO) -> Void
@@ -13,6 +14,7 @@ struct TodayScheduleView: View {
             semester: semester,
             courses: courses,
             now: now,
+            academicCalendarSettings: academicCalendarSettings,
             calendar: calendar
         )
     }

@@ -9,7 +9,7 @@ struct ReminderSettingsSection: View {
 
     var body: some View {
         TerminalFormSection(
-            index: "03",
+            index: "04",
             title: "上课提醒",
             detail: "NOTIFY",
             footer: "提醒仅保存在这台 iPhone，并按课程开始时间维护最近 60 条。"

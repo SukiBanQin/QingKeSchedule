@@ -83,6 +83,7 @@ private struct MainTabView: View {
                         semester: semester,
                         courses: state.courses,
                         now: state.now,
+                        academicCalendarSettings: state.academicCalendarSettings,
                         calendar: state.calendar,
                         onAddCourse: presentCourseCreation,
                         onSelectCourse: {
@@ -96,6 +97,7 @@ private struct MainTabView: View {
                         semester: semester,
                         courses: state.courses,
                         now: state.now,
+                        academicCalendarSettings: state.academicCalendarSettings,
                         calendar: state.calendar,
                         onAddCourse: presentCourseCreation,
                         onSelectCourse: {

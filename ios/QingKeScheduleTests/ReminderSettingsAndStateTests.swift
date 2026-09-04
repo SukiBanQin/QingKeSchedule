@@ -45,6 +45,90 @@ struct ReminderSettingsAndStateTests {
         #expect(store.load().usesCustomLeadTime)
     }
 
+    @Test("教学日历持久化会去重并丢弃无效日期")
+    func academicCalendarRoundTripAndSanitization() throws {
+        let suiteName = "AcademicCalendarSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsAcademicCalendarSettingsStore(
+            defaults: defaults,
+            calendar: calendar
+        )
+
+        #expect(store.load() == .defaults)
+        defaults.set(try JSONEncoder().encode(AcademicCalendarSettings(
+            weekendsAreNonTeachingDays: true,
+            nonTeachingDates: ["2026-10-01", "2026-10-01", "invalid"],
+            makeupTeachingDays: [
+                MakeupTeachingDay(date: "2026-10-01", followsDayOfWeek: 1),
+                MakeupTeachingDay(date: "2026-10-10", followsDayOfWeek: 3),
+                MakeupTeachingDay(date: "2026-10-11", followsDayOfWeek: 8),
+            ]
+        )), forKey: "academicCalendarSettings")
+
+        #expect(store.load() == AcademicCalendarSettings(
+            weekendsAreNonTeachingDays: true,
+            nonTeachingDates: ["2026-10-01"],
+            makeupTeachingDays: [
+                MakeupTeachingDay(date: "2026-10-10", followsDayOfWeek: 3),
+            ]
+        ))
+    }
+
+    @Test("停课日优先于调课和周末规则")
+    func academicDayResolutionPriority() throws {
+        let saturday = try #require(ScheduleRules.localDate(
+            from: "2026-09-05",
+            calendar: calendar
+        ))
+        var settings = AcademicCalendarSettings.defaults
+        settings.weekendsAreNonTeachingDays = true
+        #expect(settings.resolution(for: saturday, calendar: calendar)
+                == .nonTeaching(reason: "周末默认停课"))
+
+        settings.setMakeupTeachingDay(saturday, followsDayOfWeek: 1, calendar: calendar)
+        #expect(settings.resolution(for: saturday, calendar: calendar)
+                == .teaching(sourceDayOfWeek: 1, isMakeup: true))
+
+        settings.setNonTeaching(saturday, calendar: calendar)
+        #expect(settings.makeupTeachingDays.isEmpty)
+        #expect(settings.resolution(for: saturday, calendar: calendar)
+                == .nonTeaching(reason: "已设为停课日"))
+    }
+
+    @Test("修改教学日历会保存并重新对齐提醒")
+    func academicCalendarChangesTriggerReconciliation() async throws {
+        let repository = TestScheduleRepository()
+        let settingsStore = InMemoryAcademicCalendarSettingsStore()
+        let coordinator = RecordingNotificationCoordinator(status: .authorized)
+        let state = ScheduleAppState(
+            repository: repository,
+            calendar: calendar,
+            academicCalendarSettingsStore: settingsStore,
+            notificationCoordinator: coordinator
+        )
+        let date = try #require(ScheduleRules.localDate(
+            from: "2026-10-01",
+            calendar: calendar
+        ))
+
+        state.load()
+        await state.waitForNotificationWork()
+        state.setWeekendsAreNonTeachingDays(true)
+        await state.waitForNotificationWork()
+        state.addNonTeachingDate(date)
+        await state.waitForNotificationWork()
+
+        let expected = AcademicCalendarSettings(
+            weekendsAreNonTeachingDays: true,
+            nonTeachingDates: ["2026-10-01"],
+            makeupTeachingDays: []
+        )
+        #expect(state.academicCalendarSettings == expected)
+        #expect(settingsStore.load() == expected)
+        #expect(await coordinator.recordedCalls().last?.academicCalendarSettings == expected)
+    }
+
     @Test("加载、课表变更、提前量和回到前台都会对齐提醒")
     func scheduleChangesTriggerReconciliation() async throws {
         let fixture = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
@@ -206,6 +290,7 @@ private struct NotificationStateCall: Equatable, Sendable {
     let data: ScheduleDataDTO
     let remindersEnabled: Bool
     let leadMinutes: Int
+    let academicCalendarSettings: AcademicCalendarSettings
 }
 
 private actor RecordingNotificationCoordinator: NotificationCoordinating {
@@ -234,13 +319,15 @@ private actor RecordingNotificationCoordinator: NotificationCoordinating {
         data: ScheduleDataDTO,
         remindersEnabled: Bool,
         leadMinutes: Int,
+        academicCalendarSettings: AcademicCalendarSettings,
         now: Date,
         calendar: Calendar
     ) async throws -> NotificationReconciliation {
         calls.append(NotificationStateCall(
             data: data,
             remindersEnabled: remindersEnabled,
-            leadMinutes: leadMinutes
+            leadMinutes: leadMinutes,
+            academicCalendarSettings: academicCalendarSettings
         ))
         return NotificationReconciliation(
             permissionStatus: status,
@@ -268,6 +355,7 @@ private actor FailingNotificationCoordinator: NotificationCoordinating {
         data: ScheduleDataDTO,
         remindersEnabled: Bool,
         leadMinutes: Int,
+        academicCalendarSettings: AcademicCalendarSettings,
         now: Date,
         calendar: Calendar
     ) async throws -> NotificationReconciliation {

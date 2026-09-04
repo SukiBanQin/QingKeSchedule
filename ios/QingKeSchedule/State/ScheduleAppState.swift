@@ -13,6 +13,7 @@ final class ScheduleAppState {
     private(set) var isLoaded = false
     var presentedError: String?
     private(set) var reminderSettings: ReminderSettings
+    private(set) var academicCalendarSettings: AcademicCalendarSettings
     private(set) var notificationPermission: NotificationPermissionStatus = .notDetermined
     private(set) var lastNotificationReconciliation: NotificationReconciliation?
     private(set) var notificationDiagnostic: String?
@@ -24,6 +25,7 @@ final class ScheduleAppState {
     @ObservationIgnored private let nowProvider: () -> Date
     @ObservationIgnored let calendar: Calendar
     @ObservationIgnored private let reminderSettingsStore: any ReminderSettingsStore
+    @ObservationIgnored private let academicCalendarSettingsStore: any AcademicCalendarSettingsStore
     @ObservationIgnored private let notificationCoordinator: (any NotificationCoordinating)?
     @ObservationIgnored private var notificationTask: Task<Void, Never>?
     @ObservationIgnored private let notificationLogger = Logger(
@@ -36,15 +38,20 @@ final class ScheduleAppState {
         calendar: Calendar = ScheduleRules.gregorianCalendar(),
         now: @escaping () -> Date = { Date() },
         reminderSettingsStore: (any ReminderSettingsStore)? = nil,
+        academicCalendarSettingsStore: (any AcademicCalendarSettingsStore)? = nil,
         notificationCoordinator: (any NotificationCoordinating)? = nil
     ) {
         let resolvedReminderSettingsStore = reminderSettingsStore
             ?? InMemoryReminderSettingsStore()
+        let resolvedAcademicCalendarSettingsStore = academicCalendarSettingsStore
+            ?? InMemoryAcademicCalendarSettingsStore()
         self.repository = repository
         self.calendar = calendar
         self.nowProvider = now
         self.reminderSettingsStore = resolvedReminderSettingsStore
         self.reminderSettings = resolvedReminderSettingsStore.load()
+        self.academicCalendarSettingsStore = resolvedAcademicCalendarSettingsStore
+        self.academicCalendarSettings = resolvedAcademicCalendarSettingsStore.load()
         self.notificationCoordinator = notificationCoordinator
     }
 
@@ -190,6 +197,36 @@ final class ScheduleAppState {
         scheduleNotificationReconciliation()
     }
 
+    func setWeekendsAreNonTeachingDays(_ enabled: Bool) {
+        guard academicCalendarSettings.weekendsAreNonTeachingDays != enabled else { return }
+        academicCalendarSettings.weekendsAreNonTeachingDays = enabled
+        persistAcademicCalendarSettings()
+    }
+
+    func addNonTeachingDate(_ date: Date) {
+        academicCalendarSettings.setNonTeaching(date, calendar: calendar)
+        persistAcademicCalendarSettings()
+    }
+
+    func removeNonTeachingDate(_ dateString: String) {
+        academicCalendarSettings.removeNonTeachingDate(dateString)
+        persistAcademicCalendarSettings()
+    }
+
+    func addMakeupTeachingDay(_ date: Date, followsDayOfWeek: Int) {
+        academicCalendarSettings.setMakeupTeachingDay(
+            date,
+            followsDayOfWeek: followsDayOfWeek,
+            calendar: calendar
+        )
+        persistAcademicCalendarSettings()
+    }
+
+    func removeMakeupTeachingDay(_ dateString: String) {
+        academicCalendarSettings.removeMakeupTeachingDay(dateString)
+        persistAcademicCalendarSettings()
+    }
+
     func appBecameActive() {
         guard isLoaded else { return }
         scheduleNotificationReconciliation()
@@ -222,11 +259,17 @@ final class ScheduleAppState {
         }
     }
 
+    private func persistAcademicCalendarSettings() {
+        academicCalendarSettingsStore.save(academicCalendarSettings)
+        scheduleNotificationReconciliation()
+    }
+
     private func scheduleNotificationReconciliation(requestAuthorization: Bool = false) {
         guard let notificationCoordinator else { return }
         notificationTask?.cancel()
         let dataSnapshot = data
         let settingsSnapshot = reminderSettings
+        let academicCalendarSettingsSnapshot = academicCalendarSettings
         let nowSnapshot = nowProvider()
         let calendarSnapshot = calendar
 
@@ -240,6 +283,7 @@ final class ScheduleAppState {
                     data: dataSnapshot,
                     remindersEnabled: settingsSnapshot.remindersEnabled,
                     leadMinutes: settingsSnapshot.reminderLeadMinutes,
+                    academicCalendarSettings: academicCalendarSettingsSnapshot,
                     now: nowSnapshot,
                     calendar: calendarSnapshot
                 )

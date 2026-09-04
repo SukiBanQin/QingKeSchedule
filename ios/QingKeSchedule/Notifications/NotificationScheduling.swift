@@ -50,6 +50,7 @@ protocol NotificationCoordinating: Sendable {
         data: ScheduleDataDTO,
         remindersEnabled: Bool,
         leadMinutes: Int,
+        academicCalendarSettings: AcademicCalendarSettings,
         now: Date,
         calendar: Calendar
     ) async throws -> NotificationReconciliation
@@ -71,6 +72,7 @@ enum CourseNotificationPlanner {
         leadMinutes: Int,
         after now: Date,
         limit: Int,
+        academicCalendarSettings: AcademicCalendarSettings = .defaults,
         calendar: Calendar
     ) -> [CourseNotificationRequest] {
         guard let semester = data.semester, limit > 0 else { return [] }
@@ -93,47 +95,59 @@ enum CourseNotificationPlanner {
 
                 for week in schedule.startWeek...schedule.endWeek
                 where ScheduleRules.scheduleApplies(schedule, inWeek: week) {
-                    guard
-                        let courseDate = ScheduleRules.date(
-                            forTeachingWeek: week,
-                            dayOfWeek: schedule.dayOfWeek,
-                            semester: semester,
-                            calendar: calendar
-                        ),
-                        let startDate = date(
-                            courseDate,
-                            atMinutesAfterMidnight: startMinutes,
-                            calendar: calendar
-                        ),
-                        let fireDate = calendar.date(
-                            byAdding: .minute,
-                            value: -safeLeadMinutes,
-                            to: startDate
-                        ),
-                        fireDate > now
-                    else {
-                        continue
-                    }
-
-                    let timeRange = "\(startPeriod.startTime)–\(endPeriod.endTime)"
-                    let classroom = schedule.classroom.trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    )
-                    let body = classroom.isEmpty
-                        ? timeRange
-                        : "\(timeRange) · \(classroom)"
-                    requests.append(
-                        CourseNotificationRequest(
-                            identifier: identifier(
-                                courseID: course.id,
-                                scheduleID: schedule.id,
-                                teachingWeek: week
+                    for displayedDayOfWeek in 1...7 {
+                        guard
+                            let courseDate = ScheduleRules.date(
+                                forTeachingWeek: week,
+                                dayOfWeek: displayedDayOfWeek,
+                                semester: semester,
+                                calendar: calendar
                             ),
-                            title: course.name,
-                            body: body,
-                            fireDate: fireDate
+                            case .teaching(let sourceDayOfWeek, let isMakeup) =
+                                academicCalendarSettings.resolution(
+                                    for: courseDate,
+                                    calendar: calendar
+                                ),
+                            sourceDayOfWeek == schedule.dayOfWeek,
+                            let startDate = date(
+                                courseDate,
+                                atMinutesAfterMidnight: startMinutes,
+                                calendar: calendar
+                            ),
+                            let fireDate = calendar.date(
+                                byAdding: .minute,
+                                value: -safeLeadMinutes,
+                                to: startDate
+                            ),
+                            fireDate > now
+                        else {
+                            continue
+                        }
+
+                        let timeRange = "\(startPeriod.startTime)–\(endPeriod.endTime)"
+                        let classroom = schedule.classroom.trimmingCharacters(
+                            in: .whitespacesAndNewlines
                         )
-                    )
+                        let body = classroom.isEmpty
+                            ? timeRange
+                            : "\(timeRange) · \(classroom)"
+                        let baseIdentifier = identifier(
+                            courseID: course.id,
+                            scheduleID: schedule.id,
+                            teachingWeek: week
+                        )
+                        let requestIdentifier = isMakeup
+                            ? "\(baseIdentifier).date.\(AcademicCalendarSettings.dateString(from: courseDate, calendar: calendar))"
+                            : baseIdentifier
+                        requests.append(
+                            CourseNotificationRequest(
+                                identifier: requestIdentifier,
+                                title: course.name,
+                                body: body,
+                                fireDate: fireDate
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -185,6 +199,7 @@ actor NotificationCoordinator: NotificationCoordinating {
         data: ScheduleDataDTO,
         remindersEnabled: Bool,
         leadMinutes: Int,
+        academicCalendarSettings: AcademicCalendarSettings = .defaults,
         now: Date,
         calendar: Calendar
     ) async throws -> NotificationReconciliation {
@@ -212,6 +227,7 @@ actor NotificationCoordinator: NotificationCoordinating {
             leadMinutes: leadMinutes,
             after: now,
             limit: maximumPending,
+            academicCalendarSettings: academicCalendarSettings,
             calendar: calendar
         )
         let desiredByIdentifier = Dictionary(uniqueKeysWithValues: desired.map {

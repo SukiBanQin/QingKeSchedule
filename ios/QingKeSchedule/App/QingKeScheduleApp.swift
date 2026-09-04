@@ -13,6 +13,7 @@ struct QingKeScheduleApp: App {
             let container = try SwiftDataScheduleRepository.makeContainer(inMemory: inMemory)
             let repository = SwiftDataScheduleRepository(context: ModelContext(container))
             let reminderSettingsStore: any ReminderSettingsStore
+            let academicCalendarSettingsStore: any AcademicCalendarSettingsStore
             let notificationClient: any NotificationCenterClient
             let nowProvider: () -> Date
             if inMemory {
@@ -32,6 +33,7 @@ struct QingKeScheduleApp: App {
                         : ReminderSettings.defaults.reminderLeadMinutes,
                     usesCustomLeadTime: usesCustomReminder
                 ))
+                academicCalendarSettingsStore = InMemoryAcademicCalendarSettingsStore()
                 notificationClient = InMemoryNotificationCenterClient(
                     status: notificationsDenied ? .denied : .authorized,
                     authorizationResult: !notificationsDenied
@@ -44,6 +46,7 @@ struct QingKeScheduleApp: App {
                 nowProvider = { fixedDate }
             } else {
                 reminderSettingsStore = UserDefaultsReminderSettingsStore()
+                academicCalendarSettingsStore = UserDefaultsAcademicCalendarSettingsStore()
                 notificationClient = UserNotificationCenterClient()
                 nowProvider = { Date() }
             }
@@ -53,6 +56,7 @@ struct QingKeScheduleApp: App {
                 repository: repository,
                 now: nowProvider,
                 reminderSettingsStore: reminderSettingsStore,
+                academicCalendarSettingsStore: academicCalendarSettingsStore,
                 notificationCoordinator: notificationCoordinator
             ))
         } catch {

@@ -19,11 +19,13 @@ struct TodaySchedulePresentation: Equatable {
     let teachingWeek: Int?
     let items: [TodayCourseItem]
     let emptyMessage: String
+    let isNonTeachingDay: Bool
 
     init(
         semester: SemesterDTO,
         courses: [CourseDTO],
         now: Date,
+        academicCalendarSettings: AcademicCalendarSettings = .defaults,
         calendar: Calendar
     ) {
         let calculatedWeek = ScheduleRules.teachingWeek(
@@ -33,12 +35,28 @@ struct TodaySchedulePresentation: Equatable {
         )
         teachingWeek = calculatedWeek
 
-        let occurrences = ScheduleRules.occurrences(
-            for: now,
-            semester: semester,
-            courses: courses,
-            calendar: calendar
-        )
+        let resolution = academicCalendarSettings.resolution(for: now, calendar: calendar)
+        let occurrences: [CourseOccurrenceDTO]
+        switch resolution {
+        case .nonTeaching:
+            isNonTeachingDay = true
+            occurrences = []
+        case .teaching(let sourceDayOfWeek, _):
+            isNonTeachingDay = false
+            if let calculatedWeek,
+               ScheduleRules.isTeachingWeekInSemester(calculatedWeek, semester: semester) {
+                occurrences = ScheduleRules.occurrences(
+                    forWeek: calculatedWeek,
+                    courses: courses
+                )
+                .filter { $0.schedule.dayOfWeek == sourceDayOfWeek }
+                .enumerated()
+                .sorted(by: Self.stableOccurrenceOrder)
+                .map(\.element)
+            } else {
+                occurrences = []
+            }
+        }
         let statuses = occurrences.map {
             ScheduleRules.occurrenceStatus(
                 $0,
@@ -63,12 +81,34 @@ struct TodaySchedulePresentation: Equatable {
             )
         }
 
-        if let calculatedWeek,
+        if case .nonTeaching(let reason) = resolution,
+           let calculatedWeek,
+           ScheduleRules.isTeachingWeekInSemester(calculatedWeek, semester: semester) {
+            emptyMessage = "\(reason)，今日不显示课程。"
+        } else if let calculatedWeek,
            ScheduleRules.isTeachingWeekInSemester(calculatedWeek, semester: semester) {
             emptyMessage = "今天没有课程，享受空闲时间吧。"
         } else {
             emptyMessage = "当前日期不在这个学期内。"
         }
+    }
+
+    private static func stableOccurrenceOrder(
+        _ left: (offset: Int, element: CourseOccurrenceDTO),
+        _ right: (offset: Int, element: CourseOccurrenceDTO)
+    ) -> Bool {
+        if left.element.schedule.startPeriod != right.element.schedule.startPeriod {
+            return left.element.schedule.startPeriod < right.element.schedule.startPeriod
+        }
+        if left.element.schedule.endPeriod != right.element.schedule.endPeriod {
+            return left.element.schedule.endPeriod < right.element.schedule.endPeriod
+        }
+        let nameOrder = left.element.course.name.compare(
+            right.element.course.name,
+            locale: Locale(identifier: "zh_CN")
+        )
+        if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        return left.offset < right.offset
     }
 
     private static func timingProgress(
@@ -107,19 +147,23 @@ struct TodaySchedulePresentation: Equatable {
 struct WeekCourseItem: Equatable, Identifiable {
     let occurrence: CourseOccurrenceDTO
     let isConflicting: Bool
+    let displayDayOfWeek: Int
 
-    var id: String { occurrence.schedule.id }
+    var id: String { "\(displayDayOfWeek)-\(occurrence.schedule.id)" }
 }
 
 struct WeekDayPresentation: Equatable, Identifiable {
     let dayOfWeek: Int
     let date: Date?
     let items: [WeekCourseItem]
+    let isNonTeachingDay: Bool
+    let scheduleSourceDayOfWeek: Int?
 
     var id: Int { dayOfWeek }
 }
 
 struct WeekMatrixItem: Equatable, Identifiable {
+    let id: String
     let occurrence: CourseOccurrenceDTO
     let isConflicting: Bool
     let dayColumn: Int
@@ -128,7 +172,6 @@ struct WeekMatrixItem: Equatable, Identifiable {
     let lane: Int
     let laneCount: Int
 
-    var id: String { occurrence.schedule.id }
 }
 
 struct WeekMatrixPresentation: Equatable {
@@ -221,6 +264,7 @@ struct WeekMatrixPresentation: Equatable {
         let laneCount = laneEndRows.count
         return placements.map { placement in
             WeekMatrixItem(
+                id: placement.draft.item.id,
                 occurrence: placement.draft.item.occurrence,
                 isConflicting: placement.draft.item.isConflicting,
                 dayColumn: placement.draft.dayColumn,
@@ -243,6 +287,7 @@ struct WeekSchedulePresentation: Equatable {
         semester: SemesterDTO,
         courses: [CourseDTO],
         now: Date,
+        academicCalendarSettings: AcademicCalendarSettings = .defaults,
         calendar: Calendar
     ) {
         let resolvedWeek = min(max(week, 1), semester.totalWeeks)
@@ -257,25 +302,47 @@ struct WeekSchedulePresentation: Equatable {
         }
 
         let occurrences = ScheduleRules.occurrences(forWeek: resolvedWeek, courses: courses)
-        let conflictIDs = Self.conflictingScheduleIDs(in: occurrences, week: resolvedWeek)
         days = (1...7).map { dayOfWeek in
-            let dayOccurrences = occurrences
-                .filter { $0.schedule.dayOfWeek == dayOfWeek }
-                .sorted(by: Self.stableOccurrenceOrder)
+            let date = ScheduleRules.date(
+                forTeachingWeek: resolvedWeek,
+                dayOfWeek: dayOfWeek,
+                semester: semester,
+                calendar: calendar
+            )
+            let resolution = date.map {
+                academicCalendarSettings.resolution(for: $0, calendar: calendar)
+            }
+            let sourceDayOfWeek: Int?
+            let isNonTeachingDay: Bool
+            switch resolution {
+            case .teaching(let source, _):
+                sourceDayOfWeek = source
+                isNonTeachingDay = false
+            case .nonTeaching, .none:
+                sourceDayOfWeek = nil
+                isNonTeachingDay = resolution != nil
+            }
+            let dayOccurrences = sourceDayOfWeek.map { source in
+                occurrences
+                    .filter { $0.schedule.dayOfWeek == source }
+                    .sorted(by: Self.stableOccurrenceOrder)
+            } ?? []
+            let conflictIDs = Self.conflictingScheduleIDs(
+                in: dayOccurrences,
+                week: resolvedWeek
+            )
             return WeekDayPresentation(
                 dayOfWeek: dayOfWeek,
-                date: ScheduleRules.date(
-                    forTeachingWeek: resolvedWeek,
-                    dayOfWeek: dayOfWeek,
-                    semester: semester,
-                    calendar: calendar
-                ),
+                date: date,
                 items: dayOccurrences.map {
                     WeekCourseItem(
                         occurrence: $0,
-                        isConflicting: conflictIDs.contains($0.schedule.id)
+                        isConflicting: conflictIDs.contains($0.schedule.id),
+                        displayDayOfWeek: dayOfWeek
                     )
-                }
+                },
+                isNonTeachingDay: isNonTeachingDay,
+                scheduleSourceDayOfWeek: sourceDayOfWeek
             )
         }
     }

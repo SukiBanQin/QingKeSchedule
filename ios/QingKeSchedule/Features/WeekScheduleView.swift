@@ -4,6 +4,7 @@ struct WeekScheduleView: View {
     let semester: SemesterDTO
     let courses: [CourseDTO]
     let now: Date
+    let academicCalendarSettings: AcademicCalendarSettings
     let calendar: Calendar
     let onAddCourse: () -> Void
     let onSelectCourse: (CourseDTO) -> Void
@@ -15,6 +16,7 @@ struct WeekScheduleView: View {
         semester: SemesterDTO,
         courses: [CourseDTO],
         now: Date,
+        academicCalendarSettings: AcademicCalendarSettings,
         calendar: Calendar,
         onAddCourse: @escaping () -> Void,
         onSelectCourse: @escaping (CourseDTO) -> Void
@@ -22,6 +24,7 @@ struct WeekScheduleView: View {
         self.semester = semester
         self.courses = courses
         self.now = now
+        self.academicCalendarSettings = academicCalendarSettings
         self.calendar = calendar
         self.onAddCourse = onAddCourse
         self.onSelectCourse = onSelectCourse
@@ -40,6 +43,7 @@ struct WeekScheduleView: View {
             semester: semester,
             courses: courses,
             now: now,
+            academicCalendarSettings: academicCalendarSettings,
             calendar: calendar
         )
     }
@@ -187,11 +191,11 @@ struct WeekScheduleView: View {
                         Text(dayNumber(for: day))
                             .font(.terminal(17, weight: .semibold, relativeTo: .body))
                         Rectangle()
-                            .fill(day.dayOfWeek == selectedDay ? QingKeTheme.signal : .clear)
+                            .fill(weekdayIndicatorColor(for: day))
                             .frame(height: 3)
                             .padding(.horizontal, 4)
                     }
-                    .foregroundStyle(day.dayOfWeek == selectedDay ? Color.white : Color.primary)
+                    .foregroundStyle(weekdayForegroundColor(for: day))
                     .frame(maxWidth: .infinity, minHeight: 54)
                     .background(day.dayOfWeek == selectedDay ? QingKeTheme.ink : Color.clear)
                 }
@@ -373,7 +377,7 @@ struct WeekScheduleView: View {
             TerminalSectionHeader(
                 index: String(format: "%02d", selectedDay),
                 title: ScheduleDisplayText.weekdayNames[selectedDay - 1],
-                detail: "\(selectedDayPresentation.items.count) ENTRIES"
+                detail: selectedDayDetail
             )
 
             if selectedDayPresentation.items.isEmpty {
@@ -405,9 +409,11 @@ struct WeekScheduleView: View {
                 .fill(Color.primary.opacity(0.16))
                 .frame(width: 1, height: 55)
             VStack(alignment: .leading, spacing: 4) {
-                Text("该日无课程安排")
+                Text(selectedDayPresentation.isNonTeachingDay ? "该日已设为停课" : "该日无课程安排")
                     .font(.headline)
-                Text("选择其他日期，或使用 ADD 添加课程。")
+                Text(selectedDayPresentation.isNonTeachingDay
+                     ? "可在设置的教学日历中恢复上课。"
+                     : "选择其他日期，或使用 ADD 添加课程。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -489,7 +495,27 @@ struct WeekScheduleView: View {
     private func weekdayAccessibilityLabel(_ day: WeekDayPresentation) -> String {
         let weekday = ScheduleDisplayText.weekdayNames[day.dayOfWeek - 1]
         guard let date = day.date else { return weekday }
-        return "\(weekday)，\(date.formatted(.dateTime.month().day()))"
+        let status = day.isNonTeachingDay ? "，停课" : ""
+        return "\(weekday)，\(date.formatted(.dateTime.month().day()))\(status)"
+    }
+
+    private func weekdayIndicatorColor(for day: WeekDayPresentation) -> Color {
+        if day.isNonTeachingDay { return QingKeTheme.danger }
+        return day.dayOfWeek == selectedDay ? QingKeTheme.signal : .clear
+    }
+
+    private func weekdayForegroundColor(for day: WeekDayPresentation) -> Color {
+        if day.dayOfWeek == selectedDay { return .white }
+        return day.isNonTeachingDay ? QingKeTheme.danger : .primary
+    }
+
+    private var selectedDayDetail: String {
+        if selectedDayPresentation.isNonTeachingDay { return "OFF DAY" }
+        if let source = selectedDayPresentation.scheduleSourceDayOfWeek,
+           source != selectedDayPresentation.dayOfWeek {
+            return "FOLLOW / \(ScheduleDisplayText.weekdayNames[source - 1])"
+        }
+        return "\(selectedDayPresentation.items.count) ENTRIES"
     }
 
     private func startTime(of occurrence: CourseOccurrenceDTO) -> String {
@@ -515,7 +541,7 @@ struct WeekScheduleView: View {
     private func matrixCourseAccessibilityLabel(_ item: WeekMatrixItem) -> String {
         let schedule = item.occurrence.schedule
         let parts = [
-            ScheduleDisplayText.weekdayNames[schedule.dayOfWeek - 1],
+            ScheduleDisplayText.weekdayNames[item.dayColumn],
             ScheduleDisplayText.periodRange(schedule),
             item.occurrence.course.name,
             item.isConflicting ? "存在冲突" : nil,
