@@ -24,14 +24,10 @@ struct SemesterFormView: View {
 
     var body: some View {
         Form {
-            if isOnboarding {
-                Section {
-                    Label("欢迎使用青课", systemImage: "calendar.badge.clock")
-                        .font(.title2.bold())
-                        .accessibilityIdentifier("onboarding-title")
-                    Text("先设置当前学期和每日节次，下一步再添加第一门课程。")
-                        .foregroundStyle(.secondary)
-                }
+            Section {
+                terminalIntro
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
 
             Section("学期信息") {
@@ -120,13 +116,36 @@ struct SemesterFormView: View {
             }
 
             Section {
-                Button(isOnboarding ? "创建课表" : "保存学期设置") {
+                Button {
                     save()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isOnboarding ? "创建课表" : "保存学期设置")
+                                .font(.headline)
+                            Text(isOnboarding ? "INITIALIZE TERMINAL" : "COMMIT CHANGES")
+                                .font(.terminal(8, weight: .bold, relativeTo: .caption2))
+                                .tracking(1)
+                                .foregroundStyle(.white.opacity(0.62))
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .background(QingKeTheme.ink)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(QingKeTheme.signal).frame(height: 4)
+                    }
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("semester-save")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { TerminalBackdrop() }
+        .tint(QingKeTheme.cyan)
         .navigationTitle(isOnboarding ? "首次设置" : "学期与节次")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -136,6 +155,46 @@ struct SemesterFormView: View {
                 .accessibilityIdentifier("semester-save-toolbar")
             }
         }
+    }
+
+    private var terminalIntro: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            TerminalBrandHeader(code: isOnboarding ? "SETUP / 00" : "SYSTEM / 03")
+
+            HStack(alignment: .bottom, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    TerminalStatusTag(
+                        text: isOnboarding ? "FIRST BOOT" : "CONFIGURATION",
+                        tint: isOnboarding ? QingKeTheme.signal : QingKeTheme.cyan
+                    )
+                    Text(isOnboarding ? "首次设置" : "系统设置")
+                        .font(.system(size: 36, weight: .black))
+                        .accessibilityIdentifier(
+                            isOnboarding ? "onboarding-title" : "settings-title"
+                        )
+                    Text(isOnboarding
+                         ? "配置学期与每日节次，完成后即可录入第一门课程。"
+                         : "管理学期、节次、提醒与本地课表备份。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: -4) {
+                    Text(isOnboarding ? "INIT" : "SYS")
+                        .font(.terminal(9, weight: .black, relativeTo: .caption2))
+                        .tracking(1)
+                    Text(isOnboarding ? "00" : "03")
+                        .font(.terminal(42, weight: .light, relativeTo: .title))
+                }
+            }
+        }
+        .padding(.bottom, 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(
+            isOnboarding ? "onboarding-terminal-header" : "settings-terminal-header"
+        )
     }
 
     private func save() {

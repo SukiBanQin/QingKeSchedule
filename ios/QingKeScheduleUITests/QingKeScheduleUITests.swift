@@ -14,6 +14,7 @@ final class QingKeScheduleUITests: XCTestCase {
 
         app.tabBars.buttons["设置"].tap()
         XCTAssertTrue(app.navigationBars["学期与节次"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].exists)
         XCTAssertTrue(app.textFields["semester-name"].exists)
     }
 
@@ -77,6 +78,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-terminal-header"].exists)
         XCTAssertTrue(app.buttons["semester-save-toolbar"].isHittable)
         app.buttons["semester-save-toolbar"].tap()
         XCTAssertTrue(app.buttons["add-course-today-toolbar"].waitForExistence(timeout: 5))

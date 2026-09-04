@@ -7,7 +7,16 @@ struct AppRootView: View {
     var body: some View {
         Group {
             if !state.isLoaded {
-                ProgressView("正在读取课表…")
+                ZStack {
+                    TerminalBackdrop()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(QingKeTheme.cyan)
+                        Text("正在读取课表…")
+                            .font(.terminal(12, weight: .bold, relativeTo: .body))
+                            .tracking(1)
+                    }
+                }
             } else if state.needsOnboarding {
                 NavigationStack {
                     SemesterFormView(
@@ -94,6 +103,9 @@ private struct MainTabView: View {
             .tabItem { Label("设置", systemImage: "gearshape") }
             .accessibilityIdentifier("settings-tab")
         }
+        .tint(QingKeTheme.signal)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
         .sheet(item: $editorRoute) { route in
             if let semester = state.semester {
                 NavigationStack {
