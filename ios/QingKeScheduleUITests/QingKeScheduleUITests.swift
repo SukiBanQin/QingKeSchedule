@@ -198,6 +198,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.launchArguments = [
             "--ui-testing",
             "--ui-testing-reminders-enabled",
+            "--ui-testing-custom-reminder",
         ]
         app.launch()
 
@@ -208,13 +209,14 @@ final class QingKeScheduleUITests: XCTestCase {
 
         let picker = app.buttons["reminder-lead-minutes"]
         scrollToElement(picker, in: app)
+        let customStepper = app.steppers["reminder-custom-lead-minutes"]
+        XCTAssertTrue(customStepper.waitForExistence(timeout: 5))
+        XCTAssertTrue(customStepper.label.contains("提前 15 分钟"))
+
         picker.tap()
         XCTAssertTrue(app.buttons["自定义…"].waitForExistence(timeout: 5))
         app.buttons["自定义…"].tap()
-
-        let customStepper = app.steppers["reminder-custom-lead-minutes"]
         XCTAssertTrue(customStepper.waitForExistence(timeout: 5))
-        XCTAssertTrue(customStepper.label.contains("提前 20 分钟"))
     }
 
     @MainActor

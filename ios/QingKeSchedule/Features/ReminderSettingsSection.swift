@@ -50,7 +50,10 @@ struct ReminderSettingsSection: View {
                         in: 1...ReminderSettings.validLeadMinutes.upperBound
                     )
                     .onChange(of: customLeadMinutes) { _, newValue in
-                        state.setReminderLeadMinutes(newValue)
+                        state.setReminderLeadMinutes(
+                            newValue,
+                            usesCustomSelection: true
+                        )
                     }
                     .accessibilityIdentifier("reminder-custom-lead-minutes")
 
@@ -109,24 +112,27 @@ struct ReminderSettingsSection: View {
     }
 
     private var leadSelection: ReminderLeadSelection {
-        let minutes = state.reminderSettings.reminderLeadMinutes
-        return ReminderSettings.presetLeadMinutes.contains(minutes)
-            ? .preset(minutes)
-            : .custom
+        if state.reminderSettings.usesCustomLeadTime {
+            return .custom
+        }
+        return .preset(state.reminderSettings.reminderLeadMinutes)
     }
 
     private func updateLeadSelection(_ selection: ReminderLeadSelection) {
         switch selection {
         case .preset(let minutes):
-            state.setReminderLeadMinutes(minutes)
+            state.setReminderLeadMinutes(minutes, usesCustomSelection: false)
         case .custom:
-            state.setReminderLeadMinutes(customLeadMinutes)
+            state.setReminderLeadMinutes(
+                customLeadMinutes,
+                usesCustomSelection: true
+            )
         }
     }
 
     private func synchronizeCustomLeadMinutes() {
         let stored = state.reminderSettings.reminderLeadMinutes
-        if !ReminderSettings.presetLeadMinutes.contains(stored), stored > 0 {
+        if state.reminderSettings.usesCustomLeadTime, stored > 0 {
             customLeadMinutes = stored
         }
     }

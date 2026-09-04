@@ -136,14 +136,21 @@ final class ScheduleAppState {
         scheduleNotificationReconciliation(requestAuthorization: enabled)
     }
 
-    func setReminderLeadMinutes(_ minutes: Int) {
+    func setReminderLeadMinutes(
+        _ minutes: Int,
+        usesCustomSelection: Bool? = nil
+    ) {
+        let resolvedCustomSelection = usesCustomSelection
+            ?? !ReminderSettings.presetLeadMinutes.contains(minutes)
         guard
             ReminderSettings.isValidLeadMinutes(minutes),
             reminderSettings.reminderLeadMinutes != minutes
+                || reminderSettings.usesCustomLeadTime != resolvedCustomSelection
         else {
             return
         }
         reminderSettings.reminderLeadMinutes = minutes
+        reminderSettings.usesCustomLeadTime = resolvedCustomSelection
         reminderSettingsStore.save(reminderSettings)
         scheduleNotificationReconciliation()
     }

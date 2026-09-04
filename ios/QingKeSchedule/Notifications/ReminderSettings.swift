@@ -6,10 +6,12 @@ struct ReminderSettings: Equatable, Sendable {
 
     var remindersEnabled: Bool
     var reminderLeadMinutes: Int
+    var usesCustomLeadTime: Bool = false
 
     static let defaults = ReminderSettings(
         remindersEnabled: false,
-        reminderLeadMinutes: 10
+        reminderLeadMinutes: 10,
+        usesCustomLeadTime: false
     )
 
     static func isValidLeadMinutes(_ minutes: Int) -> Bool {
@@ -28,6 +30,7 @@ final class UserDefaultsReminderSettingsStore: ReminderSettingsStore {
     private enum Key {
         static let remindersEnabled = "remindersEnabled"
         static let reminderLeadMinutes = "reminderLeadMinutes"
+        static let usesCustomLeadTime = "usesCustomLeadTime"
     }
 
     private let defaults: UserDefaults
@@ -46,15 +49,25 @@ final class UserDefaultsReminderSettingsStore: ReminderSettingsStore {
         let leadMinutes = ReminderSettings.isValidLeadMinutes(storedLeadMinutes)
             ? storedLeadMinutes
             : ReminderSettings.defaults.reminderLeadMinutes
+        let usesCustomLeadTime: Bool
+        if !ReminderSettings.isValidLeadMinutes(storedLeadMinutes) {
+            usesCustomLeadTime = ReminderSettings.defaults.usesCustomLeadTime
+        } else if defaults.object(forKey: Key.usesCustomLeadTime) == nil {
+            usesCustomLeadTime = !ReminderSettings.presetLeadMinutes.contains(leadMinutes)
+        } else {
+            usesCustomLeadTime = defaults.bool(forKey: Key.usesCustomLeadTime)
+        }
         return ReminderSettings(
             remindersEnabled: enabled,
-            reminderLeadMinutes: leadMinutes
+            reminderLeadMinutes: leadMinutes,
+            usesCustomLeadTime: usesCustomLeadTime
         )
     }
 
     func save(_ settings: ReminderSettings) {
         defaults.set(settings.remindersEnabled, forKey: Key.remindersEnabled)
         defaults.set(settings.reminderLeadMinutes, forKey: Key.reminderLeadMinutes)
+        defaults.set(settings.usesCustomLeadTime, forKey: Key.usesCustomLeadTime)
     }
 }
 

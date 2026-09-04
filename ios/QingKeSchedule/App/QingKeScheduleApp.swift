@@ -21,9 +21,15 @@ struct QingKeScheduleApp: App {
                 let remindersEnabled = ProcessInfo.processInfo.arguments.contains(
                     "--ui-testing-reminders-enabled"
                 )
+                let usesCustomReminder = ProcessInfo.processInfo.arguments.contains(
+                    "--ui-testing-custom-reminder"
+                )
                 reminderSettingsStore = InMemoryReminderSettingsStore(settings: ReminderSettings(
                     remindersEnabled: remindersEnabled,
-                    reminderLeadMinutes: ReminderSettings.defaults.reminderLeadMinutes
+                    reminderLeadMinutes: usesCustomReminder
+                        ? 15
+                        : ReminderSettings.defaults.reminderLeadMinutes,
+                    usesCustomLeadTime: usesCustomReminder
                 ))
                 notificationClient = InMemoryNotificationCenterClient(
                     status: notificationsDenied ? .denied : .authorized,

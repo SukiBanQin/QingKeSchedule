@@ -18,10 +18,15 @@ struct ReminderSettingsAndStateTests {
 
         #expect(store.load() == .defaults)
 
-        store.save(ReminderSettings(remindersEnabled: true, reminderLeadMinutes: 37))
+        store.save(ReminderSettings(
+            remindersEnabled: true,
+            reminderLeadMinutes: 15,
+            usesCustomLeadTime: true
+        ))
         #expect(store.load() == ReminderSettings(
             remindersEnabled: true,
-            reminderLeadMinutes: 37
+            reminderLeadMinutes: 15,
+            usesCustomLeadTime: true
         ))
 
         #expect(ReminderSettings.presetLeadMinutes == [0, 5, 10, 15, 30])
@@ -30,7 +35,14 @@ struct ReminderSettingsAndStateTests {
         #expect(!ReminderSettings.isValidLeadMinutes(181))
 
         defaults.set(999, forKey: "reminderLeadMinutes")
-        #expect(store.load().reminderLeadMinutes == ReminderSettings.defaults.reminderLeadMinutes)
+        let sanitized = store.load()
+        #expect(sanitized.remindersEnabled)
+        #expect(sanitized.reminderLeadMinutes == ReminderSettings.defaults.reminderLeadMinutes)
+        #expect(!sanitized.usesCustomLeadTime)
+
+        defaults.removeObject(forKey: "usesCustomLeadTime")
+        defaults.set(37, forKey: "reminderLeadMinutes")
+        #expect(store.load().usesCustomLeadTime)
     }
 
     @Test("加载、课表变更、提前量和回到前台都会对齐提醒")
@@ -64,14 +76,19 @@ struct ReminderSettingsAndStateTests {
         await state.waitForNotificationWork()
         state.setReminderLeadMinutes(37)
         await state.waitForNotificationWork()
+        #expect(state.reminderSettings.usesCustomLeadTime)
+        state.setReminderLeadMinutes(15, usesCustomSelection: true)
+        await state.waitForNotificationWork()
+        #expect(state.reminderSettings.reminderLeadMinutes == 15)
+        #expect(state.reminderSettings.usesCustomLeadTime)
         state.appBecameActive()
         await state.waitForNotificationWork()
 
         let calls = await coordinator.recordedCalls()
-        #expect(calls.count == 7)
+        #expect(calls.count == 8)
         #expect(calls.last?.data == fixture)
         #expect(calls.last?.remindersEnabled == true)
-        #expect(calls.last?.leadMinutes == 37)
+        #expect(calls.last?.leadMinutes == 15)
         #expect(state.lastNotificationReconciliation?.permissionStatus == .authorized)
     }
 
