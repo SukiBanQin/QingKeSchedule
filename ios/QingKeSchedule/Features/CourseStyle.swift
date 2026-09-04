@@ -114,32 +114,17 @@ struct TerminalBackdrop: View {
 
 struct TerminalBrandHeader: View {
     let code: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                Rectangle()
-                    .fill(QingKeTheme.ink)
-                    .frame(width: 42, height: 42)
-                Text("Q")
-                    .font(.terminal(28, weight: .black, relativeTo: .title))
-                    .italic()
-                    .foregroundStyle(.white)
-                    .frame(width: 42, height: 42)
-                Rectangle()
-                    .fill(QingKeTheme.cyan)
-                    .frame(width: 15, height: 4)
-            }
-
-            VStack(alignment: .leading, spacing: -1) {
-                Text(QingKeVisualSpec.brandTitle)
-                    .font(.terminal(20, weight: .black, relativeTo: .headline))
-                    .tracking(1.5)
-                Text(QingKeVisualSpec.brandSubtitle)
-                    .font(.terminal(9, weight: .bold, relativeTo: .caption2))
-                    .tracking(1.2)
-                    .foregroundStyle(.secondary)
-            }
+            Image("QingKeLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 154, height: 54, alignment: .leading)
+                .padding(.horizontal, 5)
+                .background(Color.white.opacity(colorScheme == .dark ? 0.88 : 0.34))
+                .accessibilityHidden(true)
 
             Spacer()
 
@@ -155,6 +140,9 @@ struct TerminalBrandHeader: View {
                 .frame(height: 1)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(QingKeVisualSpec.brandTitle)，青课，\(QingKeVisualSpec.brandSubtitle)，\(code)"
+        )
     }
 }
 

@@ -1,4 +1,5 @@
 import Testing
+import UIKit
 @testable import QingKeSchedule
 
 struct QingKeScheduleTests {
@@ -24,5 +25,10 @@ struct QingKeScheduleTests {
         #expect(CourseColorPalette.presets.allSatisfy {
             $0.value.wholeMatch(of: ScheduleValidator.courseColorPattern) != nil
         })
+    }
+
+    @Test("透明品牌 Logo 已编入 iOS 资源")
+    func brandLogoIsBundled() {
+        #expect(UIImage(named: "QingKeLogo") != nil)
     }
 }
