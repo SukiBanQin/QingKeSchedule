@@ -73,6 +73,7 @@ private struct MainTabView: View {
     @Bindable var state: ScheduleAppState
     @State private var editorRoute: CourseEditorRoute?
     @State private var selectedTab = MainTab.today
+    @State private var courseOperationSuccess: CourseOperationSuccess?
 
     var body: some View {
         Group {
@@ -116,7 +117,17 @@ private struct MainTabView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            TerminalTabBar(selection: $selectedTab)
+            VStack(spacing: 0) {
+                if let courseOperationSuccess {
+                    TerminalToast(message: courseOperationSuccess.message)
+                        .accessibilityIdentifier("course-operation-success")
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                        .allowsHitTesting(false)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                TerminalTabBar(selection: $selectedTab)
+            }
         }
         .fullScreenCover(item: $editorRoute) { route in
             if route.showsChooser {
@@ -127,8 +138,8 @@ private struct MainTabView: View {
                         now: state.now,
                         calendar: state.calendar,
                         onCancel: { editorRoute = nil },
-                        onSave: state.saveCourse,
-                        onDelete: state.deleteCourse
+                        onSave: saveCourse,
+                        onDelete: deleteCourse
                     )
                 }
             } else if let semester = state.semester {
@@ -139,17 +150,58 @@ private struct MainTabView: View {
                     appendingScheduleOnly: route.appendingScheduleOnly,
                     now: state.now,
                     calendar: state.calendar,
-                    onSave: state.saveCourse,
-                    onDelete: state.deleteCourse
+                    onSave: saveCourse,
+                    onDelete: deleteCourse
                 )
             }
         }
+        .animation(.easeOut(duration: 0.22), value: courseOperationSuccess?.id)
     }
 
     private func presentCourseCreation() {
         editorRoute = state.courses.isEmpty ? .editor(course: nil) : .chooser()
     }
 
+    private func saveCourse(_ course: CourseDTO) -> Bool {
+        let previousCourse = state.courses.first { $0.id == course.id }
+        guard state.saveCourse(course) else { return false }
+
+        let message: String
+        if previousCourse == nil {
+            message = "SYSTEM // 课程添加成功"
+        } else if course.schedules.count > previousCourse!.schedules.count {
+            message = "SYSTEM // 添加上课安排成功"
+        } else {
+            message = "SYSTEM // 课程修改已保存"
+        }
+        showCourseOperationSuccess(message)
+        return true
+    }
+
+    private func deleteCourse(id: String) -> Bool {
+        guard state.deleteCourse(id: id) else { return false }
+        showCourseOperationSuccess("SYSTEM // 课程删除成功")
+        return true
+    }
+
+    private func showCourseOperationSuccess(_ message: String) {
+        let success = CourseOperationSuccess(id: UUID(), message: message)
+        withAnimation(.easeOut(duration: 0.22)) {
+            courseOperationSuccess = success
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+            guard courseOperationSuccess?.id == success.id else { return }
+            withAnimation(.easeOut(duration: 0.22)) {
+                courseOperationSuccess = nil
+            }
+        }
+    }
+
+}
+
+private struct CourseOperationSuccess: Equatable {
+    let id: UUID
+    let message: String
 }
 
 private enum MainTab: String, CaseIterable, Identifiable {

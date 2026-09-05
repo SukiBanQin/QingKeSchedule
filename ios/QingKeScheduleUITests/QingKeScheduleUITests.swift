@@ -54,6 +54,19 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["add-course-today-toolbar"].tap()
         enterCourseName("课程 A", in: app)
         app.buttons["course-save"].tap()
+        let courseAddedToast = waitForCourseOperationToast("课程添加成功", in: app)
+        XCTAssertLessThanOrEqual(
+            courseAddedToast.frame.maxY,
+            app.buttons["today-tab"].frame.minY
+        )
+        let courseAddedToastDisappeared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: courseAddedToast
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [courseAddedToastDisappeared], timeout: 5),
+            .completed
+        )
         XCTAssertTrue(app.staticTexts["课程 A"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["today-course-sequence"].exists)
 
@@ -74,9 +87,12 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(duplicateError.label.contains("该上课安排已存在，请勿重复添加"))
         XCTAssertFalse(app.buttons["仍然保存"].exists)
         XCTAssertTrue(app.buttons["course-save"].exists)
-        app.buttons["course-cancel"].tap()
-        XCTAssertTrue(app.buttons["放弃修改"].waitForExistence(timeout: 5))
-        app.buttons["放弃修改"].tap()
+        XCTAssertFalse(app.descendants(matching: .any)["course-operation-success"].exists)
+        let duplicateClassroom = app.textFields["course-classroom-1"]
+        scrollToElement(duplicateClassroom, in: app)
+        replaceText(in: duplicateClassroom, with: "A102")
+        app.buttons["course-save"].tap()
+        _ = waitForCourseOperationToast("添加上课安排成功", in: app)
 
         let courseACards = app.buttons.matching(NSPredicate(
             format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
@@ -84,7 +100,7 @@ final class QingKeScheduleUITests: XCTestCase {
             "课程 A"
         ))
         XCTAssertTrue(courseACards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(courseACards.count, 1)
+        XCTAssertEqual(courseACards.count, 2)
 
         app.buttons["add-course-today-toolbar"].tap()
         XCTAssertTrue(app.buttons["add-new-course"].waitForExistence(timeout: 5))
@@ -97,6 +113,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["course-save"].tap()
         XCTAssertTrue(app.buttons["仍然保存"].waitForExistence(timeout: 5))
         app.buttons["仍然保存"].tap()
+        _ = waitForCourseOperationToast("课程添加成功", in: app)
         XCTAssertTrue(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 5))
 
         app.buttons["schedule-tab"].tap()
@@ -137,6 +154,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["course-save"].tap()
         XCTAssertTrue(app.buttons["仍然保存"].waitForExistence(timeout: 5))
         app.buttons["仍然保存"].tap()
+        _ = waitForCourseOperationToast("课程修改已保存", in: app)
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.waitForExistence(timeout: 5))
 
         app.staticTexts["课程 B"].firstMatch.tap()
@@ -147,8 +165,26 @@ final class QingKeScheduleUITests: XCTestCase {
         deleteButton.tap()
         XCTAssertTrue(app.alerts["删除这门课程？"].waitForExistence(timeout: 5))
         app.alerts.buttons["确认删除"].tap()
+        _ = waitForCourseOperationToast("课程删除成功", in: app)
         XCTAssertFalse(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.exists)
+    }
+
+    @MainActor
+    private func waitForCourseOperationToast(
+        _ message: String,
+        in app: XCUIApplication
+    ) -> XCUIElement {
+        let toast = app.descendants(matching: .any)["course-operation-success"]
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "exists == true AND label CONTAINS %@",
+                message
+            ),
+            object: toast
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+        return toast
     }
 
     @MainActor
