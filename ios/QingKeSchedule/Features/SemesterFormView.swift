@@ -6,6 +6,7 @@ struct SemesterFormView: View {
     let dataTransferState: ScheduleAppState?
 
     @State private var draft: SemesterDraft
+    @State private var periodsExpanded = false
     @State private var issues: [ScheduleValidationIssue] = []
     @State private var savedMessage: String?
     @State private var calendarExpanded = false
@@ -20,7 +21,17 @@ struct SemesterFormView: View {
         self.isOnboarding = isOnboarding
         self.onSave = onSave
         self.dataTransferState = dataTransferState
-        _draft = State(initialValue: SemesterDraft(semester: semester, now: now))
+        let initialDraft = SemesterDraft(semester: semester, now: now)
+        _draft = State(initialValue: initialDraft)
+        _periodsExpanded = State(
+            initialValue: Self.shouldExpandPeriodsByDefault(
+                periodCount: initialDraft.periods.count
+            )
+        )
+    }
+
+    static func shouldExpandPeriodsByDefault(periodCount: Int) -> Bool {
+        periodCount < 5
     }
 
     var body: some View {
@@ -60,22 +71,52 @@ struct SemesterFormView: View {
                             detail: "PERIODS / \(draft.periods.count)",
                             footer: "教学周从开始日期所在周的周一算起；课程统一使用这里的节次时间。"
                         ) {
-                            ForEach(Array(draft.periods.indices), id: \.self) { index in
-                                periodRow(index: index)
-                                if index < draft.periods.count - 1 {
-                                    TerminalFormDivider()
+                            Button {
+                                togglePeriods()
+                            } label: {
+                                HStack {
+                                    Text(periodsExpanded ? "收起节次设置" : "展开节次设置")
+                                        .font(.terminal(11, weight: .bold, relativeTo: .body))
+                                    Spacer()
+                                    Text("\(draft.periods.count) 节")
+                                        .foregroundStyle(.secondary)
+                                    Image(systemName: periodsExpanded ? "chevron.up" : "chevron.down")
+                                        .font(.caption.bold())
+                                }
+                                .foregroundStyle(QingKeTheme.cyan)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    togglePeriods()
                                 }
                             }
-
-                            TerminalFormDivider()
-                            Button {
-                                draft.addPeriod()
-                            } label: {
-                                Label("添加节次", systemImage: "plus")
-                            }
+                            .buttonStyle(.plain)
                             .terminalControl()
-                            .disabled(draft.periods.count >= 20)
-                            .accessibilityIdentifier("add-period")
+                            .zIndex(1)
+                            .accessibilityIdentifier("daily-periods-toggle")
+                            .accessibilityLabel("每日节次")
+                            .accessibilityValue(
+                                "\(draft.periods.count) 节，\(periodsExpanded ? "已展开" : "已收起")"
+                            )
+
+                            if periodsExpanded {
+                                TerminalFormDivider()
+                                ForEach(Array(draft.periods.indices), id: \.self) { index in
+                                    periodRow(index: index)
+                                    if index < draft.periods.count - 1 {
+                                        TerminalFormDivider()
+                                    }
+                                }
+
+                                TerminalFormDivider()
+                                Button {
+                                    draft.addPeriod()
+                                } label: {
+                                    Label("添加节次", systemImage: "plus")
+                                }
+                                .terminalControl()
+                                .disabled(draft.periods.count >= 20)
+                                .accessibilityIdentifier("add-period")
+                            }
                         }
 
                         if let dataTransferState {
@@ -151,6 +192,12 @@ struct SemesterFormView: View {
         .foregroundStyle(.white)
         .overlay(alignment: .bottom) {
             Rectangle().fill(QingKeTheme.signal).frame(height: 3)
+        }
+    }
+
+    private func togglePeriods() {
+        withAnimation(.easeOut(duration: 0.18)) {
+            periodsExpanded.toggle()
         }
     }
 

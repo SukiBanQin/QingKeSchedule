@@ -6,6 +6,13 @@ import Testing
 struct SemesterDraftTests {
     private let timeZone = TimeZone(secondsFromGMT: 8 * 60 * 60)!
 
+    @Test("少于五节默认展开")
+    func periodsExpandByDefaultBelowFive() {
+        #expect(SemesterFormView.shouldExpandPeriodsByDefault(periodCount: 4))
+        #expect(!SemesterFormView.shouldExpandPeriodsByDefault(periodCount: 5))
+        #expect(!SemesterFormView.shouldExpandPeriodsByDefault(periodCount: 10))
+    }
+
     @Test("新学期使用与 Web 一致的默认节次")
     func defaultsMatchWeb() throws {
         let calendar = ScheduleRules.gregorianCalendar(timeZone: timeZone)

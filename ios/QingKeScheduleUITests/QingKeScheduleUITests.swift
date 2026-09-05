@@ -24,6 +24,52 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testDailyPeriodsCollapseAndExpand() throws {
+        let app = launchAndCreateSemester()
+        app.buttons["settings-tab"].tap()
+
+        let periodsToggle = app.buttons["daily-periods-toggle"]
+        XCTAssertTrue(periodsToggle.waitForExistence(timeout: 5))
+        let initiallyCollapsed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "value CONTAINS %@ AND value CONTAINS %@",
+                "10 节",
+                "已收起"
+            ),
+            object: periodsToggle
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [initiallyCollapsed], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["add-period"].exists)
+
+        scrollToElement(periodsToggle, in: app)
+        periodsToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let expandedToggle = app.buttons["daily-periods-toggle"]
+        let addPeriod = app.buttons["add-period"]
+        let expanded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "已展开"),
+            object: expandedToggle
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expanded], timeout: 5),
+            .completed
+        )
+        XCTAssertTrue(addPeriod.waitForExistence(timeout: 5))
+
+        expandedToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let collapsedToggle = app.buttons["daily-periods-toggle"]
+        let collapsedAgain = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", "已收起"),
+            object: collapsedToggle
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [collapsedAgain], timeout: 5), .completed)
+        let addPeriodDisappeared = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.buttons["add-period"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [addPeriodDisappeared], timeout: 5), .completed)
+    }
+
+    @MainActor
     func testBothSemesterSaveActionsShowTerminalFeedback() throws {
         let app = launchAndCreateSemester()
         app.buttons["settings-tab"].tap()
@@ -241,6 +287,21 @@ final class QingKeScheduleUITests: XCTestCase {
         let semesterName = app.textFields["semester-name"]
         XCTAssertTrue(semesterName.waitForExistence(timeout: 5))
         XCTAssertEqual(semesterName.value as? String, "2026 秋季学期")
+        let periodsToggle = app.buttons["daily-periods-toggle"]
+        XCTAssertTrue(periodsToggle.waitForExistence(timeout: 5))
+        let importedPeriodsExpanded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "value CONTAINS %@ AND value CONTAINS %@",
+                "4 节",
+                "已展开"
+            ),
+            object: periodsToggle
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [importedPeriodsExpanded], timeout: 5),
+            .completed
+        )
+        XCTAssertTrue(app.buttons["add-period"].exists)
         let exportButton = app.buttons["schedule-export"]
         scrollToElement(exportButton, in: app)
         XCTAssertTrue(exportButton.exists)
