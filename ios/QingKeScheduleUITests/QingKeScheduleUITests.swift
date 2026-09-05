@@ -271,6 +271,42 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testDarkModeCoreScreensRemainUsable() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "-AppleInterfaceStyle", "Dark"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["onboarding-terminal-header"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["semester-save-toolbar"].isHittable)
+        app.buttons["semester-save-toolbar"].tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["today-empty"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["add-course-today-toolbar"].isHittable)
+        XCTAssertTrue(app.buttons["today-tab"].isHittable)
+
+        app.buttons["schedule-tab"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["week-matrix"].exists)
+        XCTAssertTrue(app.buttons["add-course-week-toolbar"].isHittable)
+
+        app.buttons["settings-tab"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["semester-name"].exists)
+        let calendarSettings = app.descendants(matching: .any)["academic-calendar-settings"]
+        scrollToElement(calendarSettings, in: app)
+        XCTAssertTrue(calendarSettings.exists)
+
+        app.buttons["today-tab"].tap()
+        app.buttons["add-course-today-toolbar"].tap()
+        XCTAssertTrue(app.buttons["course-cancel"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["course-save"].exists)
+        XCTAssertTrue(app.buttons["add-course-schedule"].exists)
+        XCTAssertTrue(app.buttons["青绿色"].exists)
+        app.buttons["course-cancel"].tap()
+        XCTAssertTrue(app.buttons["today-tab"].isHittable)
+    }
+
+    @MainActor
     func testValidImportPreviewCancelConfirmAndExportEntry() throws {
         let app = launchForTransferTest(
             fixture: "Shared/fixtures/valid/web-export.json"

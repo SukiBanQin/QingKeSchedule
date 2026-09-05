@@ -76,27 +76,27 @@ struct TodayScheduleView: View {
                 Text(yearAndWeekday)
                     .font(.terminal(11, weight: .bold, relativeTo: .caption))
                     .tracking(1.2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
             .frame(width: 106, alignment: .leading)
 
             Rectangle()
-                .fill(Color.primary.opacity(0.32))
+                .fill(QingKeTheme.borderStrong)
                 .frame(width: 1, height: 116)
 
             VStack(alignment: .leading, spacing: 7) {
                 Text("SCHEDULE :// TODAY")
                     .font(.terminal(10, weight: .black, relativeTo: .caption))
                     .tracking(0.8)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(QingKeTheme.textOnInverse)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(QingKeTheme.ink)
+                    .background(QingKeTheme.inverseSurface)
                 Text("今日")
                     .font(.system(size: 42, weight: .black))
                 Text(teachingWeekText)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
 
             Spacer(minLength: 0)
@@ -109,7 +109,7 @@ struct TodayScheduleView: View {
                     .font(.terminal(38, weight: .light, relativeTo: .title))
                 Text("/ DAY")
                     .font(.terminal(8, weight: .bold, relativeTo: .caption2))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
         }
     }
@@ -126,12 +126,12 @@ struct TodayScheduleView: View {
             Text("进度更新于 \(clockText)")
                 .font(.terminal(9, weight: .bold, relativeTo: .caption2))
                 .tracking(0.7)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.68))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(QingKeTheme.textOnInverse)
         .padding(.horizontal, 12)
         .frame(height: 34)
-        .background(QingKeTheme.ink.opacity(0.96))
+        .background(QingKeTheme.inverseSurface)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(item.status == .ongoing ? QingKeTheme.signal : QingKeTheme.cyan)
@@ -149,7 +149,7 @@ struct TodayScheduleView: View {
                 HStack {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(QingKeTheme.ink)
+                            .fill(QingKeTheme.textOnAccent)
                             .frame(width: 8, height: 8)
                         Text(item.status == .ongoing ? "CURRENT" : "NEXT")
                             .font(.terminal(11, weight: .black, relativeTo: .caption))
@@ -160,7 +160,7 @@ struct TodayScheduleView: View {
                         .font(.terminal(10, weight: .black, relativeTo: .caption))
                         .tracking(1)
                 }
-                .foregroundStyle(QingKeTheme.ink)
+                .foregroundStyle(QingKeTheme.textOnAccent)
                 .padding(.horizontal, 12)
                 .frame(height: 36)
                 .background(accent)
@@ -171,12 +171,12 @@ struct TodayScheduleView: View {
                             .font(.terminal(32, weight: .bold, relativeTo: .title))
                         Text("– \(endTime(of: occurrence))")
                             .font(.terminal(13, weight: .regular, relativeTo: .caption))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(QingKeTheme.textSecondary)
                     }
                     .frame(width: 82, alignment: .leading)
 
                     Rectangle()
-                        .fill(Color.primary.opacity(0.16))
+                        .fill(QingKeTheme.divider)
                         .frame(width: 1, height: 70)
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -185,7 +185,7 @@ struct TodayScheduleView: View {
                             .lineLimit(2)
                         Text(details(for: occurrence))
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(QingKeTheme.textSecondary)
                             .lineLimit(2)
                     }
 
@@ -199,7 +199,7 @@ struct TodayScheduleView: View {
                     VStack(spacing: 0) {
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
-                                Rectangle().fill(QingKeTheme.ink.opacity(0.12))
+                                Rectangle().fill(QingKeTheme.progressTrack)
                                 Rectangle()
                                     .fill(QingKeTheme.cyan)
                                     .frame(width: proxy.size.width * progress.fraction)
@@ -214,21 +214,21 @@ struct TodayScheduleView: View {
                                 .fontWeight(.bold)
                         }
                         .font(.terminal(10, weight: .semibold, relativeTo: .caption))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(QingKeTheme.textOnInverse)
                         .padding(.horizontal, 12)
                         .frame(height: 36)
-                        .background(QingKeTheme.ink.opacity(0.92))
+                        .background(QingKeTheme.inverseSurface)
                     }
                 }
             }
             .background { TerminalAcrylicSurface() }
             .overlay {
-                Rectangle().stroke(Color.white.opacity(0.68), lineWidth: 1)
+                Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1)
             }
-            .shadow(color: QingKeTheme.ink.opacity(0.1), radius: 12, y: 6)
+            .shadow(color: QingKeTheme.shadow, radius: 12, y: 6)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(QingKeTheme.textPrimary)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("today-featured-course")
     }
@@ -246,7 +246,7 @@ struct TodayScheduleView: View {
             Text("END OF SCHEDULE // \(presentation.items.last.map { endTime(of: $0.occurrence) } ?? "--:--")")
                 .font(.terminal(10, weight: .bold, relativeTo: .caption))
                 .tracking(1.3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 5)
         }
@@ -259,13 +259,16 @@ struct TodayScheduleView: View {
         let accent = item.status == .ongoing
             ? QingKeTheme.signal
             : Color(courseHex: occurrence.course.color)
+        let tagContentColor = item.status == .ongoing
+            ? QingKeTheme.textOnAccent
+            : QingKeTheme.courseContentColor(for: occurrence.course.color)
         return Button {
             onSelectCourse(occurrence.course)
         } label: {
             HStack(spacing: 13) {
                 Text(String(format: "%02d", index + 1))
                     .font(.terminal(11, weight: .black, relativeTo: .caption))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     .rotationEffect(.degrees(-90))
                     .frame(width: 24)
 
@@ -274,21 +277,25 @@ struct TodayScheduleView: View {
                         .font(.terminal(24, weight: .bold, relativeTo: .title3))
                     Text(endTime(of: occurrence))
                         .font(.terminal(11, relativeTo: .caption))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                 }
                 .frame(width: 66, alignment: .leading)
 
                 Rectangle()
-                    .fill(Color.primary.opacity(0.15))
+                    .fill(QingKeTheme.divider)
                     .frame(width: 1, height: 52)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    TerminalStatusTag(text: statusLabel(for: item), tint: accent)
+                    TerminalStatusTag(
+                        text: statusLabel(for: item),
+                        tint: accent,
+                        contentColor: tagContentColor
+                    )
                     Text(occurrence.course.name)
                         .font(.headline)
                     Text(details(for: occurrence))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -296,7 +303,7 @@ struct TodayScheduleView: View {
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(QingKeTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
             .terminalPanel(accent: accent)
         }
@@ -314,10 +321,10 @@ struct TodayScheduleView: View {
                 Text("今天没有课程")
                     .font(.title2.bold())
                 Text(presentation.emptyMessage)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                 Text("使用右下角 ADD 录入一门新课程。")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .terminalPanel(accent: QingKeTheme.cyan)

@@ -263,13 +263,15 @@ private struct TerminalTabBar: View {
                                 .font(.terminal(8, weight: .black, relativeTo: .caption2))
                                 .tracking(1)
                                 .foregroundStyle(
-                                    selection == tab ? QingKeTheme.signal : .secondary
+                                    selection == tab ? QingKeTheme.signal : QingKeTheme.textSecondary
                                 )
                         }
                     }
-                    .foregroundStyle(selection == tab ? Color.white : Color.primary)
+                    .foregroundStyle(
+                        selection == tab ? QingKeTheme.textOnInverse : QingKeTheme.textPrimary
+                    )
                     .frame(maxWidth: .infinity, minHeight: 62)
-                    .background(selection == tab ? QingKeTheme.ink.opacity(0.94) : .clear)
+                    .background(selection == tab ? QingKeTheme.inverseSurface : .clear)
                     .overlay(alignment: .bottom) {
                         Rectangle()
                             .fill(selection == tab ? QingKeTheme.signal : .clear)
@@ -283,14 +285,14 @@ private struct TerminalTabBar: View {
             }
         }
         .padding(6)
-        .background { TerminalAcrylicSurface() }
+        .background { TerminalAcrylicSurface(level: .elevated) }
         .overlay {
-            Rectangle().stroke(Color.white.opacity(0.75), lineWidth: 1)
+            Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 4)
-        .background(.ultraThinMaterial)
+        .background(QingKeTheme.canvas)
         .accessibilityElement(children: .contain)
     }
 }
@@ -357,15 +359,15 @@ private struct CourseAddChoiceView: View {
                         Text("SELECT PROFILE")
                             .font(.terminal(8, weight: .black, relativeTo: .caption2))
                             .tracking(1)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.68))
                     }
                     Spacer()
                     Color.clear.frame(width: 34, height: 1)
                 }
                 .padding(.horizontal, 20)
                 .frame(height: 58)
-                .foregroundStyle(.white)
-                .background(QingKeTheme.ink.opacity(0.96))
+                .foregroundStyle(QingKeTheme.textOnInverse)
+                .background(QingKeTheme.inverseSurface)
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(QingKeTheme.signal).frame(height: 3)
                 }
@@ -408,7 +410,7 @@ private struct CourseAddChoiceView: View {
                                             .font(.headline)
                                         Text(course.teacher.isEmpty ? "未填写教师" : course.teacher)
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(QingKeTheme.textSecondary)
                                     }
                                     Spacer()
                                     Text("添加安排")

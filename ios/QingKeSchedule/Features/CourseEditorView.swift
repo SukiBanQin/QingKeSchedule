@@ -72,11 +72,11 @@ struct CourseEditorView: View {
                         } label: {
                             Label("添加上课安排", systemImage: "plus")
                                 .font(.headline)
-                                .foregroundStyle(QingKeTheme.ink)
+                                .foregroundStyle(QingKeTheme.textOnAccent)
                                 .frame(maxWidth: .infinity, minHeight: 54)
                                 .background(QingKeTheme.signal)
                                 .overlay {
-                                    Rectangle().stroke(Color.white.opacity(0.78), lineWidth: 1)
+                                    Rectangle().stroke(QingKeTheme.textOnInverse.opacity(0.78), lineWidth: 1)
                                 }
                         }
                         .buttonStyle(.plain)
@@ -156,7 +156,7 @@ struct CourseEditorView: View {
                      : (editingCourse == nil ? "NEW COURSE" : "COURSE PROFILE"))
                     .font(.terminal(8, weight: .black, relativeTo: .caption2))
                     .tracking(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.68))
             }
 
             Spacer()
@@ -168,8 +168,8 @@ struct CourseEditorView: View {
         }
         .padding(.horizontal, 20)
         .frame(height: 58)
-        .background(QingKeTheme.ink.opacity(0.96))
-        .foregroundStyle(.white)
+        .background(QingKeTheme.inverseSurface)
+        .foregroundStyle(QingKeTheme.textOnInverse)
         .overlay(alignment: .bottom) {
             Rectangle().fill(QingKeTheme.signal).frame(height: 3)
         }
@@ -193,7 +193,7 @@ struct CourseEditorView: View {
                             .font(.title3.bold())
                         Text(draft.teacher.isEmpty ? "未填写教师" : draft.teacher)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(QingKeTheme.textSecondary)
                     }
                 }
                 .padding(.vertical, 10)
@@ -241,7 +241,7 @@ struct CourseEditorView: View {
                             if draft.color.caseInsensitiveCompare(option.value) == .orderedSame {
                                 Image(systemName: "checkmark")
                                     .font(.caption.bold())
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(QingKeTheme.courseContentColor(for: option.value))
                             }
                         }
                     }
@@ -275,7 +275,7 @@ struct CourseEditorView: View {
             Text("当前色值  \(draft.color.uppercased())")
                 .font(.terminal(10, weight: .bold, relativeTo: .caption))
                 .tracking(0.7)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
         }
     }
 

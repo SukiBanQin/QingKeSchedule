@@ -58,17 +58,20 @@ enum QingKeTheme {
         highContrastLightAlpha: 0.46,
         highContrastDarkAlpha: 0.48
     )
+    static let panelEdge = dynamicColor(
+        light: "#FFFFFF", lightAlpha: 0.68,
+        dark: "#F1F5F4", darkAlpha: 0.22,
+        highContrastLightAlpha: 0.82,
+        highContrastDarkAlpha: 0.38
+    )
     static let shadow = dynamicColor(light: "#000000", lightAlpha: 0.14, dark: "#000000", darkAlpha: 0.34)
     static let grid = dynamicColor(light: "#091113", lightAlpha: 0.07, dark: "#F1F5F4", darkAlpha: 0.055)
     static let ambientWash = dynamicColor(light: "#FFFFFF", lightAlpha: 0.48, dark: "#35C8E5", darkAlpha: 0.06)
+    static let scrim = dynamicColor(light: "#000000", lightAlpha: 0.46, dark: "#000000", darkAlpha: 0.62)
+    static let progressTrack = dynamicColor(light: "#091113", lightAlpha: 0.12, dark: "#F1F5F4", darkAlpha: 0.14)
     static let signal = dynamicColor(light: "#FFD400", dark: "#FFD400")
     static let cyan = dynamicColor(light: "#28B9D6", dark: "#35C8E5")
-    static let danger = dynamicColor(light: "#D13026", dark: "#FF665C")
-
-    // Compatibility entries remain fixed until the later page-by-page migration.
-    static let ink = Color(red: 0.035, green: 0.065, blue: 0.073)
-    static let paper = Color(red: 0.89, green: 0.92, blue: 0.92)
-    static let muted = Color(red: 0.38, green: 0.44, blue: 0.45)
+    static let danger = dynamicColor(light: "#E65A4F", dark: "#FF665C")
 
     private static func dynamicColor(
         light: String,
@@ -118,6 +121,43 @@ enum QingKeTheme {
             blue: CGFloat(value & 0xFF) / 255,
             alpha: 1
         )
+    }
+
+    static func courseContentColor(for hex: String) -> Color {
+        courseUsesDarkContent(for: hex) ? textOnAccent : textOnInverse
+    }
+
+    static func courseUsesDarkContent(for hex: String) -> Bool {
+        let color = uiColor(hex)
+        let components = color.cgColor.components ?? [0, 0, 0]
+        let red = components[0]
+        let green = components.count > 1 ? components[1] : red
+        let blue = components.count > 2 ? components[2] : red
+        let backgroundLuminance = relativeLuminance(red: red, green: green, blue: blue)
+        let accentContrast = contrastRatio(
+            foregroundLuminance: relativeLuminance(red: 0.027, green: 0.063, blue: 0.075),
+            backgroundLuminance: backgroundLuminance
+        )
+        let inverseContrast = contrastRatio(
+            foregroundLuminance: relativeLuminance(red: 0.945, green: 0.961, blue: 0.937),
+            backgroundLuminance: backgroundLuminance
+        )
+        return accentContrast >= inverseContrast
+    }
+
+    private static func relativeLuminance(red: CGFloat, green: CGFloat, blue: CGFloat) -> CGFloat {
+        func linear(_ channel: CGFloat) -> CGFloat {
+            channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
+
+    private static func contrastRatio(
+        foregroundLuminance: CGFloat,
+        backgroundLuminance: CGFloat
+    ) -> CGFloat {
+        (max(foregroundLuminance, backgroundLuminance) + 0.05) /
+            (min(foregroundLuminance, backgroundLuminance) + 0.05)
     }
 }
 
@@ -207,12 +247,12 @@ struct TerminalBrandHeader: View {
             Text(code)
                 .font(.terminal(10, weight: .bold, relativeTo: .caption))
                 .tracking(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
         }
         .padding(.bottom, 12)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.primary.opacity(0.24))
+                .fill(QingKeTheme.divider)
                 .frame(height: 1)
         }
         .accessibilityElement(children: .combine)
@@ -222,26 +262,50 @@ struct TerminalBrandHeader: View {
     }
 }
 
+enum TerminalSurfaceLevel {
+    case standard
+    case elevated
+}
+
 struct TerminalAcrylicSurface: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var level: TerminalSurfaceLevel = .standard
 
     var body: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
-            .overlay {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(
-                            colorScheme == .dark
-                                ? QingKeVisualSpec.panelDarkWashOpacity
-                                : QingKeVisualSpec.panelLightWashOpacity
-                        ),
-                        Color.white.opacity(0.02),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+        Group {
+            if colorScheme == .light && !reduceTransparency {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(lightWash)
+            } else {
+                Rectangle()
+                    .fill(level == .elevated ? QingKeTheme.surfaceElevated : QingKeTheme.surface)
+                    .overlay(darkWash)
             }
+        }
+    }
+
+    private var lightWash: some View {
+        LinearGradient(
+            colors: [
+                Color.white.opacity(QingKeVisualSpec.panelLightWashOpacity),
+                Color.white.opacity(0.02),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var darkWash: some View {
+        LinearGradient(
+            colors: [
+                QingKeTheme.surfaceElevated.opacity(level == .elevated ? 0.34 : 0.18),
+                .clear,
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 
@@ -263,14 +327,12 @@ struct TerminalFormSection<Content: View>: View {
             .overlay(alignment: .leading) {
                 Rectangle().fill(QingKeTheme.cyan).frame(width: 3)
             }
-            .overlay {
-                Rectangle().stroke(Color.white.opacity(0.68), lineWidth: 1)
-            }
+            .overlay { Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1) }
 
             if let footer {
                 Text(footer)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     .padding(.horizontal, 3)
             }
         }
@@ -280,7 +342,7 @@ struct TerminalFormSection<Content: View>: View {
 struct TerminalFormDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.primary.opacity(0.13))
+            .fill(QingKeTheme.divider)
             .frame(height: 1)
     }
 }
@@ -316,13 +378,13 @@ struct TerminalSectionHeader: View {
                 Text(detail.uppercased())
                     .font(.terminal(8, weight: .bold, relativeTo: .caption2))
                     .tracking(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
         }
         .padding(.bottom, 7)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.primary.opacity(0.35))
+                .fill(QingKeTheme.borderStrong)
                 .frame(height: 1)
         }
     }
@@ -331,6 +393,7 @@ struct TerminalSectionHeader: View {
 struct TerminalStatusTag: View {
     let text: String
     var tint: Color = QingKeTheme.cyan
+    var contentColor: Color = QingKeTheme.textOnAccent
 
     var body: some View {
         Text(text.uppercased())
@@ -338,7 +401,7 @@ struct TerminalStatusTag: View {
             .tracking(0.9)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .foregroundStyle(QingKeTheme.ink)
+            .foregroundStyle(contentColor)
             .background(tint)
     }
 }
@@ -362,10 +425,10 @@ struct TerminalToast: View {
                 .font(.caption.bold())
                 .foregroundStyle(QingKeTheme.signal)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(QingKeTheme.textOnInverse)
         .padding(.horizontal, 14)
         .frame(minHeight: 46)
-        .background(QingKeTheme.ink.opacity(0.94))
+        .background { TerminalAcrylicSurface(level: .elevated) }
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(QingKeTheme.signal)
@@ -373,9 +436,9 @@ struct TerminalToast: View {
         }
         .overlay {
             Rectangle()
-                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                .stroke(QingKeTheme.border, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.24), radius: 14, y: 7)
+        .shadow(color: QingKeTheme.shadow, radius: 14, y: 7)
         .accessibilityElement(children: .combine)
     }
 }
@@ -393,7 +456,7 @@ struct TerminalFloatingAction: View {
                     .font(.terminal(8, weight: .black, relativeTo: .caption2))
                     .tracking(0.8)
             }
-            .foregroundStyle(QingKeTheme.ink)
+            .foregroundStyle(QingKeTheme.textOnAccent)
             .frame(
                 width: QingKeVisualSpec.floatingActionSize,
                 height: QingKeVisualSpec.floatingActionSize
@@ -401,12 +464,12 @@ struct TerminalFloatingAction: View {
             .background(QingKeTheme.signal)
             .overlay(alignment: .topTrailing) {
                 TriangleCorner()
-                    .fill(Color.white.opacity(0.75))
+                    .fill(QingKeTheme.textOnInverse.opacity(0.75))
                     .frame(width: 13, height: 13)
             }
             .overlay {
                 Rectangle()
-                    .stroke(Color.white.opacity(0.75), lineWidth: 1)
+                    .stroke(QingKeTheme.textOnInverse.opacity(0.75), lineWidth: 1)
                     .padding(3)
             }
         }
@@ -442,10 +505,9 @@ private struct TerminalPanelModifier: ViewModifier {
                 }
             }
             .overlay {
-                Rectangle()
-                    .stroke(Color.white.opacity(0.68), lineWidth: 1)
+                Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1)
             }
-            .shadow(color: QingKeTheme.ink.opacity(0.09), radius: 10, y: 5)
+            .shadow(color: QingKeTheme.shadow, radius: 10, y: 5)
     }
 }
 

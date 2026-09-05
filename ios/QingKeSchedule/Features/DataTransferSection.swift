@@ -17,7 +17,7 @@ struct DataTransferSection: View {
                     .font(.headline)
                 Text("请选择扩展名为 .json 的青课课表备份；暂不支持 Excel（.xlsx / .xls）文件。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("schedule-import-format")
@@ -49,7 +49,7 @@ struct DataTransferSection: View {
             } else {
                 TerminalFormDivider()
                 Label("设置学期后可导出备份", systemImage: "info.circle")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     .terminalControl()
             }
 
@@ -127,7 +127,7 @@ struct ScheduleImportPromptView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.46)
+            QingKeTheme.scrim
                 .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 18) {
@@ -136,12 +136,13 @@ struct ScheduleImportPromptView: View {
                 )
                 TerminalStatusTag(
                     text: state.importFailure == nil ? "REPLACE DATA" : "INVALID FILE",
-                    tint: state.importFailure == nil ? QingKeTheme.signal : QingKeTheme.danger
+                    tint: state.importFailure == nil ? QingKeTheme.signal : QingKeTheme.danger,
+                    contentColor: QingKeTheme.textOnAccent
                 )
                 Text(state.importFailure == nil ? "替换当前课表？" : "无法导入课表")
                     .font(.system(size: 32, weight: .black))
                 Text(state.importFailure ?? state.pendingImportPreview?.summary ?? "")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if state.importFailure == nil {
@@ -150,7 +151,7 @@ struct ScheduleImportPromptView: View {
                     } label: {
                         Text("替换当前课表")
                             .font(.headline)
-                            .foregroundStyle(QingKeTheme.ink)
+                            .foregroundStyle(QingKeTheme.textOnAccent)
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .background(QingKeTheme.signal)
                     }
@@ -161,22 +162,22 @@ struct ScheduleImportPromptView: View {
                     }
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 52)
-                    .overlay { Rectangle().stroke(Color.primary.opacity(0.5)) }
+                    .overlay { Rectangle().stroke(QingKeTheme.border, lineWidth: 1) }
                     .buttonStyle(.plain)
                 } else {
                     Button("好") {
                         state.dismissImportPrompt()
                     }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(QingKeTheme.textOnInverse)
                     .frame(maxWidth: .infinity, minHeight: 56)
-                    .background(QingKeTheme.ink)
+                    .background(QingKeTheme.inverseSurface)
                     .buttonStyle(.plain)
                 }
             }
             .padding(20)
-            .background { TerminalAcrylicSurface() }
-            .overlay { Rectangle().stroke(Color.white.opacity(0.82), lineWidth: 1) }
+            .background { TerminalAcrylicSurface(level: .elevated) }
+            .overlay { Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1) }
             .padding(20)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("schedule-import-prompt")

@@ -52,18 +52,32 @@ struct QingKeScheduleTests {
         #expect(relativeLuminance(darkSurface) < relativeLuminance(darkElevatedSurface))
 
         for traits in [lightTraits, darkTraits] {
-            let canvas = resolved(QingKeTheme.canvas, with: traits)
-            #expect(contrastRatio(resolved(QingKeTheme.textPrimary, with: traits), against: canvas) >= 4.5)
-            #expect(contrastRatio(resolved(QingKeTheme.textSecondary, with: traits), against: canvas) >= 4.5)
-        }
-
-        for accent in [QingKeTheme.signal, QingKeTheme.cyan] {
+            let backgrounds = [
+                QingKeTheme.canvas,
+                QingKeTheme.surface,
+                QingKeTheme.surfaceElevated,
+            ].map { resolved($0, with: traits) }
+            for background in backgrounds {
+                #expect(contrastRatio(resolved(QingKeTheme.textPrimary, with: traits), against: background) >= 4.5)
+                #expect(contrastRatio(resolved(QingKeTheme.textSecondary, with: traits), against: background) >= 4.5)
+            }
             #expect(
                 contrastRatio(
-                    resolved(QingKeTheme.textOnAccent, with: darkTraits),
-                    against: resolved(accent, with: darkTraits)
+                    resolved(QingKeTheme.textOnInverse, with: traits),
+                    against: resolved(QingKeTheme.inverseSurface, with: traits)
                 ) >= 4.5
             )
+        }
+
+        for traits in [lightTraits, darkTraits] {
+            for accent in [QingKeTheme.signal, QingKeTheme.cyan, QingKeTheme.danger] {
+                #expect(
+                    contrastRatio(
+                        resolved(QingKeTheme.textOnAccent, with: traits),
+                        against: resolved(accent, with: traits)
+                    ) >= 4.5
+                )
+            }
         }
 
         let standardBorder = resolved(QingKeTheme.border, with: darkTraits)
@@ -76,6 +90,28 @@ struct QingKeScheduleTests {
             contrastRatio(highContrastBorder, against: darkCanvas) >
                 contrastRatio(standardBorder, against: darkCanvas)
         )
+        let standardPanelEdge = resolved(QingKeTheme.panelEdge, with: darkTraits)
+        let highContrastPanelEdge = resolved(QingKeTheme.panelEdge, with: highContrastTraits)
+        #expect(rgbaComponents(standardPanelEdge).3 < rgbaComponents(highContrastPanelEdge).3)
+    }
+
+    @Test("课程色块始终选择可读的前景色")
+    func courseColorTagForegroundsAreReadable() {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        for option in CourseColorPalette.presets {
+            let background = resolved(Color(courseHex: option.value), with: traits)
+            let selected = resolved(QingKeTheme.courseContentColor(for: option.value), with: traits)
+            let alternate = resolved(
+                QingKeTheme.courseUsesDarkContent(for: option.value)
+                    ? QingKeTheme.textOnInverse
+                    : QingKeTheme.textOnAccent,
+                with: traits
+            )
+            #expect(
+                contrastRatio(selected, against: background) >=
+                    contrastRatio(alternate, against: background)
+            )
+        }
     }
 
     @Test("品牌 Logo 会按外观加载深浅资源")

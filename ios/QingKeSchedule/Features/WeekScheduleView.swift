@@ -105,10 +105,10 @@ struct WeekScheduleView: View {
                 Text("SCHEDULE :// WEEK MATRIX")
                     .font(.terminal(10, weight: .black, relativeTo: .caption))
                     .tracking(0.9)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(QingKeTheme.textOnInverse)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(QingKeTheme.ink)
+                    .background(QingKeTheme.inverseSurface)
                 Text("课表")
                     .font(.system(size: 40, weight: .black))
             }
@@ -138,7 +138,7 @@ struct WeekScheduleView: View {
             .accessibilityIdentifier("week-previous")
 
             Rectangle()
-                .fill(Color.primary.opacity(0.15))
+                .fill(QingKeTheme.divider)
                 .frame(width: 1, height: 64)
 
             Button {
@@ -149,7 +149,7 @@ struct WeekScheduleView: View {
                 VStack(spacing: 3) {
                     Text(semester.name)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                         .lineLimit(1)
                     Text("第 \(String(format: "%02d", selectedWeek)) 教学周")
                         .font(.headline)
@@ -166,7 +166,7 @@ struct WeekScheduleView: View {
             .accessibilityIdentifier("selected-week")
 
             Rectangle()
-                .fill(Color.primary.opacity(0.15))
+                .fill(QingKeTheme.divider)
                 .frame(width: 1, height: 64)
 
             Button {
@@ -181,7 +181,7 @@ struct WeekScheduleView: View {
         }
         .background { TerminalAcrylicSurface() }
         .overlay {
-            Rectangle().stroke(Color.primary.opacity(0.2), lineWidth: 1)
+            Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
         }
     }
 
@@ -203,7 +203,7 @@ struct WeekScheduleView: View {
                     }
                     .foregroundStyle(weekdayForegroundColor(for: day))
                     .frame(maxWidth: .infinity, minHeight: 54)
-                    .background(day.dayOfWeek == selectedDay ? QingKeTheme.ink : Color.clear)
+                    .background(day.dayOfWeek == selectedDay ? QingKeTheme.inverseSurface : Color.clear)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(weekdayAccessibilityLabel(day))
@@ -211,16 +211,16 @@ struct WeekScheduleView: View {
 
                 if day.dayOfWeek < ScheduleDisplayText.weekdayNames.count {
                     Rectangle()
-                        .fill(Color.primary.opacity(0.12))
+                        .fill(QingKeTheme.divider)
                         .frame(width: 1, height: 54)
                 }
             }
         }
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.primary.opacity(0.26)).frame(height: 1)
+            Rectangle().fill(QingKeTheme.borderStrong).frame(height: 1)
         }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.26)).frame(height: 1)
+            Rectangle().fill(QingKeTheme.borderStrong).frame(height: 1)
         }
     }
 
@@ -243,7 +243,7 @@ struct WeekScheduleView: View {
 
             Text("周一至周日已适配在一屏内；点按课程方块可直接编辑。")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
         }
     }
 
@@ -258,14 +258,14 @@ struct WeekScheduleView: View {
 
             ForEach(0...matrix.periods.count, id: \.self) { row in
                 Rectangle()
-                    .fill(Color.primary.opacity(row == 0 ? 0.3 : 0.13))
+                    .fill(row == 0 ? QingKeTheme.borderStrong : QingKeTheme.divider)
                     .frame(width: width, height: 1)
                     .offset(y: matrixY(forRow: row))
             }
 
             ForEach(0...weekdayCount, id: \.self) { column in
                 Rectangle()
-                    .fill(Color.primary.opacity(column == 0 ? 0.3 : 0.13))
+                    .fill(column == 0 ? QingKeTheme.borderStrong : QingKeTheme.divider)
                     .frame(width: 1, height: height)
                     .offset(x: column == 0
                             ? matrixTimeColumnWidth
@@ -275,7 +275,7 @@ struct WeekScheduleView: View {
             Text("TIME")
                 .font(.terminal(9, weight: .black, relativeTo: .caption2))
                 .tracking(0.8)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
                 .frame(width: matrixTimeColumnWidth, height: matrixHeaderHeight)
 
             ForEach(0..<weekdayCount, id: \.self) { dayColumn in
@@ -293,7 +293,7 @@ struct WeekScheduleView: View {
                         .font(.terminal(13, weight: .black, relativeTo: .caption))
                     Text(period.startTime)
                         .font(.terminal(7, weight: .semibold, relativeTo: .caption2))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                 }
                 .frame(width: matrixTimeColumnWidth, height: matrixRowHeight)
                 .offset(y: matrixY(forRow: row))
@@ -305,17 +305,17 @@ struct WeekScheduleView: View {
                         .font(.terminal(9, weight: .black, relativeTo: .caption2))
                         .tracking(1)
                     Rectangle()
-                        .fill(Color.white.opacity(0.4))
+                        .fill(QingKeTheme.textOnAccent.opacity(0.4))
                         .frame(height: 1)
                     Text("\(scheduleBreak.startTime)–\(scheduleBreak.endTime)")
                         .font(.terminal(8, weight: .bold, relativeTo: .caption2))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(QingKeTheme.textOnAccent)
                 .padding(.horizontal, 8)
                 .frame(width: width, height: matrixBreakHeight)
                 .background(QingKeTheme.cyan.opacity(0.92))
                 .overlay {
-                    Rectangle().stroke(Color.white.opacity(0.7), lineWidth: 0.8)
+                    Rectangle().stroke(QingKeTheme.textOnAccent.opacity(0.7), lineWidth: 0.8)
                 }
                 .offset(
                     y: matrixHeaderHeight
@@ -335,7 +335,7 @@ struct WeekScheduleView: View {
         .frame(width: width, height: height)
         .overlay {
             Rectangle()
-                .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                .stroke(QingKeTheme.panelEdge, lineWidth: 1)
         }
     }
 
@@ -375,12 +375,12 @@ struct WeekScheduleView: View {
                 if !details.isEmpty {
                     Text(details)
                         .font(.terminal(7, relativeTo: .caption2))
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.62))
                         .lineLimit(item.rowSpan > 1 ? 2 : 1)
                         .minimumScaleFactor(0.62)
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(QingKeTheme.textOnInverse)
             .padding(.leading, 8)
             .padding(.trailing, 4)
             .padding(.vertical, 5)
@@ -389,7 +389,7 @@ struct WeekScheduleView: View {
                 height: blockHeight,
                 alignment: .topLeading
             )
-            .background(QingKeTheme.ink.opacity(0.91))
+            .background(QingKeTheme.inverseSurface)
             .overlay(alignment: .leading) {
                 Rectangle()
                     .fill(accent)
@@ -397,7 +397,7 @@ struct WeekScheduleView: View {
             }
             .overlay {
                 Rectangle()
-                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
+                    .stroke(QingKeTheme.border, lineWidth: 0.8)
             }
         }
         .buttonStyle(.plain)
@@ -433,7 +433,7 @@ struct WeekScheduleView: View {
                  : "END OF MANIFEST // \(lastEndTime)")
                 .font(.terminal(10, weight: .bold, relativeTo: .caption))
                 .tracking(1.2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(QingKeTheme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 5)
         }
@@ -446,7 +446,7 @@ struct WeekScheduleView: View {
                 .font(.terminal(42, weight: .ultraLight, relativeTo: .title))
                 .foregroundStyle(QingKeTheme.cyan)
             Rectangle()
-                .fill(Color.primary.opacity(0.16))
+                .fill(QingKeTheme.divider)
                 .frame(width: 1, height: 55)
             VStack(alignment: .leading, spacing: 4) {
                 Text(selectedDayPresentation.isNonTeachingDay ? "该日已设为停课" : "该日无课程安排")
@@ -455,7 +455,7 @@ struct WeekScheduleView: View {
                      ? "可在设置的教学日历中恢复上课。"
                      : "选择其他日期，或使用 ADD 添加课程。")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
@@ -474,7 +474,7 @@ struct WeekScheduleView: View {
             HStack(spacing: 13) {
                 Text(String(format: "%02d", index + 1))
                     .font(.terminal(11, weight: .black, relativeTo: .caption))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     .rotationEffect(.degrees(-90))
                     .frame(width: 24)
 
@@ -483,12 +483,12 @@ struct WeekScheduleView: View {
                         .font(.terminal(24, weight: .bold, relativeTo: .title3))
                     Text(endTime(of: occurrence))
                         .font(.terminal(11, relativeTo: .caption))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                 }
                 .frame(width: 66, alignment: .leading)
 
                 Rectangle()
-                    .fill(Color.primary.opacity(0.15))
+                    .fill(QingKeTheme.divider)
                     .frame(width: 1, height: 55)
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -498,14 +498,14 @@ struct WeekScheduleView: View {
                         Text(ScheduleDisplayText.periodRange(occurrence.schedule).uppercased())
                             .font(.terminal(9, weight: .black, relativeTo: .caption2))
                             .tracking(0.8)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(QingKeTheme.textSecondary)
                     }
                     Text(occurrence.course.name)
                         .font(.headline)
                         .lineLimit(2)
                     Text(courseDetails(occurrence))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -513,7 +513,7 @@ struct WeekScheduleView: View {
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(QingKeTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
             .terminalPanel(accent: accent)
         }
@@ -545,8 +545,8 @@ struct WeekScheduleView: View {
     }
 
     private func weekdayForegroundColor(for day: WeekDayPresentation) -> Color {
-        if day.dayOfWeek == selectedDay { return .white }
-        return day.isNonTeachingDay ? QingKeTheme.danger : .primary
+        if day.dayOfWeek == selectedDay { return QingKeTheme.textOnInverse }
+        return day.isNonTeachingDay ? QingKeTheme.danger : QingKeTheme.textPrimary
     }
 
     private var selectedDayDetail: String {

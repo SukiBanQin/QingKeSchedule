@@ -79,7 +79,7 @@ struct SemesterFormView: View {
                                         .font(.terminal(11, weight: .bold, relativeTo: .body))
                                     Spacer()
                                     Text("\(draft.periods.count) 节")
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(QingKeTheme.textSecondary)
                                     Image(systemName: periodsExpanded ? "chevron.up" : "chevron.down")
                                         .font(.caption.bold())
                                 }
@@ -178,7 +178,7 @@ struct SemesterFormView: View {
                 Text(isOnboarding ? "INITIAL SETUP" : "SYSTEM CONFIG")
                     .font(.terminal(8, weight: .black, relativeTo: .caption2))
                     .tracking(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.68))
             }
             Spacer()
             Button(isOnboarding ? "继续" : "保存") { save() }
@@ -188,8 +188,8 @@ struct SemesterFormView: View {
         }
         .padding(.horizontal, 20)
         .frame(height: 58)
-        .background(QingKeTheme.ink.opacity(0.96))
-        .foregroundStyle(.white)
+        .background(QingKeTheme.inverseSurface)
+        .foregroundStyle(QingKeTheme.textOnInverse)
         .overlay(alignment: .bottom) {
             Rectangle().fill(QingKeTheme.signal).frame(height: 3)
         }
@@ -214,11 +214,11 @@ struct SemesterFormView: View {
                     Text(draft.startDate.formatted(
                         .dateTime.locale(Locale(identifier: "zh_CN")).year().month().day()
                     ))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                     Image(systemName: calendarExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption.bold())
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(QingKeTheme.textPrimary)
             }
             .buttonStyle(.plain)
             .terminalControl()
@@ -284,15 +284,15 @@ struct SemesterFormView: View {
                     Text(isOnboarding ? "INITIALIZE TERMINAL" : "COMMIT CHANGES")
                         .font(.terminal(8, weight: .bold, relativeTo: .caption2))
                         .tracking(1)
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(QingKeTheme.textOnInverse.opacity(0.62))
                 }
                 Spacer()
                 Image(systemName: "arrow.right")
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(QingKeTheme.textOnInverse)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 58)
-            .background(QingKeTheme.ink)
+            .background(QingKeTheme.inverseSurface)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(QingKeTheme.signal).frame(height: 4)
             }
@@ -320,7 +320,7 @@ struct SemesterFormView: View {
                          ? "配置学期与每日节次，完成后即可录入第一门课程。"
                          : "管理学期、节次、提醒与本地课表备份。")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QingKeTheme.textSecondary)
                 }
 
                 Spacer(minLength: 0)
@@ -456,11 +456,11 @@ private struct AcademicCalendarSettingsSection: View {
                     Text(selectedDate.formatted(
                         .dateTime.locale(Locale(identifier: "zh_CN")).year().month().day()
                     ))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
                     Image(systemName: calendarExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption.bold())
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(QingKeTheme.textPrimary)
             }
             .buttonStyle(.plain)
             .terminalControl()
@@ -496,7 +496,7 @@ private struct AcademicCalendarSettingsSection: View {
             Button(action: addException) {
                 Text(mode == .nonTeaching ? "添加停课日" : "添加调课日")
                     .font(.headline)
-                    .foregroundStyle(QingKeTheme.ink)
+                    .foregroundStyle(QingKeTheme.textOnAccent)
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(QingKeTheme.signal)
             }
@@ -537,11 +537,13 @@ private struct AcademicCalendarSettingsSection: View {
         } label: {
             Text(candidate.title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(mode == candidate ? Color.white : Color.primary)
+                .foregroundStyle(
+                    mode == candidate ? QingKeTheme.textOnInverse : QingKeTheme.textPrimary
+                )
                 .frame(maxWidth: .infinity, minHeight: 42)
-                .background(mode == candidate ? QingKeTheme.ink : Color.clear)
+                .background(mode == candidate ? QingKeTheme.inverseSurface : Color.clear)
                 .overlay {
-                    Rectangle().stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                    Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
                 }
         }
         .buttonStyle(.plain)
@@ -552,7 +554,7 @@ private struct AcademicCalendarSettingsSection: View {
         Text(title)
             .font(.terminal(9, weight: .black, relativeTo: .caption2))
             .tracking(1)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(QingKeTheme.textSecondary)
             .padding(.top, 12)
     }
 
@@ -567,7 +569,7 @@ private struct AcademicCalendarSettingsSection: View {
                     .font(.headline)
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QingKeTheme.textSecondary)
             }
             Spacer()
             Button(role: .destructive, action: onDelete) {
