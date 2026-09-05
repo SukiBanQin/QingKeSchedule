@@ -80,6 +80,145 @@ struct CourseDraftTests {
         #expect(draft.isDirty)
     }
 
+    @Test("新课程新增完全重复安排会被阻止")
+    func newCourseDuplicateScheduleIsInvalid() throws {
+        let semester = testSemester()
+        var draft = CourseDraft(
+            semester: semester,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        draft.name = "编译原理"
+        draft.schedules[0].classroom = "A101"
+        draft.addSchedule(copying: draft.schedules[0])
+        draft.schedules[1].classroom = "  A101  "
+
+        let evaluation = draft.evaluateSave(
+            semester: semester,
+            existingCourses: [],
+            calendar: calendar
+        )
+
+        assertDuplicateSchedule(evaluation)
+    }
+
+    @Test("复用已有课程新增完全重复安排会被阻止")
+    func appendedDuplicateScheduleIsInvalid() throws {
+        let semester = testSemester()
+        let existing = testCourse(
+            id: "course-existing",
+            schedules: [testSchedule(id: "schedule-existing")]
+        )
+        let draft = CourseDraft(
+            course: existing,
+            appendingSchedule: true,
+            semester: semester,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+
+        let evaluation = draft.evaluateSave(
+            semester: semester,
+            existingCourses: [existing],
+            calendar: calendar
+        )
+
+        assertDuplicateSchedule(evaluation)
+    }
+
+    @Test("编辑已有安排为同课程重复安排会被阻止")
+    func editingScheduleIntoDuplicateIsInvalid() throws {
+        let semester = testSemester()
+        let original = testSchedule(id: "schedule-original")
+        let other = testSchedule(
+            id: "schedule-other",
+            dayOfWeek: 2,
+            startPeriod: 2,
+            endPeriod: 2,
+            classroom: "B202"
+        )
+        let existing = testCourse(
+            id: "course-existing",
+            schedules: [original, other]
+        )
+        var draft = CourseDraft(
+            course: existing,
+            semester: semester,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        draft.schedules[1].dayOfWeek = draft.schedules[0].dayOfWeek
+        draft.schedules[1].startPeriod = draft.schedules[0].startPeriod
+        draft.schedules[1].endPeriod = draft.schedules[0].endPeriod
+        draft.schedules[1].startWeek = draft.schedules[0].startWeek
+        draft.schedules[1].endWeek = draft.schedules[0].endWeek
+        draft.schedules[1].repeatRule = draft.schedules[0].repeatRule
+        draft.schedules[1].classroom = draft.schedules[0].classroom
+
+        let evaluation = draft.evaluateSave(
+            semester: semester,
+            existingCourses: [existing],
+            calendar: calendar
+        )
+
+        assertDuplicateSchedule(evaluation)
+    }
+
+    @Test("历史重复安排未增加时可保存，新增后会被阻止")
+    func historicalDuplicatesCanBeEditedButNotIncreased() throws {
+        let semester = testSemester()
+        let repeated = testSchedule(id: "schedule-legacy-1")
+        let existing = testCourse(
+            id: "course-legacy",
+            schedules: [
+                repeated,
+                testSchedule(id: "schedule-legacy-2"),
+            ]
+        )
+        var draft = CourseDraft(
+            course: existing,
+            semester: semester,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        draft.name = "历史课程（已更新）"
+
+        #expect(draft.evaluateSave(
+            semester: semester,
+            existingCourses: [existing],
+            calendar: calendar
+        ) == .ready)
+
+        draft.addSchedule(copying: draft.schedules[0])
+        assertDuplicateSchedule(draft.evaluateSave(
+            semester: semester,
+            existingCourses: [existing],
+            calendar: calendar
+        ))
+    }
+
+    @Test("不同重复规则或教室的安排不是完全重复")
+    func schedulesWithDifferentRepeatOrClassroomAreAllowed() throws {
+        let semester = testSemester()
+        var draft = CourseDraft(
+            semester: semester,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        draft.name = "数据库"
+        let original = draft.schedules[0]
+        draft.addSchedule(copying: original)
+        draft.schedules[1].repeatRule = .odd
+        draft.addSchedule(copying: original)
+        draft.schedules[2].classroom = "B202"
+
+        #expect(draft.evaluateSave(
+            semester: semester,
+            existingCourses: [],
+            calendar: calendar
+        ) == .ready)
+    }
+
     @Test("冲突需要确认，但编辑课程不会与自身冲突")
     func conflictEvaluation() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
@@ -120,5 +259,61 @@ struct CourseDraftTests {
             month: month,
             day: day
         )))
+    }
+
+    private func assertDuplicateSchedule(_ evaluation: CourseSaveEvaluation) {
+        guard case .invalid(let issues) = evaluation else {
+            Issue.record("完全重复安排应阻止保存")
+            return
+        }
+        #expect(issues.contains {
+            $0.path == "courses.0.schedules"
+                && $0.message == "该上课安排已存在，请勿重复添加"
+        })
+    }
+
+    private func testSemester() -> SemesterDTO {
+        SemesterDTO(
+            id: "semester-test",
+            name: "测试学期",
+            startDate: "2026-09-01",
+            totalWeeks: 18,
+            periods: [
+                PeriodDTO(number: 1, startTime: "08:00", endTime: "08:45"),
+                PeriodDTO(number: 2, startTime: "08:55", endTime: "09:40"),
+            ]
+        )
+    }
+
+    private func testCourse(id: String, schedules: [CourseScheduleDTO]) -> CourseDTO {
+        CourseDTO(
+            id: id,
+            name: "测试课程",
+            teacher: "测试教师",
+            color: "#287B74",
+            schedules: schedules
+        )
+    }
+
+    private func testSchedule(
+        id: String,
+        dayOfWeek: Int = 1,
+        startPeriod: Int = 1,
+        endPeriod: Int = 1,
+        startWeek: Int = 1,
+        endWeek: Int = 18,
+        repeatRule: RepeatRule = .every,
+        classroom: String = ""
+    ) -> CourseScheduleDTO {
+        CourseScheduleDTO(
+            id: id,
+            dayOfWeek: dayOfWeek,
+            startPeriod: startPeriod,
+            endPeriod: endPeriod,
+            startWeek: startWeek,
+            endWeek: endWeek,
+            repeat: repeatRule,
+            classroom: classroom
+        )
     }
 }

@@ -69,10 +69,22 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["reused-course-profile"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.textFields["course-name"].exists)
         app.buttons["course-save"].tap()
-        XCTAssertGreaterThanOrEqual(app.staticTexts.matching(NSPredicate(
-            format: "label == %@",
+        let duplicateError = app.staticTexts["course-validation-error"]
+        XCTAssertTrue(duplicateError.waitForExistence(timeout: 5))
+        XCTAssertTrue(duplicateError.label.contains("该上课安排已存在，请勿重复添加"))
+        XCTAssertFalse(app.buttons["仍然保存"].exists)
+        XCTAssertTrue(app.buttons["course-save"].exists)
+        app.buttons["course-cancel"].tap()
+        XCTAssertTrue(app.buttons["放弃修改"].waitForExistence(timeout: 5))
+        app.buttons["放弃修改"].tap()
+
+        let courseACards = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+            "today-course-",
             "课程 A"
-        )).count, 2)
+        ))
+        XCTAssertTrue(courseACards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(courseACards.count, 1)
 
         app.buttons["add-course-today-toolbar"].tap()
         XCTAssertTrue(app.buttons["add-new-course"].waitForExistence(timeout: 5))
