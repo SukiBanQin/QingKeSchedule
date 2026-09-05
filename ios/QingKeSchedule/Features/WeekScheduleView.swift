@@ -34,7 +34,9 @@ struct WeekScheduleView: View {
             calendar: calendar
         ))
         let sundayBasedWeekday = calendar.component(.weekday, from: now)
-        _selectedDay = State(initialValue: sundayBasedWeekday == 1 ? 7 : sundayBasedWeekday - 1)
+        _selectedDay = State(initialValue: sundayBasedWeekday == 1
+            ? ScheduleDisplayText.weekdayNames.count
+            : sundayBasedWeekday - 1)
     }
 
     private var presentation: WeekSchedulePresentation {
@@ -207,7 +209,7 @@ struct WeekScheduleView: View {
                 .accessibilityLabel(weekdayAccessibilityLabel(day))
                 .accessibilityIdentifier("week-day-selector-\(day.dayOfWeek)")
 
-                if day.dayOfWeek < 7 {
+                if day.dayOfWeek < ScheduleDisplayText.weekdayNames.count {
                     Rectangle()
                         .fill(Color.primary.opacity(0.12))
                         .frame(width: 1, height: 54)
@@ -239,7 +241,7 @@ struct WeekScheduleView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("week-matrix")
 
-            Text("周一至周五已适配在一屏内；点按课程方块可直接编辑。")
+            Text("周一至周日已适配在一屏内；点按课程方块可直接编辑。")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -247,7 +249,8 @@ struct WeekScheduleView: View {
 
     private func matrixCanvas(width: CGFloat) -> some View {
         let matrix = matrixPresentation
-        let dayColumnWidth = max((width - matrixTimeColumnWidth) / 5, 1)
+        let weekdayCount = ScheduleDisplayText.weekdayNames.count
+        let dayColumnWidth = max((width - matrixTimeColumnWidth) / CGFloat(weekdayCount), 1)
         let height = matrixCanvasHeight
 
         return ZStack(alignment: .topLeading) {
@@ -260,7 +263,7 @@ struct WeekScheduleView: View {
                     .offset(y: matrixY(forRow: row))
             }
 
-            ForEach(0...5, id: \.self) { column in
+            ForEach(0...weekdayCount, id: \.self) { column in
                 Rectangle()
                     .fill(Color.primary.opacity(column == 0 ? 0.3 : 0.13))
                     .frame(width: 1, height: height)
@@ -275,7 +278,7 @@ struct WeekScheduleView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: matrixTimeColumnWidth, height: matrixHeaderHeight)
 
-            ForEach(0..<5, id: \.self) { dayColumn in
+            ForEach(0..<weekdayCount, id: \.self) { dayColumn in
                 Text(ScheduleDisplayText.weekdayNames[dayColumn])
                     .font(.terminal(9, weight: .black, relativeTo: .caption))
                     .minimumScaleFactor(0.7)

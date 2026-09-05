@@ -448,7 +448,7 @@ enum ScheduleDisplayText {
     }
 
     static func weekMatrixSummary(periodCount: Int) -> String {
-        "MON–FRI / \(periodCount) PERIODS"
+        "MON–SUN / \(periodCount) PERIODS"
     }
 
     static func compactCourseDetails(course: CourseDTO, schedule: CourseScheduleDTO) -> String {

@@ -91,7 +91,7 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["week-matrix"].waitForExistence(timeout: 5))
         scrollToElement(app.staticTexts["week-matrix-day-1"], in: app)
-        for day in 1...5 {
+        for day in 1...7 {
             XCTAssertTrue(app.staticTexts["week-matrix-day-\(day)"].exists)
         }
         XCTAssertTrue(app.buttons["add-course-week-toolbar"].isHittable)

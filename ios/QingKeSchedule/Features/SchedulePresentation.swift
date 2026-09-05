@@ -201,7 +201,7 @@ struct WeekMatrixPresentation: Equatable {
         })
 
         items = days
-            .filter { (1...5).contains($0.dayOfWeek) }
+            .filter { (1...ScheduleDisplayText.weekdayNames.count).contains($0.dayOfWeek) }
             .flatMap { day in
                 let drafts = day.items.compactMap { item -> Draft? in
                     guard
@@ -344,7 +344,7 @@ struct WeekSchedulePresentation: Equatable {
         }
 
         let occurrences = ScheduleRules.occurrences(forWeek: resolvedWeek, courses: courses)
-        days = (1...7).map { dayOfWeek in
+        days = (1...ScheduleDisplayText.weekdayNames.count).map { dayOfWeek in
             let date = ScheduleRules.date(
                 forTeachingWeek: resolvedWeek,
                 dayOfWeek: dayOfWeek,

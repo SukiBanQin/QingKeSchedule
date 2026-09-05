@@ -152,6 +152,47 @@ struct SchedulePresentationTests {
         #expect(week.days[5].items.allSatisfy { $0.displayDayOfWeek == 6 })
     }
 
+    @Test("星期日课程进入周矩阵第七列")
+    func sundayCourseAppearsInWeekMatrix() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let sundaySchedule = CourseScheduleDTO(
+            id: "schedule-sunday",
+            dayOfWeek: 7,
+            startPeriod: 1,
+            endPeriod: 1,
+            startWeek: 1,
+            endWeek: semester.totalWeeks,
+            repeat: .every,
+            classroom: "S707"
+        )
+        let sundayCourse = CourseDTO(
+            id: "course-sunday",
+            name: "周日课程",
+            teacher: "周老师",
+            color: "#12ABEF",
+            schedules: [sundaySchedule]
+        )
+        let sundayItem = WeekCourseItem(
+            occurrence: CourseOccurrenceDTO(course: sundayCourse, schedule: sundaySchedule),
+            isConflicting: false,
+            displayDayOfWeek: 7
+        )
+        let sunday = WeekDayPresentation(
+            dayOfWeek: 7,
+            date: nil,
+            items: [sundayItem],
+            isNonTeachingDay: false,
+            scheduleSourceDayOfWeek: nil
+        )
+
+        let matrix = WeekMatrixPresentation(semester: semester, days: [sunday])
+        let item = try #require(matrix.items.first)
+
+        #expect(item.occurrence.schedule.id == "schedule-sunday")
+        #expect(item.dayColumn == 6)
+    }
+
     @Test("默认周次限制在学期范围内")
     func initialWeekIsClamped() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
@@ -175,7 +216,7 @@ struct SchedulePresentationTests {
         let course = try #require(data.courses.first { !$0.teacher.isEmpty })
         let schedule = try #require(course.schedules.first { !$0.classroom.isEmpty })
 
-        #expect(ScheduleDisplayText.weekMatrixSummary(periodCount: 4) == "MON–FRI / 4 PERIODS")
+        #expect(ScheduleDisplayText.weekMatrixSummary(periodCount: 4) == "MON–SUN / 4 PERIODS")
         #expect(
             ScheduleDisplayText.compactCourseDetails(course: course, schedule: schedule)
                 == "\(schedule.classroom) · \(course.teacher)"
