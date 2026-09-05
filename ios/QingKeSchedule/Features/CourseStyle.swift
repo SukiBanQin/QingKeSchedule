@@ -31,12 +31,94 @@ enum QingKeVisualSpec {
 }
 
 enum QingKeTheme {
+    static let canvas = dynamicColor(light: "#E3EBEB", dark: "#081113")
+    static let surface = dynamicColor(light: "#F1F5F4", dark: "#111B1E")
+    static let surfaceElevated = dynamicColor(light: "#FBFDFC", dark: "#182427")
+    static let surfaceActive = dynamicColor(light: "#DCE4E3", dark: "#202D31")
+    static let textPrimary = Color(uiColor: .label)
+    static let textSecondary = dynamicSystemColor(
+        .secondaryLabel,
+        minimumLightAlpha: 0.78,
+        minimumDarkAlpha: 0.60
+    )
+    static let textTertiary = Color(uiColor: .tertiaryLabel)
+    static let textOnAccent = fixedColor("#071013")
+    static let textOnInverse = dynamicColor(light: "#F1F5F4", dark: "#F1F5F4")
+    static let inverseSurface = dynamicColor(light: "#091113", dark: "#182427")
+    static let divider = Color(uiColor: .separator)
+    static let border = dynamicColor(
+        light: "#091113", lightAlpha: 0.20,
+        dark: "#F1F5F4", darkAlpha: 0.22,
+        highContrastLightAlpha: 0.32,
+        highContrastDarkAlpha: 0.38
+    )
+    static let borderStrong = dynamicColor(
+        light: "#091113", lightAlpha: 0.34,
+        dark: "#F1F5F4", darkAlpha: 0.32,
+        highContrastLightAlpha: 0.46,
+        highContrastDarkAlpha: 0.48
+    )
+    static let shadow = dynamicColor(light: "#000000", lightAlpha: 0.14, dark: "#000000", darkAlpha: 0.34)
+    static let grid = dynamicColor(light: "#091113", lightAlpha: 0.07, dark: "#F1F5F4", darkAlpha: 0.055)
+    static let ambientWash = dynamicColor(light: "#FFFFFF", lightAlpha: 0.48, dark: "#35C8E5", darkAlpha: 0.06)
+    static let signal = dynamicColor(light: "#FFD400", dark: "#FFD400")
+    static let cyan = dynamicColor(light: "#28B9D6", dark: "#35C8E5")
+    static let danger = dynamicColor(light: "#D13026", dark: "#FF665C")
+
+    // Compatibility entries remain fixed until the later page-by-page migration.
     static let ink = Color(red: 0.035, green: 0.065, blue: 0.073)
     static let paper = Color(red: 0.89, green: 0.92, blue: 0.92)
-    static let signal = Color(courseHex: QingKeVisualSpec.signalHex)
-    static let cyan = Color(courseHex: QingKeVisualSpec.cyanHex)
     static let muted = Color(red: 0.38, green: 0.44, blue: 0.45)
-    static let danger = Color(red: 0.82, green: 0.19, blue: 0.15)
+
+    private static func dynamicColor(
+        light: String,
+        lightAlpha: CGFloat = 1,
+        dark: String,
+        darkAlpha: CGFloat = 1,
+        highContrastLightAlpha: CGFloat? = nil,
+        highContrastDarkAlpha: CGFloat? = nil
+    ) -> Color {
+        Color(uiColor: UIColor { traits in
+            let isDark = traits.userInterfaceStyle == .dark
+            let isHighContrast = traits.accessibilityContrast == .high
+            let hex = isDark ? dark : light
+            let alpha: CGFloat
+            if isDark {
+                alpha = isHighContrast ? (highContrastDarkAlpha ?? darkAlpha) : darkAlpha
+            } else {
+                alpha = isHighContrast ? (highContrastLightAlpha ?? lightAlpha) : lightAlpha
+            }
+            return uiColor(hex).withAlphaComponent(alpha)
+        })
+    }
+
+    private static func fixedColor(_ hex: String) -> Color {
+        Color(uiColor: uiColor(hex))
+    }
+
+    private static func dynamicSystemColor(
+        _ color: UIColor,
+        minimumLightAlpha: CGFloat,
+        minimumDarkAlpha: CGFloat
+    ) -> Color {
+        Color(uiColor: UIColor { traits in
+            let resolved = color.resolvedColor(with: traits)
+            let minimumAlpha = traits.userInterfaceStyle == .dark
+                ? minimumDarkAlpha
+                : minimumLightAlpha
+            return resolved.withAlphaComponent(max(resolved.cgColor.alpha, minimumAlpha))
+        })
+    }
+
+    private static func uiColor(_ hex: String) -> UIColor {
+        let value = UInt64(hex.dropFirst(), radix: 16) ?? 0
+        return UIColor(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1
+        )
+    }
 }
 
 extension Font {
@@ -51,17 +133,12 @@ extension Font {
 }
 
 struct TerminalBackdrop: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                (colorScheme == .dark ? QingKeTheme.ink : QingKeTheme.paper)
+                QingKeTheme.canvas
 
                 Canvas { context, size in
-                    let gridColor = colorScheme == .dark
-                        ? Color.white.opacity(0.055)
-                        : QingKeTheme.ink.opacity(0.07)
                     var grid = Path()
                     var x: CGFloat = 0
                     while x <= size.width {
@@ -75,7 +152,7 @@ struct TerminalBackdrop: View {
                         grid.addLine(to: CGPoint(x: size.width, y: y))
                         y += QingKeVisualSpec.gridSpacing
                     }
-                    context.stroke(grid, with: .color(gridColor), lineWidth: 0.5)
+                    context.stroke(grid, with: .color(QingKeTheme.grid), lineWidth: 0.5)
 
                     let diameter = max(size.width * 0.88, 320)
                     let origin = CGPoint(
@@ -91,7 +168,7 @@ struct TerminalBackdrop: View {
                         ))
                         context.stroke(
                             ring,
-                            with: .color(gridColor.opacity(1.5)),
+                            with: .color(QingKeTheme.grid.opacity(1.5)),
                             lineWidth: 1
                         )
                     }
@@ -100,9 +177,7 @@ struct TerminalBackdrop: View {
                 LinearGradient(
                     colors: [
                         .clear,
-                        colorScheme == .dark
-                            ? QingKeTheme.cyan.opacity(0.06)
-                            : Color.white.opacity(0.48),
+                        QingKeTheme.ambientWash,
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
