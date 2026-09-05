@@ -14,6 +14,7 @@ struct QingKeScheduleApp: App {
             let repository = SwiftDataScheduleRepository(context: ModelContext(container))
             let reminderSettingsStore: any ReminderSettingsStore
             let academicCalendarSettingsStore: any AcademicCalendarSettingsStore
+            let appearanceSettingsStore: any AppearanceSettingsStore
             let notificationClient: any NotificationCenterClient
             let nowProvider: () -> Date
             if inMemory {
@@ -34,6 +35,7 @@ struct QingKeScheduleApp: App {
                     usesCustomLeadTime: usesCustomReminder
                 ))
                 academicCalendarSettingsStore = InMemoryAcademicCalendarSettingsStore()
+                appearanceSettingsStore = InMemoryAppearanceSettingsStore()
                 notificationClient = InMemoryNotificationCenterClient(
                     status: notificationsDenied ? .denied : .authorized,
                     authorizationResult: !notificationsDenied
@@ -47,6 +49,7 @@ struct QingKeScheduleApp: App {
             } else {
                 reminderSettingsStore = UserDefaultsReminderSettingsStore()
                 academicCalendarSettingsStore = UserDefaultsAcademicCalendarSettingsStore()
+                appearanceSettingsStore = UserDefaultsAppearanceSettingsStore()
                 notificationClient = UserNotificationCenterClient()
                 nowProvider = { Date() }
             }
@@ -57,6 +60,7 @@ struct QingKeScheduleApp: App {
                 now: nowProvider,
                 reminderSettingsStore: reminderSettingsStore,
                 academicCalendarSettingsStore: academicCalendarSettingsStore,
+                appearanceSettingsStore: appearanceSettingsStore,
                 notificationCoordinator: notificationCoordinator
             ))
         } catch {
@@ -68,6 +72,17 @@ struct QingKeScheduleApp: App {
         WindowGroup {
             AppRootView(state: state)
                 .modelContainer(container)
+                .preferredColorScheme(state.appearanceMode.preferredColorScheme)
+        }
+    }
+}
+
+private extension AppearanceMode {
+    var preferredColorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
         }
     }
 }

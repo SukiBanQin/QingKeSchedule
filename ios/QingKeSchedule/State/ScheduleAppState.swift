@@ -2,6 +2,60 @@ import Foundation
 import Observation
 import OSLog
 
+enum AppearanceMode: String, CaseIterable, Equatable, Sendable {
+    case system
+    case light
+    case dark
+}
+
+@MainActor
+protocol AppearanceSettingsStore: AnyObject {
+    func load() -> AppearanceMode
+    func save(_ mode: AppearanceMode)
+}
+
+@MainActor
+final class UserDefaultsAppearanceSettingsStore: AppearanceSettingsStore {
+    private enum Key {
+        static let appearanceMode = "appearanceMode"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> AppearanceMode {
+        guard
+            let rawValue = defaults.string(forKey: Key.appearanceMode),
+            let mode = AppearanceMode(rawValue: rawValue)
+        else {
+            return .system
+        }
+        return mode
+    }
+
+    func save(_ mode: AppearanceMode) {
+        defaults.set(mode.rawValue, forKey: Key.appearanceMode)
+    }
+}
+
+@MainActor
+final class InMemoryAppearanceSettingsStore: AppearanceSettingsStore {
+    private var mode: AppearanceMode
+
+    init(mode: AppearanceMode = .system) {
+        self.mode = mode
+    }
+
+    func load() -> AppearanceMode { mode }
+
+    func save(_ mode: AppearanceMode) {
+        self.mode = mode
+    }
+}
+
 @MainActor
 @Observable
 final class ScheduleAppState {
@@ -20,12 +74,14 @@ final class ScheduleAppState {
     private(set) var pendingImportPreview: ScheduleImportPreview?
     private(set) var importFailure: String?
     private(set) var importStatusMessage: String?
+    private(set) var appearanceMode: AppearanceMode
 
     @ObservationIgnored private let repository: any ScheduleRepository
     @ObservationIgnored private let nowProvider: () -> Date
     @ObservationIgnored let calendar: Calendar
     @ObservationIgnored private let reminderSettingsStore: any ReminderSettingsStore
     @ObservationIgnored private let academicCalendarSettingsStore: any AcademicCalendarSettingsStore
+    @ObservationIgnored private let appearanceSettingsStore: any AppearanceSettingsStore
     @ObservationIgnored private let notificationCoordinator: (any NotificationCoordinating)?
     @ObservationIgnored private var notificationTask: Task<Void, Never>?
     @ObservationIgnored private let notificationLogger = Logger(
@@ -39,12 +95,15 @@ final class ScheduleAppState {
         now: @escaping () -> Date = { Date() },
         reminderSettingsStore: (any ReminderSettingsStore)? = nil,
         academicCalendarSettingsStore: (any AcademicCalendarSettingsStore)? = nil,
+        appearanceSettingsStore: (any AppearanceSettingsStore)? = nil,
         notificationCoordinator: (any NotificationCoordinating)? = nil
     ) {
         let resolvedReminderSettingsStore = reminderSettingsStore
             ?? InMemoryReminderSettingsStore()
         let resolvedAcademicCalendarSettingsStore = academicCalendarSettingsStore
             ?? InMemoryAcademicCalendarSettingsStore()
+        let resolvedAppearanceSettingsStore = appearanceSettingsStore
+            ?? InMemoryAppearanceSettingsStore()
         self.repository = repository
         self.calendar = calendar
         self.nowProvider = now
@@ -52,6 +111,8 @@ final class ScheduleAppState {
         self.reminderSettings = resolvedReminderSettingsStore.load()
         self.academicCalendarSettingsStore = resolvedAcademicCalendarSettingsStore
         self.academicCalendarSettings = resolvedAcademicCalendarSettingsStore.load()
+        self.appearanceSettingsStore = resolvedAppearanceSettingsStore
+        self.appearanceMode = resolvedAppearanceSettingsStore.load()
         self.notificationCoordinator = notificationCoordinator
     }
 
@@ -195,6 +256,12 @@ final class ScheduleAppState {
         reminderSettings.usesCustomLeadTime = resolvedCustomSelection
         reminderSettingsStore.save(reminderSettings)
         scheduleNotificationReconciliation()
+    }
+
+    func setAppearanceMode(_ mode: AppearanceMode) {
+        guard appearanceMode != mode else { return }
+        appearanceMode = mode
+        appearanceSettingsStore.save(mode)
     }
 
     func setWeekendsAreNonTeachingDays(_ enabled: Bool) {

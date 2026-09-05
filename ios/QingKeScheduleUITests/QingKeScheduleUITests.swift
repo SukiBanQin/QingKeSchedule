@@ -307,6 +307,56 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testAppearancePreferenceAppliesImmediately() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "-AppleInterfaceStyle", "Dark"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        app.buttons["semester-save-toolbar"].tap()
+        XCTAssertTrue(app.buttons["settings-tab"].waitForExistence(timeout: 5))
+        app.buttons["settings-tab"].tap()
+
+        let appearanceSettings = app.descendants(matching: .any)["appearance-settings"]
+        scrollToElement(appearanceSettings, in: app)
+
+        let systemButton = app.buttons["appearance-system"]
+        XCTAssertTrue(systemButton.exists)
+        XCTAssertEqual(systemButton.value as? String, "已选择")
+        XCTAssertEqual(
+            app.descendants(matching: .any)["appearance-effective-style"].label,
+            "当前显示：深色"
+        )
+
+        app.buttons["appearance-light"].tap()
+        let lightAppearance = app.descendants(matching: .any)["appearance-effective-style"]
+        let lightExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "当前显示：浅色"),
+            object: lightAppearance
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [lightExpectation], timeout: 5), .completed)
+        XCTAssertEqual(app.buttons["appearance-light"].value as? String, "已选择")
+
+        app.buttons["appearance-dark"].tap()
+        let darkAppearance = app.descendants(matching: .any)["appearance-effective-style"]
+        let darkExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "当前显示：深色"),
+            object: darkAppearance
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [darkExpectation], timeout: 5), .completed)
+        XCTAssertEqual(app.buttons["appearance-dark"].value as? String, "已选择")
+
+        app.buttons["appearance-system"].tap()
+        let systemAppearance = app.descendants(matching: .any)["appearance-effective-style"]
+        let systemExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "当前显示：深色"),
+            object: systemAppearance
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [systemExpectation], timeout: 5), .completed)
+        XCTAssertEqual(app.buttons["appearance-system"].value as? String, "已选择")
+    }
+
+    @MainActor
     func testValidImportPreviewCancelConfirmAndExportEntry() throws {
         let app = launchForTransferTest(
             fixture: "Shared/fixtures/valid/web-export.json"

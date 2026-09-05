@@ -254,6 +254,51 @@ struct ReminderSettingsAndStateTests {
 }
 
 @MainActor
+@Suite("外观设置", .serialized)
+struct AppearanceSettingsTests {
+    @Test("UserDefaults 默认跟随系统、持久化选择并安全回退未知值")
+    func userDefaultsRoundTripAndUnknownValueFallback() {
+        let suiteName = "AppearanceSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = UserDefaultsAppearanceSettingsStore(defaults: defaults)
+        #expect(store.load() == .system)
+
+        store.save(.dark)
+        #expect(UserDefaultsAppearanceSettingsStore(defaults: defaults).load() == .dark)
+
+        store.save(.light)
+        #expect(UserDefaultsAppearanceSettingsStore(defaults: defaults).load() == .light)
+
+        defaults.set("unknown-mode", forKey: "appearanceMode")
+        #expect(UserDefaultsAppearanceSettingsStore(defaults: defaults).load() == .system)
+    }
+
+    @Test("应用状态更新外观而不修改课表数据")
+    func stateUpdatesAppearanceWithoutChangingScheduleData() throws {
+        let fixture = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let repository = TestScheduleRepository(data: fixture)
+        let store = InMemoryAppearanceSettingsStore()
+        let state = ScheduleAppState(
+            repository: repository,
+            appearanceSettingsStore: store
+        )
+
+        state.load()
+        let originalData = state.data
+        #expect(state.appearanceMode == .system)
+
+        state.setAppearanceMode(.dark)
+
+        #expect(state.appearanceMode == .dark)
+        #expect(store.load() == .dark)
+        #expect(state.data == originalData)
+        #expect(try repository.load() == originalData)
+    }
+}
+
+@MainActor
 private final class TestScheduleRepository: ScheduleRepository {
     private var stored: ScheduleDataDTO
 

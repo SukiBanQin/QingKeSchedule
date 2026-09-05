@@ -142,6 +142,10 @@ struct SemesterFormView: View {
                             DataTransferSection(state: dataTransferState)
                         }
 
+                        if !isOnboarding, let dataTransferState {
+                            AppearanceSettingsSection(state: dataTransferState)
+                        }
+
                         saveButton
                     }
                     .padding(.horizontal, 20)
@@ -640,5 +644,86 @@ private enum ExceptionMode: Equatable {
         case .nonTeaching: "停课日"
         case .makeup: "调课上课"
         }
+    }
+}
+
+private struct AppearanceSettingsSection: View {
+    let state: ScheduleAppState
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        TerminalFormSection(index: "06", title: "外观", detail: "DISPLAY") {
+            appearanceModeButtons
+
+            TerminalFormDivider()
+
+            Text("当前显示：\(effectiveAppearanceName)")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(QingKeTheme.textSecondary)
+                .terminalControl()
+                .accessibilityIdentifier("appearance-effective-style")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("appearance-settings")
+    }
+
+    @ViewBuilder
+    private var appearanceModeButtons: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 8) {
+                appearanceModeButton(.system, code: "AUTO", title: "跟随系统")
+                appearanceModeButton(.light, code: "LIGHT", title: "浅色")
+                appearanceModeButton(.dark, code: "DARK", title: "深色")
+            }
+            .padding(.vertical, 12)
+        } else {
+            HStack(spacing: 8) {
+                appearanceModeButton(.system, code: "AUTO", title: "跟随系统")
+                appearanceModeButton(.light, code: "LIGHT", title: "浅色")
+                appearanceModeButton(.dark, code: "DARK", title: "深色")
+            }
+            .padding(.vertical, 12)
+        }
+    }
+
+    private func appearanceModeButton(
+        _ mode: AppearanceMode,
+        code: String,
+        title: String
+    ) -> some View {
+        let isSelected = state.appearanceMode == mode
+        return Button {
+            state.setAppearanceMode(mode)
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(code)
+                    .font(.terminal(9, weight: .black, relativeTo: .caption2))
+                    .tracking(1)
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+            }
+            .foregroundStyle(isSelected ? QingKeTheme.textOnInverse : QingKeTheme.textPrimary)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .padding(.horizontal, 12)
+            .background(isSelected ? QingKeTheme.inverseSurface : QingKeTheme.surface)
+            .overlay {
+                Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1)
+            }
+            .overlay(alignment: .bottom) {
+                if isSelected {
+                    Rectangle().fill(QingKeTheme.signal).frame(height: 3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("appearance-\(mode.rawValue)")
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "已选择" : "未选择")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var effectiveAppearanceName: String {
+        colorScheme == .dark ? "深色" : "浅色"
     }
 }
