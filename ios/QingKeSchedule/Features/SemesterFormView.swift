@@ -502,6 +502,7 @@ private struct AcademicCalendarSettingsSection: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("add-calendar-exception")
+            .padding(.vertical, 10)
 
             if !state.academicCalendarSettings.nonTeachingDates.isEmpty {
                 TerminalFormDivider()

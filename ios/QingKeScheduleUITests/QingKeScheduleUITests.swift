@@ -21,6 +21,20 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(calendarSettings.exists)
         XCTAssertTrue(app.switches["weekends-non-teaching-toggle"].exists)
         XCTAssertTrue(app.switches["lunch-break-toggle"].exists)
+
+        let dateControl = app.buttons["calendar-exception-date"]
+        let addButton = app.buttons["add-calendar-exception"]
+        scrollToElement(addButton, in: app)
+        XCTAssertTrue(dateControl.exists)
+        XCTAssertTrue(addButton.exists)
+        XCTAssertGreaterThanOrEqual(
+            addButton.frame.minY - dateControl.frame.maxY,
+            8
+        )
+        addButton.tap()
+        XCTAssertTrue(
+            app.staticTexts["停课日 / OFF"].waitForExistence(timeout: 5)
+        )
     }
 
     @MainActor
