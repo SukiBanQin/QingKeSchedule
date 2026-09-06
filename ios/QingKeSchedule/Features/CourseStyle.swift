@@ -262,6 +262,19 @@ struct TerminalBrandHeader: View {
     }
 }
 
+struct TerminalPinnedBrandHeader: View {
+    let code: String
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        TerminalBrandHeader(code: code)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .background { TerminalAcrylicSurface(level: .elevated) }
+            .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 enum TerminalSurfaceLevel {
     case standard
     case elevated

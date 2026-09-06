@@ -403,9 +403,13 @@ private struct CourseAddChoiceView: View {
                     Rectangle().fill(QingKeTheme.signal).frame(height: 3)
                 }
 
+                TerminalPinnedBrandHeader(
+                    code: "PROFILE / 04",
+                    accessibilityIdentifier: "course-choice-brand-header"
+                )
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        TerminalBrandHeader(code: "PROFILE / 04")
                         TerminalFormSection(
                             index: "01",
                             title: "创建方式",

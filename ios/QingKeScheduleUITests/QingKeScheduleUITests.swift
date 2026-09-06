@@ -16,6 +16,11 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["semester-save-toolbar"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].exists)
         XCTAssertTrue(app.textFields["semester-name"].exists)
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["settings-brand-header"],
+            whileMoving: app.textFields["semester-name"],
+            in: app
+        )
         let calendarSettings = app.descendants(matching: .any)["academic-calendar-settings"]
         scrollToElement(calendarSettings, in: app)
         XCTAssertTrue(calendarSettings.exists)
@@ -161,6 +166,11 @@ final class QingKeScheduleUITests: XCTestCase {
         ))
         XCTAssertTrue(courseACards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(courseACards.count, 2)
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["today-brand-header"],
+            whileMoving: app.descendants(matching: .any)["today-course-sequence"],
+            in: app
+        )
 
         app.buttons["add-course-today-toolbar"].tap()
         XCTAssertTrue(app.buttons["add-new-course"].waitForExistence(timeout: 5))
@@ -181,6 +191,11 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["schedule-tab"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["week-matrix"].waitForExistence(timeout: 5))
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["week-brand-header"],
+            whileMoving: app.descendants(matching: .any)["week-matrix"],
+            in: app
+        )
         scrollToElement(app.staticTexts["week-matrix-day-1"], in: app)
         for day in 1...7 {
             XCTAssertTrue(app.staticTexts["week-matrix-day-\(day)"].exists)
@@ -251,6 +266,18 @@ final class QingKeScheduleUITests: XCTestCase {
         _ = waitForCourseOperationToast("课程删除成功", in: app)
         XCTAssertFalse(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.exists)
+    }
+
+    @MainActor
+    func testCourseEditorBrandHeaderRemainsPinned() throws {
+        let app = launchAndCreateSemester()
+        app.buttons["add-course-today-toolbar"].tap()
+
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["course-editor-brand-header"],
+            whileMoving: app.textFields["course-classroom-0"],
+            in: app
+        )
     }
 
     @MainActor
@@ -633,6 +660,34 @@ final class QingKeScheduleUITests: XCTestCase {
         }
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         XCTAssertTrue(element.isHittable)
+    }
+
+    @MainActor
+    private func assertBrandHeaderIsPinned(
+        _ header: XCUIElement,
+        whileMoving content: XCUIElement,
+        in app: XCUIApplication
+    ) {
+        XCTAssertTrue(header.waitForExistence(timeout: 5))
+        XCTAssertTrue(content.waitForExistence(timeout: 5))
+        let initialHeaderY = header.frame.minY
+        let initialContentY = content.frame.minY
+
+        app.swipeUp()
+
+        XCTAssertLessThan(
+            content.frame.minY,
+            initialContentY - 16,
+            "滚动正文应实际移动"
+        )
+        XCTAssertEqual(
+            header.frame.minY,
+            initialHeaderY,
+            accuracy: 2,
+            "固定品牌栏不应随 ScrollView 移动"
+        )
+
+        app.swipeDown()
     }
 
     @MainActor

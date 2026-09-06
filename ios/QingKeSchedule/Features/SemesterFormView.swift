@@ -41,6 +41,10 @@ struct SemesterFormView: View {
 
             VStack(spacing: 0) {
                 settingsHeader
+                TerminalPinnedBrandHeader(
+                    code: isOnboarding ? "SETUP / 00" : "SYSTEM / 03",
+                    accessibilityIdentifier: "settings-brand-header"
+                )
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -333,8 +337,6 @@ struct SemesterFormView: View {
 
     private var terminalIntro: some View {
         VStack(alignment: .leading, spacing: 18) {
-            TerminalBrandHeader(code: isOnboarding ? "SETUP / 00" : "SYSTEM / 03")
-
             HStack(alignment: .bottom, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
                     TerminalStatusTag(

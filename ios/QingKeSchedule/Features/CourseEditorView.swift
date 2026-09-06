@@ -50,15 +50,15 @@ struct CourseEditorView: View {
 
             VStack(spacing: 0) {
                 editorHeader
+                TerminalPinnedBrandHeader(
+                    code: appendingScheduleOnly
+                        ? "APPEND / 04"
+                        : (editingCourse == nil ? "CREATE / 04" : "EDIT / 04"),
+                    accessibilityIdentifier: "course-editor-brand-header"
+                )
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18) {
-                        TerminalBrandHeader(
-                            code: appendingScheduleOnly
-                                ? "APPEND / 04"
-                                : (editingCourse == nil ? "CREATE / 04" : "EDIT / 04")
-                        )
-
                         courseIdentitySection
 
                         ForEach(visibleScheduleIndices, id: \.self) { index in

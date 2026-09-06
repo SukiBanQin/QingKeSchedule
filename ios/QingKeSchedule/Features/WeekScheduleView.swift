@@ -67,20 +67,26 @@ struct WeekScheduleView: View {
         ZStack {
             TerminalBackdrop()
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    TerminalBrandHeader(code: "MATRIX / 02")
-                    screenTitle
-                    weekControls
-                    weekdayStrip
-                    matrixOverview
-                    dayManifest
+            VStack(spacing: 0) {
+                TerminalPinnedBrandHeader(
+                    code: "MATRIX / 02",
+                    accessibilityIdentifier: "week-brand-header"
+                )
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        screenTitle
+                        weekControls
+                        weekdayStrip
+                        matrixOverview
+                        dayManifest
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 100)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("week-schedule")
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 100)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("week-schedule")
             }
 
             VStack {

@@ -28,24 +28,30 @@ struct TodayScheduleView: View {
         ZStack {
             TerminalBackdrop()
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    TerminalBrandHeader(code: "LOCAL / 01")
-                    dateHero
+            VStack(spacing: 0) {
+                TerminalPinnedBrandHeader(
+                    code: "LOCAL / 01",
+                    accessibilityIdentifier: "today-brand-header"
+                )
 
-                    if presentation.items.isEmpty {
-                        emptyState
-                    } else {
-                        if let featuredItem {
-                            activityRail(for: featuredItem)
-                            featuredCard(featuredItem)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        dateHero
+
+                        if presentation.items.isEmpty {
+                            emptyState
+                        } else {
+                            if let featuredItem {
+                                activityRail(for: featuredItem)
+                                featuredCard(featuredItem)
+                            }
+                            scheduleSequence
                         }
-                        scheduleSequence
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 100)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 100)
             }
 
             VStack {
