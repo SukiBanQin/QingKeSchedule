@@ -270,7 +270,6 @@ struct TerminalPinnedBrandHeader: View {
         TerminalBrandHeader(code: code)
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .background { TerminalAcrylicSurface(level: .elevated) }
             .accessibilityIdentifier(accessibilityIdentifier)
     }
 }

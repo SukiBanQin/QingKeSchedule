@@ -333,11 +333,17 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["today-empty"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["add-course-today-toolbar"].isHittable)
         XCTAssertTrue(app.buttons["today-tab"].isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["today-brand-header"].exists)
 
         app.buttons["schedule-tab"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["week-matrix"].exists)
         XCTAssertTrue(app.buttons["add-course-week-toolbar"].isHittable)
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["week-brand-header"],
+            whileMoving: app.descendants(matching: .any)["week-matrix"],
+            in: app
+        )
 
         app.buttons["settings-tab"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].waitForExistence(timeout: 5))
@@ -345,6 +351,11 @@ final class QingKeScheduleUITests: XCTestCase {
         let calendarSettings = app.descendants(matching: .any)["academic-calendar-settings"]
         scrollToElement(calendarSettings, in: app)
         XCTAssertTrue(calendarSettings.exists)
+        assertBrandHeaderIsPinned(
+            app.descendants(matching: .any)["settings-brand-header"],
+            whileMoving: calendarSettings,
+            in: app
+        )
 
         app.buttons["today-tab"].tap()
         app.buttons["add-course-today-toolbar"].tap()
