@@ -21,6 +21,13 @@ struct QingKeScheduleApp: App {
                 let notificationsDenied = ProcessInfo.processInfo.arguments.contains(
                     "--ui-testing-notifications-denied"
                 )
+                #if DEBUG
+                let notificationsUndetermined = ProcessInfo.processInfo.arguments.contains(
+                    "--ui-testing-notifications-undetermined"
+                )
+                #else
+                let notificationsUndetermined = false
+                #endif
                 let remindersEnabled = ProcessInfo.processInfo.arguments.contains(
                     "--ui-testing-reminders-enabled"
                 )
@@ -37,7 +44,9 @@ struct QingKeScheduleApp: App {
                 academicCalendarSettingsStore = InMemoryAcademicCalendarSettingsStore()
                 appearanceSettingsStore = InMemoryAppearanceSettingsStore()
                 notificationClient = InMemoryNotificationCenterClient(
-                    status: notificationsDenied ? .denied : .authorized,
+                    status: notificationsDenied
+                        ? .denied
+                        : (notificationsUndetermined ? .notDetermined : .authorized),
                     authorizationResult: !notificationsDenied
                 )
                 let calendar = ScheduleRules.gregorianCalendar()

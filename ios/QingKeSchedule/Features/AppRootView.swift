@@ -5,55 +5,48 @@ struct AppRootView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        Group {
-            if !state.isLoaded {
-                ZStack {
-                    TerminalBackdrop()
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(QingKeTheme.cyan)
-                        Text("正在读取课表…")
-                            .font(.terminal(12, weight: .bold, relativeTo: .body))
-                            .tracking(1)
+        ZStack {
+            Group {
+                if !state.isLoaded {
+                    ZStack {
+                        TerminalBackdrop()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .tint(QingKeTheme.cyan)
+                            Text("正在读取课表…")
+                                .font(.terminal(12, weight: .bold, relativeTo: .body))
+                                .tracking(1)
+                        }
                     }
+                } else if state.needsOnboarding {
+                    NavigationStack {
+                        SemesterFormView(
+                            semester: nil,
+                            isOnboarding: true,
+                            now: state.now,
+                            dataTransferState: state,
+                            onSave: state.saveSemester
+                        )
+                    }
+                } else {
+                    MainTabView(state: state)
                 }
-            } else if state.needsOnboarding {
-                NavigationStack {
-                    SemesterFormView(
-                        semester: nil,
-                        isOnboarding: true,
-                        now: state.now,
-                        dataTransferState: state,
-                        onSave: state.saveSemester
-                    )
-                }
-            } else {
-                MainTabView(state: state)
             }
+            .accessibilityHidden(state.presentedError != nil)
+
+            AppErrorDialogOverlay(state: state)
         }
         .task {
             if !state.isLoaded {
                 state.load()
                 prepareUITestImportIfRequested()
+                prepareUITestErrorIfRequested()
             }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 state.appBecameActive()
             }
-        }
-        .alert(
-            "无法完成操作",
-            isPresented: Binding(
-                get: { state.presentedError != nil },
-                set: { isPresented in
-                    if !isPresented { state.dismissError() }
-                }
-            )
-        ) {
-            Button("好") { state.dismissError() }
-        } message: {
-            Text(state.presentedError ?? "未知错误")
         }
     }
 
@@ -65,6 +58,13 @@ struct AppRootView: View {
             let contents = raw.data(using: .utf8)
         else { return }
         state.prepareImport(contents: contents)
+        #endif
+    }
+
+    private func prepareUITestErrorIfRequested() {
+        #if DEBUG
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing-present-error") else { return }
+        state.presentedError = "测试操作失败"
         #endif
     }
 }
@@ -130,29 +130,36 @@ private struct MainTabView: View {
             }
         }
         .fullScreenCover(item: $editorRoute) { route in
-            if route.showsChooser {
-                if let semester = state.semester {
-                    CourseAddChoiceView(
-                        semester: semester,
-                        courses: state.courses,
-                        now: state.now,
-                        calendar: state.calendar,
-                        onCancel: { editorRoute = nil },
-                        onSave: saveCourse,
-                        onDelete: deleteCourse
-                    )
+            ZStack {
+                Group {
+                    if route.showsChooser {
+                        if let semester = state.semester {
+                            CourseAddChoiceView(
+                                semester: semester,
+                                courses: state.courses,
+                                now: state.now,
+                                calendar: state.calendar,
+                                onCancel: { editorRoute = nil },
+                                onSave: saveCourse,
+                                onDelete: deleteCourse
+                            )
+                        }
+                    } else if let semester = state.semester {
+                        CourseEditorView(
+                            semester: semester,
+                            existingCourses: state.courses,
+                            course: route.course,
+                            appendingScheduleOnly: route.appendingScheduleOnly,
+                            now: state.now,
+                            calendar: state.calendar,
+                            onSave: saveCourse,
+                            onDelete: deleteCourse
+                        )
+                    }
                 }
-            } else if let semester = state.semester {
-                CourseEditorView(
-                    semester: semester,
-                    existingCourses: state.courses,
-                    course: route.course,
-                    appendingScheduleOnly: route.appendingScheduleOnly,
-                    now: state.now,
-                    calendar: state.calendar,
-                    onSave: saveCourse,
-                    onDelete: deleteCourse
-                )
+                .accessibilityHidden(state.presentedError != nil)
+
+                AppErrorDialogOverlay(state: state)
             }
         }
         .animation(.easeOut(duration: 0.22), value: courseOperationSuccess?.id)
@@ -202,6 +209,30 @@ private struct MainTabView: View {
 private struct CourseOperationSuccess: Equatable {
     let id: UUID
     let message: String
+}
+
+private struct AppErrorDialogOverlay: View {
+    @Bindable var state: ScheduleAppState
+
+    var body: some View {
+        Group {
+            if let message = state.presentedError {
+                TerminalDialog(
+                    code: "SYSTEM / ERROR",
+                    tag: "OPERATION FAILED",
+                    title: "无法完成操作",
+                    message: message,
+                    tone: .danger,
+                    accessibilityIdentifier: "app-error-dialog",
+                    primaryActionTitle: "好",
+                    primaryActionIdentifier: "app-error-dismiss",
+                    primaryAction: state.dismissError
+                )
+                .zIndex(100)
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: state.presentedError)
+    }
 }
 
 private enum MainTab: String, CaseIterable, Identifiable {

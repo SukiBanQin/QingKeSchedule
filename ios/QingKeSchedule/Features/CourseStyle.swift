@@ -443,6 +443,187 @@ struct TerminalToast: View {
     }
 }
 
+enum TerminalDialogTone {
+    case info
+    case warning
+    case danger
+
+    var color: Color {
+        switch self {
+        case .info: QingKeTheme.cyan
+        case .warning: QingKeTheme.signal
+        case .danger: QingKeTheme.danger
+        }
+    }
+}
+
+struct TerminalDialog: View {
+    let code: String
+    let tag: String
+    let title: String
+    let message: String
+    let tone: TerminalDialogTone
+    let accessibilityIdentifier: String
+    let primaryActionTitle: String
+    let primaryActionIdentifier: String
+    let primaryAction: () -> Void
+    let secondaryActionTitle: String?
+    let secondaryActionIdentifier: String?
+    let secondaryAction: (() -> Void)?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AccessibilityFocusState private var titleIsFocused: Bool
+
+    init(
+        code: String,
+        tag: String,
+        title: String,
+        message: String,
+        tone: TerminalDialogTone,
+        accessibilityIdentifier: String,
+        primaryActionTitle: String,
+        primaryActionIdentifier: String,
+        primaryAction: @escaping () -> Void,
+        secondaryActionTitle: String? = nil,
+        secondaryActionIdentifier: String? = nil,
+        secondaryAction: (() -> Void)? = nil
+    ) {
+        self.code = code
+        self.tag = tag
+        self.title = title
+        self.message = message
+        self.tone = tone
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.primaryActionTitle = primaryActionTitle
+        self.primaryActionIdentifier = primaryActionIdentifier
+        self.primaryAction = primaryAction
+        self.secondaryActionTitle = secondaryActionTitle
+        self.secondaryActionIdentifier = secondaryActionIdentifier
+        self.secondaryAction = secondaryAction
+    }
+
+    var body: some View {
+        ZStack {
+            QingKeTheme.scrim
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(code)
+                        .font(.terminal(10, weight: .black, relativeTo: .caption))
+                        .tracking(1)
+                        .foregroundStyle(tone.color)
+                    Spacer()
+                    Circle()
+                        .fill(tone.color)
+                        .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                }
+
+                TerminalStatusTag(text: tag, tint: tone.color)
+
+                Text(title)
+                    .font(.title3.weight(.black))
+                    .foregroundStyle(QingKeTheme.textPrimary)
+                    .accessibilityFocused($titleIsFocused)
+
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(QingKeTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                actions
+            }
+            .padding(20)
+            .frame(maxWidth: 420, alignment: .leading)
+            .background { TerminalAcrylicSurface(level: .elevated) }
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(tone.color)
+                    .frame(width: 4)
+            }
+            .overlay {
+                Rectangle().stroke(QingKeTheme.panelEdge, lineWidth: 1)
+            }
+            .shadow(color: QingKeTheme.shadow, radius: 16, y: 8)
+            .padding(.horizontal, 20)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityIdentifier(accessibilityIdentifier)
+            .accessibilityAction(.escape) {
+                (secondaryAction ?? primaryAction)()
+            }
+            .transition(dialogTransition)
+        }
+        .onAppear { titleIsFocused = true }
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        if let secondaryActionTitle, let secondaryActionIdentifier, let secondaryAction {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    secondaryButton(
+                        title: secondaryActionTitle,
+                        accessibilityIdentifier: secondaryActionIdentifier,
+                        action: secondaryAction
+                    )
+                    primaryButton
+                }
+            } else {
+                HStack(spacing: 10) {
+                    secondaryButton(
+                        title: secondaryActionTitle,
+                        accessibilityIdentifier: secondaryActionIdentifier,
+                        action: secondaryAction
+                    )
+                    primaryButton
+                }
+            }
+        } else {
+            primaryButton
+        }
+    }
+
+    private var primaryButton: some View {
+        Button(primaryActionTitle, action: primaryAction)
+            .font(.headline)
+            .foregroundStyle(QingKeTheme.textOnAccent)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(tone.color)
+            .overlay {
+                Rectangle().stroke(QingKeTheme.textOnInverse.opacity(0.72), lineWidth: 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(primaryActionIdentifier)
+    }
+
+    private func secondaryButton(
+        title: String,
+        accessibilityIdentifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(title, action: action)
+            .font(.headline)
+            .foregroundStyle(QingKeTheme.textPrimary)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(QingKeTheme.surfaceActive)
+            .overlay {
+                Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var dialogTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.96))
+    }
+}
+
 struct TerminalFloatingAction: View {
     let accessibilityIdentifier: String
     let action: () -> Void

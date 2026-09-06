@@ -3,8 +3,8 @@ import UIKit
 
 struct ReminderSettingsSection: View {
     @Bindable var state: ScheduleAppState
+    let onRequestPermissionExplanation: () -> Void
     @Environment(\.openURL) private var openURL
-    @State private var permissionExplanationPresented = false
     @State private var customLeadMinutes = 20
 
     var body: some View {
@@ -22,14 +22,6 @@ struct ReminderSettingsSection: View {
                 )
             )
             .accessibilityIdentifier("reminders-toggle")
-            .alert("开启上课提醒？", isPresented: $permissionExplanationPresented) {
-                Button("暂不开启", role: .cancel) {}
-                Button("启用提醒") {
-                    state.setRemindersEnabled(true)
-                }
-            } message: {
-                Text("青课会请求系统通知权限，只用于在课程开始前显示课程名称、时间和教室。")
-            }
             .terminalControl()
 
             if state.reminderSettings.remindersEnabled {
@@ -115,7 +107,7 @@ struct ReminderSettingsSection: View {
 
     private func updateReminderToggle(_ enabled: Bool) {
         if enabled, state.notificationPermission == .notDetermined {
-            permissionExplanationPresented = true
+            onRequestPermissionExplanation()
         } else {
             state.setRemindersEnabled(enabled)
         }

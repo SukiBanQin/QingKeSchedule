@@ -15,9 +15,7 @@ struct CourseEditorView: View {
     @State private var issues: [ScheduleValidationIssue] = []
     @State private var pendingCourse: CourseDTO?
     @State private var conflicts: [ScheduleConflictDTO] = []
-    @State private var showsConflictConfirmation = false
-    @State private var showsDeleteConfirmation = false
-    @State private var showsDiscardConfirmation = false
+    @State private var prompt: CourseEditorPrompt?
 
     init(
         semester: SemesterDTO,
@@ -97,7 +95,7 @@ struct CourseEditorView: View {
                                 footer: "删除后，这门课程的所有上课安排都会一并移除。"
                             ) {
                                 Button("删除课程", role: .destructive) {
-                                    showsDeleteConfirmation = true
+                                    prompt = .delete
                                 }
                                 .frame(maxWidth: .infinity, minHeight: 52)
                                 .accessibilityIdentifier("course-delete")
@@ -109,33 +107,15 @@ struct CourseEditorView: View {
                     .padding(.bottom, 30)
                 }
             }
+            .accessibilityHidden(prompt != nil)
+
+            if let prompt {
+                terminalDialog(for: prompt)
+            }
         }
         .tint(QingKeTheme.cyan)
         .interactiveDismissDisabled(draft.isDirty)
-        .confirmationDialog(
-            "检测到课程冲突",
-            isPresented: $showsConflictConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("仍然保存") { persistPendingCourse() }
-            Button("返回修改") { showsConflictConfirmation = false }
-        } message: {
-            Text(conflictMessage)
-        }
-        .confirmationDialog(
-            "放弃未保存的修改？",
-            isPresented: $showsDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("放弃修改", role: .destructive) { dismiss() }
-            Button("继续编辑", role: .cancel) {}
-        }
-        .alert("删除这门课程？", isPresented: $showsDeleteConfirmation) {
-            Button("确认删除", role: .destructive) { deleteCourse() }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("课程及其所有上课安排都会被删除，这项操作无法撤销。")
-        }
+        .animation(.easeOut(duration: 0.18), value: prompt)
     }
 
     private var editorHeader: some View {
@@ -406,7 +386,7 @@ struct CourseEditorView: View {
             issues = []
             pendingCourse = candidate
             conflicts = detectedConflicts
-            showsConflictConfirmation = true
+            prompt = .conflict
         case .ready:
             issues = []
             if onSave(candidate) { dismiss() }
@@ -420,7 +400,7 @@ struct CourseEditorView: View {
 
     private func cancel() {
         if draft.isDirty {
-            showsDiscardConfirmation = true
+            prompt = .discard
         } else {
             dismiss()
         }
@@ -430,4 +410,70 @@ struct CourseEditorView: View {
         guard let editingCourse else { return }
         if onDelete(editingCourse.id) { dismiss() }
     }
+
+    @ViewBuilder
+    private func terminalDialog(for prompt: CourseEditorPrompt) -> some View {
+        switch prompt {
+        case .conflict:
+            TerminalDialog(
+                code: "WARNING / CONFLICT",
+                tag: "SCHEDULE COLLISION",
+                title: "检测到课程冲突",
+                message: conflictMessage,
+                tone: .warning,
+                accessibilityIdentifier: "course-conflict-dialog",
+                primaryActionTitle: "仍然保存",
+                primaryActionIdentifier: "course-conflict-save-anyway",
+                primaryAction: {
+                    self.prompt = nil
+                    persistPendingCourse()
+                },
+                secondaryActionTitle: "返回修改",
+                secondaryActionIdentifier: "course-conflict-return",
+                secondaryAction: { self.prompt = nil }
+            )
+        case .discard:
+            TerminalDialog(
+                code: "WARNING / UNSAVED",
+                tag: "DISCARD CHANGES",
+                title: "放弃未保存的修改？",
+                message: "当前编辑内容尚未保存。放弃后，本次修改不会保留。",
+                tone: .danger,
+                accessibilityIdentifier: "course-discard-dialog",
+                primaryActionTitle: "放弃修改",
+                primaryActionIdentifier: "course-discard-confirm",
+                primaryAction: {
+                    self.prompt = nil
+                    dismiss()
+                },
+                secondaryActionTitle: "继续编辑",
+                secondaryActionIdentifier: "course-discard-continue",
+                secondaryAction: { self.prompt = nil }
+            )
+        case .delete:
+            TerminalDialog(
+                code: "DANGER / DELETE",
+                tag: "IRREVERSIBLE",
+                title: "删除这门课程？",
+                message: "课程及其所有上课安排都会被删除，这项操作无法撤销。",
+                tone: .danger,
+                accessibilityIdentifier: "course-delete-dialog",
+                primaryActionTitle: "确认删除",
+                primaryActionIdentifier: "course-delete-confirm",
+                primaryAction: {
+                    self.prompt = nil
+                    deleteCourse()
+                },
+                secondaryActionTitle: "取消",
+                secondaryActionIdentifier: "course-delete-cancel",
+                secondaryAction: { self.prompt = nil }
+            )
+        }
+    }
+}
+
+private enum CourseEditorPrompt: Equatable {
+    case conflict
+    case discard
+    case delete
 }

@@ -10,6 +10,7 @@ struct SemesterFormView: View {
     @State private var issues: [ScheduleValidationIssue] = []
     @State private var savedMessage: String?
     @State private var calendarExpanded = false
+    @State private var reminderPermissionPromptPresented = false
 
     init(
         semester: SemesterDTO?,
@@ -135,7 +136,9 @@ struct SemesterFormView: View {
                         }
 
                         if !isOnboarding, let dataTransferState {
-                            ReminderSettingsSection(state: dataTransferState)
+                            ReminderSettingsSection(state: dataTransferState) {
+                                reminderPermissionPromptPresented = true
+                            }
                         }
 
                         if let dataTransferState {
@@ -153,6 +156,7 @@ struct SemesterFormView: View {
                     .padding(.bottom, 32)
                 }
             }
+            .accessibilityHidden(reminderPermissionPromptPresented)
 
             if let dataTransferState,
                dataTransferState.pendingImportPreview != nil
@@ -160,8 +164,30 @@ struct SemesterFormView: View {
                 ScheduleImportPromptView(state: dataTransferState)
                     .zIndex(20)
             }
+
+            if reminderPermissionPromptPresented {
+                TerminalDialog(
+                    code: "NOTICE / PERMISSION",
+                    tag: "NOTIFICATION",
+                    title: "开启上课提醒？",
+                    message: "青课会请求系统通知权限，只用于在课程开始前显示课程名称、时间和教室。",
+                    tone: .info,
+                    accessibilityIdentifier: "reminder-permission-dialog",
+                    primaryActionTitle: "启用提醒",
+                    primaryActionIdentifier: "reminder-permission-enable",
+                    primaryAction: {
+                        reminderPermissionPromptPresented = false
+                        dataTransferState?.setRemindersEnabled(true)
+                    },
+                    secondaryActionTitle: "暂不开启",
+                    secondaryActionIdentifier: "reminder-permission-cancel",
+                    secondaryAction: { reminderPermissionPromptPresented = false }
+                )
+                .zIndex(30)
+            }
         }
         .tint(QingKeTheme.cyan)
+        .animation(.easeOut(duration: 0.18), value: reminderPermissionPromptPresented)
         .overlay(alignment: .bottom) {
             if let savedMessage {
                 TerminalToast(message: savedMessage)

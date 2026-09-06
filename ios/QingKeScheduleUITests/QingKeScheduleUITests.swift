@@ -167,12 +167,14 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["add-new-course"].tap()
         enterCourseName("课程 B", in: app)
         app.buttons["course-save"].tap()
-        XCTAssertTrue(app.staticTexts["检测到课程冲突"].waitForExistence(timeout: 5))
-        app.buttons["返回修改"].tap()
+        let courseBConflict = app.descendants(matching: .any)["course-conflict-dialog"]
+        XCTAssertTrue(courseBConflict.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["检测到课程冲突"].exists)
+        app.buttons["course-conflict-return"].tap()
         XCTAssertTrue(app.textFields["course-name"].exists)
         app.buttons["course-save"].tap()
-        XCTAssertTrue(app.buttons["仍然保存"].waitForExistence(timeout: 5))
-        app.buttons["仍然保存"].tap()
+        XCTAssertTrue(courseBConflict.waitForExistence(timeout: 5))
+        app.buttons["course-conflict-save-anyway"].tap()
         _ = waitForCourseOperationToast("课程添加成功", in: app)
         XCTAssertTrue(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 5))
 
@@ -212,8 +214,9 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         replaceText(in: nameField, with: "课程 A 已修改")
         app.buttons["course-save"].tap()
-        XCTAssertTrue(app.buttons["仍然保存"].waitForExistence(timeout: 5))
-        app.buttons["仍然保存"].tap()
+        let courseAConflict = app.descendants(matching: .any)["course-conflict-dialog"]
+        XCTAssertTrue(courseAConflict.waitForExistence(timeout: 5))
+        app.buttons["course-conflict-save-anyway"].tap()
         _ = waitForCourseOperationToast("课程修改已保存", in: app)
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.waitForExistence(timeout: 5))
 
@@ -223,8 +226,10 @@ final class QingKeScheduleUITests: XCTestCase {
         scrollToElement(deleteButton, in: app)
         XCTAssertEqual(app.buttons.matching(identifier: "course-delete").count, 1)
         deleteButton.tap()
-        XCTAssertTrue(app.alerts["删除这门课程？"].waitForExistence(timeout: 5))
-        app.alerts.buttons["确认删除"].tap()
+        let deleteDialog = app.descendants(matching: .any)["course-delete-dialog"]
+        XCTAssertTrue(deleteDialog.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["删除这门课程？"].exists)
+        app.buttons["course-delete-confirm"].tap()
         _ = waitForCourseOperationToast("课程删除成功", in: app)
         XCTAssertFalse(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.exists)
@@ -421,6 +426,77 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["好"].tap()
         XCTAssertFalse(app.buttons["today-tab"].exists)
         XCTAssertTrue(app.staticTexts["onboarding-title"].exists)
+    }
+
+    @MainActor
+    func testCourseEditorDirtyChangesUseTerminalDiscardDialog() throws {
+        let app = launchAndCreateSemester()
+        app.buttons["add-course-today-toolbar"].tap()
+        enterCourseName("待放弃课程", in: app)
+
+        app.buttons["course-cancel"].tap()
+        let discardDialog = app.descendants(matching: .any)["course-discard-dialog"]
+        XCTAssertTrue(discardDialog.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["放弃未保存的修改？"].exists)
+        XCTAssertTrue(app.buttons["course-discard-continue"].exists)
+
+        app.buttons["course-discard-continue"].tap()
+        XCTAssertTrue(app.textFields["course-name"].waitForExistence(timeout: 5))
+
+        app.buttons["course-cancel"].tap()
+        XCTAssertTrue(discardDialog.waitForExistence(timeout: 5))
+        app.buttons["course-discard-confirm"].tap()
+        XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testReminderPermissionExplanationUsesTerminalDialog() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-notifications-undetermined"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        app.buttons["semester-save-toolbar"].tap()
+        app.buttons["settings-tab"].tap()
+
+        let reminderToggle = app.switches["reminders-toggle"]
+        scrollToElement(reminderToggle, in: app)
+        reminderToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+
+        let permissionDialog = app.descendants(matching: .any)["reminder-permission-dialog"]
+        XCTAssertTrue(permissionDialog.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["开启上课提醒？"].exists)
+        app.buttons["reminder-permission-cancel"].tap()
+        XCTAssertTrue(reminderToggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(reminderToggle.value as? String, "0")
+
+        reminderToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(permissionDialog.waitForExistence(timeout: 5))
+        app.buttons["reminder-permission-enable"].tap()
+        let enabledToggle = app.switches.matching(NSPredicate(
+            format: "identifier == %@ AND value == %@",
+            "reminders-toggle",
+            "1"
+        )).firstMatch
+        XCTAssertTrue(enabledToggle.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testGlobalErrorsUseTerminalDialog() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-present-error"]
+        app.launch()
+
+        let errorDialog = app.descendants(matching: .any)["app-error-dialog"]
+        XCTAssertTrue(errorDialog.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["无法完成操作"].exists)
+        XCTAssertTrue(app.staticTexts["测试操作失败"].exists)
+        app.buttons["app-error-dismiss"].tap()
+        let dialogDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: errorDialog
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [dialogDismissed], timeout: 5), .completed)
     }
 
     @MainActor
