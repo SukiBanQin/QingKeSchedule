@@ -588,16 +588,19 @@ struct TerminalDialog: View {
     }
 
     private var primaryButton: some View {
-        Button(primaryActionTitle, action: primaryAction)
-            .font(.headline)
-            .foregroundStyle(QingKeTheme.textOnAccent)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(tone.color)
-            .overlay {
-                Rectangle().stroke(QingKeTheme.textOnInverse.opacity(0.72), lineWidth: 1)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(primaryActionIdentifier)
+        Button(action: primaryAction) {
+            Text(primaryActionTitle)
+                .font(.headline)
+                .foregroundStyle(QingKeTheme.textOnAccent)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(tone.color)
+                .overlay {
+                    Rectangle().stroke(QingKeTheme.textOnInverse.opacity(0.72), lineWidth: 1)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(primaryActionIdentifier)
     }
 
     private func secondaryButton(
@@ -605,16 +608,19 @@ struct TerminalDialog: View {
         accessibilityIdentifier: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(title, action: action)
-            .font(.headline)
-            .foregroundStyle(QingKeTheme.textPrimary)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(QingKeTheme.surfaceActive)
-            .overlay {
-                Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(accessibilityIdentifier)
+        Button(action: action) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(QingKeTheme.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(QingKeTheme.surfaceActive)
+                .overlay {
+                    Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
     }
 
     private var dialogTransition: AnyTransition {

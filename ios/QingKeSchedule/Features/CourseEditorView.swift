@@ -94,10 +94,13 @@ struct CourseEditorView: View {
                                 title: "危险操作",
                                 footer: "删除后，这门课程的所有上课安排都会一并移除。"
                             ) {
-                                Button("删除课程", role: .destructive) {
+                                Button(role: .destructive) {
                                     prompt = .delete
+                                } label: {
+                                    Text("删除课程")
+                                        .frame(maxWidth: .infinity, minHeight: 52)
+                                        .contentShape(Rectangle())
                                 }
-                                .frame(maxWidth: .infinity, minHeight: 52)
                                 .accessibilityIdentifier("course-delete")
                             }
                         }

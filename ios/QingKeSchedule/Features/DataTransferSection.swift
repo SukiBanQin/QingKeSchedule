@@ -157,21 +157,27 @@ struct ScheduleImportPromptView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button("取消") {
+                    Button {
                         state.dismissImportPrompt()
+                    } label: {
+                        Text("取消")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .overlay { Rectangle().stroke(QingKeTheme.border, lineWidth: 1) }
+                            .contentShape(Rectangle())
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .overlay { Rectangle().stroke(QingKeTheme.border, lineWidth: 1) }
                     .buttonStyle(.plain)
                 } else {
-                    Button("好") {
+                    Button {
                         state.dismissImportPrompt()
+                    } label: {
+                        Text("好")
+                            .font(.headline)
+                            .foregroundStyle(QingKeTheme.textOnInverse)
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .background(QingKeTheme.inverseSurface)
+                            .contentShape(Rectangle())
                     }
-                    .font(.headline)
-                    .foregroundStyle(QingKeTheme.textOnInverse)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-                    .background(QingKeTheme.inverseSurface)
                     .buttonStyle(.plain)
                 }
             }

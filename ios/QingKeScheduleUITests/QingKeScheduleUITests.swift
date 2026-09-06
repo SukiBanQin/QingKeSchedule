@@ -225,11 +225,29 @@ final class QingKeScheduleUITests: XCTestCase {
         let deleteButton = app.buttons["course-delete"]
         scrollToElement(deleteButton, in: app)
         XCTAssertEqual(app.buttons.matching(identifier: "course-delete").count, 1)
-        deleteButton.tap()
+        deleteButton.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
         let deleteDialog = app.descendants(matching: .any)["course-delete-dialog"]
         XCTAssertTrue(deleteDialog.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["删除这门课程？"].exists)
-        app.buttons["course-delete-confirm"].tap()
+        app.buttons["course-delete-cancel"].coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
+        let deleteDialogDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: deleteDialog
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [deleteDialogDismissed], timeout: 5), .completed)
+        XCTAssertTrue(app.staticTexts["课程 B"].firstMatch.exists)
+
+        deleteButton.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
+        XCTAssertTrue(deleteDialog.waitForExistence(timeout: 5))
+        app.buttons["course-delete-confirm"].coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
         _ = waitForCourseOperationToast("课程删除成功", in: app)
         XCTAssertFalse(app.staticTexts["课程 B"].firstMatch.waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["课程 A 已修改"].firstMatch.exists)
@@ -371,7 +389,9 @@ final class QingKeScheduleUITests: XCTestCase {
             format: "label CONTAINS %@",
             "学期：2026 秋季学期"
         )).firstMatch.exists)
-        app.buttons["取消"].tap()
+        app.buttons["取消"].coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
         XCTAssertFalse(app.buttons["today-tab"].exists)
 
         let importButton = app.buttons["schedule-import"]
@@ -423,7 +443,9 @@ final class QingKeScheduleUITests: XCTestCase {
             format: "label CONTAINS %@",
             "暂不支持版本 2"
         )).firstMatch.exists)
-        app.buttons["好"].tap()
+        app.buttons["好"].coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
         XCTAssertFalse(app.buttons["today-tab"].exists)
         XCTAssertTrue(app.staticTexts["onboarding-title"].exists)
     }
