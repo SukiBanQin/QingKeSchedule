@@ -95,6 +95,22 @@ struct QingKeScheduleTests {
         #expect(rgbaComponents(standardPanelEdge).3 < rgbaComponents(highContrastPanelEdge).3)
     }
 
+    @Test("TerminalToast 文字在深浅模式下均与抬升面板保持对比度")
+    func terminalToastTextContrast() {
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
+
+        let lightText = resolved(QingKeTheme.textPrimary, with: lightTraits)
+        let lightSurface = resolved(QingKeTheme.surfaceElevated, with: lightTraits)
+        #expect(contrastRatio(lightText, against: lightSurface) >= 4.5)
+        #expect(relativeLuminance(lightText) < relativeLuminance(lightSurface))
+
+        let darkText = resolved(QingKeTheme.textPrimary, with: darkTraits)
+        let darkSurface = resolved(QingKeTheme.surfaceElevated, with: darkTraits)
+        #expect(contrastRatio(darkText, against: darkSurface) >= 4.5)
+        #expect(relativeLuminance(darkText) > relativeLuminance(darkSurface))
+    }
+
     @Test("课程色块始终选择可读的前景色")
     func courseColorTagForegroundsAreReadable() {
         let traits = UITraitCollection(userInterfaceStyle: .light)

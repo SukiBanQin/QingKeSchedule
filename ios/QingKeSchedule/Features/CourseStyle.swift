@@ -425,7 +425,7 @@ struct TerminalToast: View {
                 .font(.caption.bold())
                 .foregroundStyle(QingKeTheme.signal)
         }
-        .foregroundStyle(QingKeTheme.textOnInverse)
+        .foregroundStyle(QingKeTheme.textPrimary)
         .padding(.horizontal, 14)
         .frame(minHeight: 46)
         .background { TerminalAcrylicSurface(level: .elevated) }
