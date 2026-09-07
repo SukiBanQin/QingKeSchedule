@@ -122,8 +122,8 @@ class AndroidDocumentationTests(unittest.TestCase):
         for document in NAMES:
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
         self.assertIn("P1 未完成", handoff)
-        self.assertIn("审查未通过", handoff)
-        self.assertIn("证据未齐时下一项仍属 P1", handoff)
+        self.assertIn("首轮已审查，结论未通过", handoff)
+        self.assertIn("在证据完成前不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
         for commit in ("9b521db", "0a498b9", "85e3234"):
             subprocess.run(
@@ -136,6 +136,17 @@ class AndroidDocumentationTests(unittest.TestCase):
         ).splitlines()
         self.assertEqual(len(implementation_files), 20)
         self.assertTrue(all(path.startswith("Android/") for path in implementation_files))
+
+    def test_r1_rereview_records_actual_evidence_and_remaining_gates(self):
+        review = (DOCS / REVIEW_NAME).read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        for marker in ("3924d26", "各 21 项", "R1/R2/R3 修正通过", "无连接设备", "P1-02"):
+            self.assertIn(marker, review)
+        self.assertIn("eb24fad", handoff)
+        self.assertIn("P1 未完成", handoff)
+        self.assertNotIn("已提交待复审", plan)
+        self.assertNotIn("未审查修正代码", handoff)
 
     def test_direct_handoff_templates_cover_both_roles(self):
         plan = (DOCS / "implementation-plan.md").read_text()
