@@ -29,8 +29,8 @@ struct DataTransferSection: View {
                 importerPresented = true
             } label: {
                 Label("从 JSON 文件导入课表", systemImage: "square.and.arrow.down")
+                    .terminalControl()
             }
-            .terminalControl()
             .accessibilityIdentifier("schedule-import")
 
             if let exportDocument = try? state.exportDocument() {
@@ -82,7 +82,7 @@ struct DataTransferSection: View {
     private var uiTestingImportButton: some View {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--ui-testing-transfer-controls") {
-            Button("载入测试导入文件") {
+            Button {
                 guard
                     let raw = ProcessInfo.processInfo.environment["UI_TEST_IMPORT_JSON"],
                     let contents = raw.data(using: .utf8)
@@ -91,8 +91,10 @@ struct DataTransferSection: View {
                     return
                 }
                 prepareImport(contents)
+            } label: {
+                Text("载入测试导入文件")
+                    .terminalControl()
             }
-            .terminalControl()
             .accessibilityIdentifier("schedule-import-test-file")
         }
         #endif

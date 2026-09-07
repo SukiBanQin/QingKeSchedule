@@ -138,6 +138,7 @@ struct WeekScheduleView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 64)
+                    .contentShape(Rectangle())
             }
             .disabled(selectedWeek <= 1)
             .accessibilityLabel("上一周")
@@ -165,6 +166,7 @@ struct WeekScheduleView: View {
                         .foregroundStyle(QingKeTheme.cyan)
                 }
                 .frame(maxWidth: .infinity, minHeight: 64)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(presentation.currentWeek == nil || presentation.currentWeek == selectedWeek)
@@ -180,6 +182,7 @@ struct WeekScheduleView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .frame(width: 44, height: 64)
+                    .contentShape(Rectangle())
             }
             .disabled(selectedWeek >= semester.totalWeeks)
             .accessibilityLabel("下一周")
@@ -210,9 +213,11 @@ struct WeekScheduleView: View {
                     .foregroundStyle(weekdayForegroundColor(for: day))
                     .frame(maxWidth: .infinity, minHeight: 54)
                     .background(day.dayOfWeek == selectedDay ? QingKeTheme.inverseSurface : Color.clear)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(weekdayAccessibilityLabel(day))
+                .accessibilityValue(day.dayOfWeek == selectedDay ? "已选择" : "未选择")
                 .accessibilityIdentifier("week-day-selector-\(day.dayOfWeek)")
 
                 if day.dayOfWeek < ScheduleDisplayText.weekdayNames.count {

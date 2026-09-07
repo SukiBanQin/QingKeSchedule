@@ -83,8 +83,8 @@ struct ReminderSettingsSection: View {
                     openURL(url)
                 } label: {
                     Label("前往系统设置开启通知", systemImage: "gear")
+                        .terminalControl()
                 }
-                .terminalControl()
                 .accessibilityIdentifier("system-notification-settings")
             }
         }

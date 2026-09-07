@@ -308,6 +308,7 @@ private struct TerminalTabBar: View {
                             .fill(selection == tab ? QingKeTheme.signal : .clear)
                             .frame(width: 30, height: 4)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title)

@@ -89,13 +89,9 @@ struct SemesterFormView: View {
                                         .font(.caption.bold())
                                 }
                                 .foregroundStyle(QingKeTheme.cyan)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    togglePeriods()
-                                }
+                                .terminalControl()
                             }
                             .buttonStyle(.plain)
-                            .terminalControl()
                             .zIndex(1)
                             .accessibilityIdentifier("daily-periods-toggle")
                             .accessibilityLabel("每日节次")
@@ -117,8 +113,8 @@ struct SemesterFormView: View {
                                     draft.addPeriod()
                                 } label: {
                                     Label("添加节次", systemImage: "plus")
+                                        .terminalControl()
                                 }
-                                .terminalControl()
                                 .disabled(draft.periods.count >= 20)
                                 .accessibilityIdentifier("add-period")
                             }
@@ -253,9 +249,9 @@ struct SemesterFormView: View {
                         .font(.caption.bold())
                 }
                 .foregroundStyle(QingKeTheme.textPrimary)
+                .terminalControl()
             }
             .buttonStyle(.plain)
-            .terminalControl()
             .accessibilityIdentifier("semester-start-date")
 
             if calendarExpanded {
@@ -286,9 +282,10 @@ struct SemesterFormView: View {
                         draft.removePeriod(id: period.wrappedValue.id)
                     } label: {
                         Image(systemName: "trash")
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 44, height: 44)
                     .accessibilityLabel("删除第 \(period.wrappedValue.number) 节")
                 }
             }
@@ -493,9 +490,9 @@ private struct AcademicCalendarSettingsSection: View {
                         .font(.caption.bold())
                 }
                 .foregroundStyle(QingKeTheme.textPrimary)
+                .terminalControl()
             }
             .buttonStyle(.plain)
-            .terminalControl()
             .accessibilityIdentifier("calendar-exception-date")
 
             if calendarExpanded {
@@ -577,9 +574,12 @@ private struct AcademicCalendarSettingsSection: View {
                 .overlay {
                     Rectangle().stroke(QingKeTheme.border, lineWidth: 1)
                 }
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(mode == candidate ? .isSelected : [])
+        .accessibilityIdentifier("calendar-mode-\(candidate.accessibilityIdentifier)")
+        .accessibilityValue(mode == candidate ? "已选择" : "未选择")
     }
 
     private func exceptionHeader(_ title: String) -> some View {
@@ -607,6 +607,7 @@ private struct AcademicCalendarSettingsSection: View {
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
                     .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("删除 \(localizedDate(date))")
@@ -671,6 +672,13 @@ private enum ExceptionMode: Equatable {
         switch self {
         case .nonTeaching: "停课日"
         case .makeup: "调课上课"
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .nonTeaching: "non-teaching"
+        case .makeup: "makeup"
         }
     }
 }

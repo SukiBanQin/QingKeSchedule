@@ -76,6 +76,7 @@ struct CourseEditorView: View {
                                 .overlay {
                                     Rectangle().stroke(QingKeTheme.textOnInverse.opacity(0.78), lineWidth: 1)
                                 }
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("add-course-schedule")
@@ -355,10 +356,12 @@ struct CourseEditorView: View {
 
             if draft.schedules.count > 1 {
                 TerminalFormDivider()
-                Button("删除这个安排", role: .destructive) {
+                Button(role: .destructive) {
                     draft.removeSchedule(id: identifier)
+                } label: {
+                    Text("删除这个安排")
+                        .terminalControl()
                 }
-                .terminalControl()
                 .accessibilityIdentifier("delete-course-schedule-\(index)")
             }
         }

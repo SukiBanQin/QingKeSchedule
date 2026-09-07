@@ -12,6 +12,12 @@ final class QingKeScheduleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["today-tab"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["today-empty"].exists)
 
+        let scheduleTab = app.buttons["schedule-tab"]
+        tapVisibleBlankArea(of: scheduleTab, horizontalOffset: 0.88)
+        XCTAssertTrue(app.descendants(matching: .any)["week-schedule"].waitForExistence(timeout: 5))
+        tapVisibleBlankArea(of: app.buttons["today-tab"], horizontalOffset: 0.88)
+        XCTAssertTrue(app.descendants(matching: .any)["today-empty"].waitForExistence(timeout: 5))
+
         app.buttons["settings-tab"].tap()
         XCTAssertTrue(app.buttons["semester-save-toolbar"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["settings-terminal-header"].exists)
@@ -29,6 +35,15 @@ final class QingKeScheduleUITests: XCTestCase {
 
         let dateControl = app.buttons["calendar-exception-date"]
         let addButton = app.buttons["add-calendar-exception"]
+        scrollToElement(dateControl, in: app)
+        tapVisibleBlankArea(of: dateControl, horizontalOffset: 0.5)
+        XCTAssertTrue(app.datePickers["calendar-exception-date-picker"].waitForExistence(timeout: 5))
+        tapVisibleBlankArea(of: dateControl, horizontalOffset: 0.5)
+        let datePickerCollapsed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.datePickers["calendar-exception-date-picker"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [datePickerCollapsed], timeout: 5), .completed)
         scrollToElement(addButton, in: app)
         XCTAssertTrue(dateControl.exists)
         XCTAssertTrue(addButton.exists)
@@ -196,6 +211,28 @@ final class QingKeScheduleUITests: XCTestCase {
             whileMoving: app.descendants(matching: .any)["week-matrix"],
             in: app
         )
+        let sundaySelector = app.buttons["week-day-selector-7"]
+        tapVisibleBlankArea(of: sundaySelector, horizontalOffset: 0.88)
+        let sundaySelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "已选择"),
+            object: sundaySelector
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [sundaySelected], timeout: 5), .completed)
+
+        let selectedWeek = app.buttons["selected-week"]
+        tapVisibleBlankArea(of: app.buttons["week-next"], horizontalOffset: 0.8)
+        let nextWeekSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "第 2 周"),
+            object: selectedWeek
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [nextWeekSelected], timeout: 5), .completed)
+        tapVisibleBlankArea(of: selectedWeek, horizontalOffset: 0.9)
+        let currentWeekSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "第 1 周"),
+            object: selectedWeek
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [currentWeekSelected], timeout: 5), .completed)
+
         scrollToElement(app.staticTexts["week-matrix-day-1"], in: app)
         for day in 1...7 {
             XCTAssertTrue(app.staticTexts["week-matrix-day-\(day)"].exists)
@@ -208,20 +245,6 @@ final class QingKeScheduleUITests: XCTestCase {
         )).firstMatch
         scrollToElement(matrixCourse, in: app)
         XCTAssertTrue(matrixCourse.label.contains("存在冲突"))
-
-        let selectedWeek = app.buttons["selected-week"]
-        app.buttons["week-next"].tap()
-        let nextWeekSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS %@", "第 2 周"),
-            object: selectedWeek
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [nextWeekSelected], timeout: 5), .completed)
-        app.buttons["week-previous"].tap()
-        let firstWeekSelected = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label CONTAINS %@", "第 1 周"),
-            object: selectedWeek
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [firstWeekSelected], timeout: 5), .completed)
 
         app.buttons["today-tab"].tap()
         app.staticTexts["课程 A"].firstMatch.tap()
@@ -278,6 +301,54 @@ final class QingKeScheduleUITests: XCTestCase {
             whileMoving: app.textFields["course-classroom-0"],
             in: app
         )
+    }
+
+    @MainActor
+    func testCalendarExceptionModeButtonsRespondAcrossTheirFullWidthInLightMode() throws {
+        let app = launchAndCreateSemester()
+        verifyCalendarExceptionModeButtons(in: app)
+    }
+
+    @MainActor
+    func testCalendarExceptionModeButtonsRespondAcrossTheirFullWidthInDarkMode() throws {
+        let app = launchAndCreateSemester(launchArguments: ["-AppleInterfaceStyle", "Dark"])
+        verifyCalendarExceptionModeButtons(in: app)
+    }
+
+    @MainActor
+    func testScheduleRemovalControlRespondsOutsideItsText() throws {
+        let app = launchAndCreateSemester()
+        app.buttons["add-course-today-toolbar"].tap()
+        enterCourseName("删除安排测试", in: app)
+        app.buttons["add-course-schedule"].tap()
+
+        let deleteSchedule = app.buttons["delete-course-schedule-1"]
+        scrollToElement(deleteSchedule, in: app)
+        tapVisibleBlankArea(of: deleteSchedule, horizontalOffset: 0.88)
+        let removed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: deleteSchedule
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
+    }
+
+    @MainActor
+    func testDataTransferImportControlRespondsOutsideItsText() throws {
+        let app = launchForTransferControlTest(
+            fixture: "Shared/fixtures/valid/web-export.json"
+        )
+        app.buttons["semester-save-toolbar"].tap()
+        XCTAssertTrue(app.buttons["settings-tab"].waitForExistence(timeout: 5))
+        app.buttons["settings-tab"].tap()
+
+        let importControl = app.buttons["schedule-import-test-file"]
+        scrollToElement(importControl, in: app)
+        tapVisibleBlankArea(of: importControl, horizontalOffset: 0.88)
+        XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
+        app.buttons["取消"].coordinate(
+            withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)
+        ).tap()
+        XCTAssertTrue(app.buttons["settings-tab"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -637,9 +708,11 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchAndCreateSemester() -> XCUIApplication {
+    private func launchAndCreateSemester(
+        launchArguments: [String] = []
+    ) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--ui-testing"] + launchArguments
         app.launch()
 
         XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
@@ -665,12 +738,71 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    private func launchForTransferControlTest(fixture: String) -> XCUIApplication {
+        let testSourceURL = URL(fileURLWithPath: #filePath)
+        let iosRootURL = testSourceURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fixtureURL = iosRootURL.appendingPathComponent(fixture)
+        let contents = try! String(contentsOf: fixtureURL, encoding: .utf8)
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-transfer-controls"]
+        app.launchEnvironment["UI_TEST_IMPORT_JSON"] = contents
+        app.launch()
+        XCTAssertTrue(app.staticTexts["onboarding-title"].waitForExistence(timeout: 5))
+        return app
+    }
+
+    @MainActor
+    private func verifyCalendarExceptionModeButtons(in app: XCUIApplication) {
+        app.buttons["settings-tab"].tap()
+        let makeupButton = app.buttons["calendar-mode-makeup"]
+        let nonTeachingButton = app.buttons["calendar-mode-non-teaching"]
+        scrollToElement(makeupButton, in: app)
+
+        tapVisibleBlankArea(of: makeupButton, horizontalOffset: 0.88)
+        let makeupSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "已选择"),
+            object: makeupButton
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [makeupSelected], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["makeup-source-weekday"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["add-calendar-exception"].label, "添加调课日")
+
+        tapVisibleBlankArea(of: nonTeachingButton, horizontalOffset: 0.88)
+        let nonTeachingSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "已选择"),
+            object: nonTeachingButton
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [nonTeachingSelected], timeout: 5), .completed)
+        let sourceWeekdayHidden = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.buttons["makeup-source-weekday"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [sourceWeekdayHidden], timeout: 5), .completed)
+        XCTAssertEqual(app.buttons["add-calendar-exception"].label, "添加停课日")
+    }
+
+    @MainActor
     private func scrollToElement(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 where !element.isHittable {
             app.swipeUp()
         }
         XCTAssertTrue(element.waitForExistence(timeout: 5))
         XCTAssertTrue(element.isHittable)
+    }
+
+    @MainActor
+    private func tapVisibleBlankArea(
+        of element: XCUIElement,
+        horizontalOffset: CGFloat
+    ) {
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        XCTAssertTrue(element.isHittable)
+        XCTAssertGreaterThanOrEqual(element.frame.width, 44)
+        element.coordinate(
+            withNormalizedOffset: CGVector(dx: horizontalOffset, dy: 0.5)
+        ).tap()
     }
 
     @MainActor
