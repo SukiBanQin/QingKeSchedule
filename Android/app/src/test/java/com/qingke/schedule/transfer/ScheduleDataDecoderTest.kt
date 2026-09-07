@@ -17,37 +17,15 @@ class ScheduleDataDecoderTest {
     private val fixtureRoot = File(requireNotNull(System.getProperty("sharedFixturesDirectory")))
 
     @Test
-    fun decodesEverySharedValidFixture() {
+    fun everySharedValidFixtureRoundTripsToItsOriginalJsonTree() {
         manifestFixtures("valid").forEach { name ->
-            val data = ScheduleDataDecoder.decode(fixture("valid", name).readBytes())
-            assertEquals(1, data.schemaVersion)
+            val original = Json.parseToJsonElement(fixture("valid", name).readText())
+            val encoded = Json.parseToJsonElement(
+                ScheduleDataDecoder.encode(ScheduleDataDecoder.decode(fixture("valid", name).readBytes()))
+                    .decodeToString(),
+            )
+            assertEquals("$name must preserve every field, array order, and null", original, encoded)
         }
-    }
-
-    @Test
-    fun completeSharedFixturePreservesEveryContractFieldAndRoundTrips() {
-        val data = ScheduleDataDecoder.decode(fixture("valid", "complete-schedule.json").readBytes())
-        val semester = requireNotNull(data.semester)
-        assertEquals("semester-2026-fall", semester.id)
-        assertEquals("2026 秋季学期", semester.name)
-        assertEquals("2026-09-02", semester.startDate)
-        assertEquals(18, semester.totalWeeks)
-        assertEquals(listOf(1, 2, 3, 4), semester.periods.map { it.number })
-        assertEquals("08:00", semester.periods.first().startTime)
-        assertEquals("11:40", semester.periods.last().endTime)
-        assertEquals(6, data.courses.size)
-        val every = data.courses.first()
-        assertEquals(listOf("course-every", "数据结构", "陈老师", "#287B74"),
-            listOf(every.id, every.name, every.teacher, every.color))
-        assertEquals(listOf("schedule-every", "A101"), listOf(every.schedules.first().id, every.schedules.first().classroom))
-        assertEquals(1, every.schedules.first().dayOfWeek)
-        assertEquals(1, every.schedules.first().startPeriod)
-        assertEquals(2, every.schedules.first().endPeriod)
-        assertEquals(1, every.schedules.first().startWeek)
-        assertEquals(18, every.schedules.first().endWeek)
-        assertEquals("EVERY", every.schedules.first().repeatRule.name)
-        assertEquals("2026-09-02T12:00:00.000Z", data.updatedAt)
-        assertEquals(data, ScheduleDataDecoder.decode(ScheduleDataDecoder.encode(data)))
     }
 
     @Test
@@ -83,18 +61,28 @@ class ScheduleDataDecoderTest {
     @Test
     fun acceptsFoundationCompatibleIntegralNumberSpellingsAtTopLevelAndNestedFields() {
         val source = completeFixtureText()
+        val expected = ScheduleDataDecoder.decode(source.encodeToByteArray())
         fieldSpecs.forEach { field ->
-            val decimal = field.replace(source, field.decimal)
-            assertEquals("${field.name} decimal spelling", 1, ScheduleDataDecoder.decode(decimal.encodeToByteArray()).schemaVersion)
-            val exponent = field.replace(source, field.exponent)
-            assertEquals("${field.name} exponent spelling", 1, ScheduleDataDecoder.decode(exponent.encodeToByteArray()).schemaVersion)
+            field.validJsonNumberForms().forEach { number ->
+                assertEquals(
+                    "${field.name} must preserve the full DTO for $number",
+                    expected,
+                    ScheduleDataDecoder.decode(field.replace(source, number).encodeToByteArray()),
+                )
+            }
         }
     }
 
     @Test
     fun rejectsNonNumericNonIntegralAndOverflowAtEveryIntegerField() {
         fieldSpecs.forEach { field ->
-            listOf(field.quoted, field.boolean, field.nonIntegral, field.overflow).forEach { invalid ->
+            listOf(
+                "\"${field.literal}\"",
+                "true",
+                "${field.literal}.5",
+                "2147483648",
+                *field.invalidJsonNumberForms().toTypedArray(),
+            ).forEach { invalid ->
                 expectException<ScheduleDataException.MalformedJson> {
                     ScheduleDataDecoder.decode(field.replace(completeFixtureText(), invalid).encodeToByteArray())
                 }
@@ -153,7 +141,10 @@ class ScheduleDataDecoderTest {
         val invalidByte = completeFixtureText().encodeToByteArray().also { bytes ->
             bytes[indexOf(bytes, "semester-2026-fall".encodeToByteArray())] = 0xFF.toByte()
         }
-        val truncatedMultibyte = "{\"schemaVersion\":1,\"semester\":null,\"courses\":[],\"updatedAt\":\"中".encodeToByteArray()
+        val truncatedMultibyte = removeLastByteOfUtf8Character(
+            completeFixtureText().encodeToByteArray(),
+            "秋".encodeToByteArray(),
+        )
         listOf(invalidByte, truncatedMultibyte).forEach { bytes ->
             expectException<ScheduleDataException.MalformedJson> { ScheduleDataDecoder.decode(bytes) }
             expectException<ScheduleDataException.MalformedJson> { ScheduleDataDecoder.decode(ByteArrayInputStream(bytes)) }
@@ -190,27 +181,49 @@ class ScheduleDataDecoderTest {
         return requireNotNull(index) { "Expected fixture text was not found" }
     }
 
+    private fun removeLastByteOfUtf8Character(bytes: ByteArray, character: ByteArray): ByteArray {
+        val index = indexOf(bytes, character)
+        return bytes.copyInto(
+            ByteArray(bytes.size - 1),
+            destinationOffset = index + character.size - 1,
+            startIndex = index + character.size,
+        ).also { truncated ->
+            bytes.copyInto(truncated, endIndex = index + character.size - 1)
+        }
+    }
+
     private data class IntegerFieldSpec(
         val name: String,
         val original: String,
-        val decimal: String,
-        val exponent: String,
-        val quoted: String,
-        val boolean: String,
-        val nonIntegral: String,
-        val overflow: String,
+        val literal: String,
     ) {
-        fun replace(source: String, replacement: String): String = source.replaceFirst(original, replacement)
+        fun replace(source: String, replacement: String): String = source.replaceFirst(
+            original,
+            original.replaceFirst(": $literal", ": $replacement"),
+        )
+
+        fun validJsonNumberForms(): List<String> = listOf(
+            "$literal.0",
+            "${literal}e0",
+            "${literal}e+0",
+        )
+
+        fun invalidJsonNumberForms(): List<String> = listOf(
+            "+$literal",
+            "0$literal",
+            "$literal.",
+            ".${literal}e${literal.length}",
+        )
     }
 
     private val fieldSpecs = listOf(
-        IntegerFieldSpec("schemaVersion", "\"schemaVersion\": 1", "\"schemaVersion\": 1.0", "\"schemaVersion\": 1e0", "\"schemaVersion\": \"1\"", "\"schemaVersion\": true", "\"schemaVersion\": 1.5", "\"schemaVersion\": 2147483648"),
-        IntegerFieldSpec("semester.totalWeeks", "\"totalWeeks\": 18", "\"totalWeeks\": 18.0", "\"totalWeeks\": 1.8e1", "\"totalWeeks\": \"18\"", "\"totalWeeks\": true", "\"totalWeeks\": 18.5", "\"totalWeeks\": 2147483648"),
-        IntegerFieldSpec("semester.periods.number", "\"number\": 1, \"startTime\"", "\"number\": 1.0, \"startTime\"", "\"number\": 1e0, \"startTime\"", "\"number\": \"1\", \"startTime\"", "\"number\": true, \"startTime\"", "\"number\": 1.5, \"startTime\"", "\"number\": 2147483648, \"startTime\""),
-        IntegerFieldSpec("schedule.dayOfWeek", "\"dayOfWeek\": 1", "\"dayOfWeek\": 1.0", "\"dayOfWeek\": 1e0", "\"dayOfWeek\": \"1\"", "\"dayOfWeek\": true", "\"dayOfWeek\": 1.5", "\"dayOfWeek\": 2147483648"),
-        IntegerFieldSpec("schedule.startPeriod", "\"startPeriod\": 1", "\"startPeriod\": 1.0", "\"startPeriod\": 1e0", "\"startPeriod\": \"1\"", "\"startPeriod\": true", "\"startPeriod\": 1.5", "\"startPeriod\": 2147483648"),
-        IntegerFieldSpec("schedule.endPeriod", "\"endPeriod\": 2", "\"endPeriod\": 2.0", "\"endPeriod\": 2e0", "\"endPeriod\": \"2\"", "\"endPeriod\": true", "\"endPeriod\": 2.5", "\"endPeriod\": 2147483648"),
-        IntegerFieldSpec("schedule.startWeek", "\"startWeek\": 1", "\"startWeek\": 1.0", "\"startWeek\": 1e0", "\"startWeek\": \"1\"", "\"startWeek\": true", "\"startWeek\": 1.5", "\"startWeek\": 2147483648"),
-        IntegerFieldSpec("schedule.endWeek", "\"endWeek\": 18", "\"endWeek\": 18.0", "\"endWeek\": 1.8e1", "\"endWeek\": \"18\"", "\"endWeek\": true", "\"endWeek\": 18.5", "\"endWeek\": 2147483648"),
+        IntegerFieldSpec("schemaVersion", "\"schemaVersion\": 1", "1"),
+        IntegerFieldSpec("semester.totalWeeks", "\"totalWeeks\": 18", "18"),
+        IntegerFieldSpec("semester.periods.number", "\"number\": 1, \"startTime\"", "1"),
+        IntegerFieldSpec("schedule.dayOfWeek", "\"dayOfWeek\": 1", "1"),
+        IntegerFieldSpec("schedule.startPeriod", "\"startPeriod\": 1", "1"),
+        IntegerFieldSpec("schedule.endPeriod", "\"endPeriod\": 2", "2"),
+        IntegerFieldSpec("schedule.startWeek", "\"startWeek\": 1", "1"),
+        IntegerFieldSpec("schedule.endWeek", "\"endWeek\": 18", "18"),
     )
 }

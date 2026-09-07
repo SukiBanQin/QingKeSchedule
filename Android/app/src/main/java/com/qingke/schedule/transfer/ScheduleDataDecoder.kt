@@ -148,6 +148,9 @@ object ScheduleDataDecoder {
         if (primitive.isString) {
             throw ScheduleDataException.MalformedJson("JSON 契约无效：$path 必须是整数数值")
         }
+        if (!JSON_NUMBER.matches(primitive.content)) {
+            throw ScheduleDataException.MalformedJson("JSON 契约无效：$path 必须是合法 JSON 数字")
+        }
         val decimal = try {
             BigDecimal(primitive.content)
         } catch (_: NumberFormatException) {
@@ -168,6 +171,7 @@ object ScheduleDataDecoder {
 
     private val INT_MIN = BigDecimal(Int.MIN_VALUE)
     private val INT_MAX = BigDecimal(Int.MAX_VALUE)
+    private val JSON_NUMBER = Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
     private fun readBounded(input: InputStream): ByteArray {
         input.use { stream ->
