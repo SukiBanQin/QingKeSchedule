@@ -123,7 +123,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
         self.assertIn("P1 仍未完成", handoff)
         self.assertIn("首轮已审查，结论未通过", handoff)
-        self.assertIn("在证据完成前不进入 P2", handoff)
+        self.assertIn("暂不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
         for commit in ("9b521db", "0a498b9", "85e3234"):
             subprocess.run(
@@ -143,7 +143,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         plan = (DOCS / "implementation-plan.md").read_text()
         for marker in ("3924d26", "各 21 项", "R1/R2/R3 修正通过", "无连接设备", "P1-02"):
             self.assertIn(marker, review)
-        self.assertIn("eb24fad", handoff)
+        self.assertIn("bef808b", handoff)
         self.assertIn("P1 仍未完成", handoff)
         self.assertNotIn("已提交待复审", plan)
         self.assertNotIn("未审查修正代码", handoff)
