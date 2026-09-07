@@ -44,6 +44,26 @@ class ScheduleRulesTest {
         assertFalse(ScheduleRules.scheduleApplies(every.copy(endWeek = 2), 3))
     }
 
+    @Test
+    fun localDateRejectsYearZeroAndInvalidDatesWhileKeepingGregorianLeapYears() {
+        assertEquals(null, ScheduleRules.parseLocalDate("0000-01-01"))
+        assertEquals(null, ScheduleRules.parseLocalDate("2025-02-29"))
+        assertEquals(null, ScheduleRules.parseLocalDate("2026-04-31"))
+        assertEquals(LocalDate.parse("2024-02-29"), ScheduleRules.parseLocalDate("2024-02-29"))
+        assertEquals(LocalDate.parse("2000-02-29"), ScheduleRules.parseLocalDate("2000-02-29"))
+        assertEquals(null, ScheduleRules.parseLocalDate("1900-02-29"))
+    }
+
+    @Test
+    fun teachingWeekRetainsBoundaryBehaviorAcrossLeapDay() {
+        val leapSemester = semester.copy(startDate = "2024-02-28", totalWeeks = 2)
+        assertEquals(1, ScheduleRules.teachingWeek(LocalDate.parse("2024-02-26"), leapSemester))
+        assertEquals(1, ScheduleRules.teachingWeek(LocalDate.parse("2024-02-29"), leapSemester))
+        assertEquals(2, ScheduleRules.teachingWeek(LocalDate.parse("2024-03-04"), leapSemester))
+        assertTrue(ScheduleRules.isTeachingWeekInSemester(2, leapSemester))
+        assertFalse(ScheduleRules.isTeachingWeekInSemester(3, leapSemester))
+    }
+
     private fun schedule(repeatRule: RepeatRule) = CourseSchedule(
         id = "schedule",
         dayOfWeek = 1,

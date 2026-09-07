@@ -26,7 +26,7 @@ object ScheduleRules {
 
     fun parseLocalDate(value: String): LocalDate? =
         runCatching {
-            if (!LOCAL_DATE.matches(value)) null else LocalDate.parse(value)
+            if (!LOCAL_DATE.matches(value) || value.startsWith("0000-")) null else LocalDate.parse(value)
         }.getOrNull()
 
     fun parseLocalTime(value: String): LocalTime? =

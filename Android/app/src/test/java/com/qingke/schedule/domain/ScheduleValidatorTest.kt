@@ -21,6 +21,7 @@ class ScheduleValidatorTest {
     @Test
     fun validatesSemesterAndPeriodConstraints() {
         assertHasPath(ScheduleValidator.validate(data(semester = semester(startDate = "2026-02-30"))), "semester.startDate")
+        assertHasPath(ScheduleValidator.validate(data(semester = semester(startDate = "0000-01-01"))), "semester.startDate")
         assertHasPath(ScheduleValidator.validate(data(semester = semester(totalWeeks = 53))), "semester.totalWeeks")
         assertHasPath(
             ScheduleValidator.validate(data(semester = semester(periods = listOf(
@@ -43,6 +44,25 @@ class ScheduleValidatorTest {
         assertHasPath(
             ScheduleValidator.validate(data(courses = listOf(course(schedule = schedule(endWeek = 19))))),
             "courses.0.schedules.0.weeks",
+        )
+    }
+
+    @Test
+    fun validatesPeriodAndScheduleBoundaryCountsAndRanges() {
+        assertHasPath(ScheduleValidator.validate(data(semester = semester(periods = emptyList()))), "semester.periods")
+        assertHasPath(
+            ScheduleValidator.validate(data(semester = semester(periods = (1..21).map {
+                Period(it, "08:00", "08:45")
+            }))),
+            "semester.periods",
+        )
+        assertHasPath(
+            ScheduleValidator.validate(data(courses = listOf(course(schedule = schedule(startWeek = 2, endWeek = 1))))),
+            "courses.0.schedules.0.weeks",
+        )
+        assertHasPath(
+            ScheduleValidator.validate(data(courses = listOf(course(schedule = schedule(startPeriod = 2, endPeriod = 1))))),
+            "courses.0.schedules.0.periods",
         )
     }
 
@@ -72,6 +92,7 @@ class ScheduleValidatorTest {
         dayOfWeek: Int = 1,
         startPeriod: Int = 1,
         endPeriod: Int = 1,
+        startWeek: Int = 1,
         endWeek: Int = 18,
-    ) = CourseSchedule("schedule", dayOfWeek, startPeriod, endPeriod, 1, endWeek, RepeatRule.EVERY, "")
+    ) = CourseSchedule("schedule", dayOfWeek, startPeriod, endPeriod, startWeek, endWeek, RepeatRule.EVERY, "")
 }
