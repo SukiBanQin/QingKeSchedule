@@ -121,7 +121,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, review)
         for document in NAMES:
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
-        self.assertIn("P1 未完成", handoff)
+        self.assertIn("P1 仍未完成", handoff)
         self.assertIn("首轮已审查，结论未通过", handoff)
         self.assertIn("在证据完成前不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
@@ -144,7 +144,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in ("3924d26", "各 21 项", "R1/R2/R3 修正通过", "无连接设备", "P1-02"):
             self.assertIn(marker, review)
         self.assertIn("eb24fad", handoff)
-        self.assertIn("P1 未完成", handoff)
+        self.assertIn("P1 仍未完成", handoff)
         self.assertNotIn("已提交待复审", plan)
         self.assertNotIn("未审查修正代码", handoff)
 

@@ -142,3 +142,19 @@
 因此不进入 P2。下一项应为 P1-02“工具链与启动验证”，仍属 P1。
 
 补充限制：测试对代表字段及往返作了断言，尚非逐个课程/安排字段的穷尽检查；本轮未提供修正前逐项新增测试失败日志，仅有首轮探针和本轮复跑证据。README 已承认 API 35 不能证明满足 D02；其中 API 36.1/AGP 9 的升级建议未独立核实，不作为已批准升级组合。P1-02 先收集稳定渠道清单及官方兼容依据，回传最小升级方案，本任务不实施升级。README 现为英文，下一次更新应按最新规则改为中文。
+
+
+## P1-02 复审记录
+
+复审日期：2026-09-07。复审范围为提交 `e80ea2f` 的 `Android/README.md`、`Android/scripts/p1-02-apk-check.sh` 和 `docs/Android/p1-02-validation.md`；未修改应用代码。
+
+结论：**P1-02 文档与工具链核查通过；启动验证未完成，P1 仍未完成，不进入 P2。**
+
+- README 已改为中文，记录了通用 JDK/SDK 配置、当前 API 35 构建组合、稳定渠道查询结果及限制。
+- APK 预检脚本实际通过，确认包名 `com.qingke.schedule`、`minSdk 26`、`targetSdk 35`。脚本只检查 APK 元数据，不替代设备启动。
+- 提交范围与 Terra 回传一致，仅包含声明的 3 个文件；未修改业务源码、构建依赖、iOS、Web、共享协议或 fixtures。
+- 独立复跑 `assembleDebug test --rerun-tasks --no-daemon --console=plain` 成功，68 个任务执行，Debug/Release JVM 测试通过；APK 预检、9 项文档测试、文档/布局测试和 `git diff --check` 均通过。
+- SDK 查询显示稳定平台至少有 API 36、36.1、37.0、37.1；API 35 不能证明满足 D02 的“最新稳定版本”。Terra 未升级依赖，符合本任务范围；最高稳定平台对应的官方 AGP/Gradle/Build Tools/Kotlin/Compose 组合仍需单独审查。
+- Apple Silicon 主机无法启动现有 x86_64 API 35 AVD，adb 无设备，未取得安装、Activity、截图、冷启动/重启或 logcat 证据。该限制已如实记录。
+
+剩余门槛：取得可运行的 ARM64 模拟器或用户授权真机完成骨架安装/启动验证；同时由 Astra 审查稳定 SDK 的最小升级组合。在两项证据完成前，不能关闭 P1 或开始 P2。
