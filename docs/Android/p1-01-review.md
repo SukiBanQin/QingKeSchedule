@@ -111,3 +111,32 @@
 ## 文档状态校正
 
 原 product-baseline 的“待用户审阅／尚未开展实现”及 technical-design 的“待审阅／没有 Wrapper”等已经落后于实施及用户确认，本轮同步修正状态，不改变功能基准。D02 包名/minSdk 和 D04 个人 debug 范围早已确认；目标机型、正式发行、D01 和 D03 不因此自动解决。
+
+## P1-01-R1 复审记录
+
+复审日期：2026-09-07。复审范围为 `3924d26` 相对其父提交的 6 个 `Android/**` 文件；未修改应用代码。
+
+结论：**R1/R2/R3 修正通过；P1-01-R1 审查通过，但 P1 阶段仍未完成。**
+
+- `ScheduleDataDecoder` 现对全部整数字段检查 JSON 数值 token、数学整数性和 `Int` 范围；字符串、布尔、非整数和溢出均拒绝，`1.0` 与指数形式按 Swift 实测接受。
+- 字节和流入口均采用严格 UTF-8，损坏字节及截断多字节输入拒绝；合法中文保留。
+- 年份 `0000` 被拒绝，闰年与无效日期、教学周边界测试已补齐。
+- 完整共享 fixture 字段保真、编码往返、显式 `semester: null`、缺字段/错类型、边界数量、5 MiB 上限均有测试。
+- 跨端探针复跑：R1/R2/R3 案例 Android 与 Swift 结果一致；未知字段 Android 拒绝而 Swift 接受，仍按未决兼容差异保留，不视为产品决定。重复 ID 与节次编号顺序亦未擅自加严。
+
+独立验证：
+
+| 检查 | 结果 |
+| --- | --- |
+| `ANDROID_HOME=/tmp/qingke-android-sdk-1788767128 ./gradlew assembleDebug test --rerun-tasks` | `BUILD SUCCESSFUL`；68 tasks；Debug/Release 各 21 项 JVM 测试，失败/错误/跳过均为 0 |
+| `python3 docs/tests/android-contract-review-probe.py` | 执行成功；R1/R2/R3 修正案例与 Swift 结果一致；未知字段差异仍存在 |
+| `adb devices -l` | 无连接设备，未安装/启动验证 |
+| SDK/工具链 | 可在本机临时 SDK 35 构建；README 已记录 AGP 8.8.2/Gradle 8.10.2/API 35，但尚未证明 API 35 满足“实施环境可用的最新稳定 SDK” |
+
+剩余门槛：
+
+1. 需要在授权模拟器或真机完成 debug 安装与启动，并记录设备/API 证据。
+2. 需要补充或明确当前实施环境的稳定 SDK 核查；在此之前不能宣称 D02 的“最新稳定版本”已满足。
+3. 未知字段严格拒绝与 Swift 宽容接受的差异等待产品决定；不阻塞本次修正通过，但影响后续 P4 契约。
+
+因此不进入 P2。下一项应为 P1-02“工具链与启动验证”，仍属 P1。
