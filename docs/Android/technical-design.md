@@ -2,15 +2,15 @@
 
 ## 文档状态
 
-更新日期：2026-09-07。状态：技术建议草案，待审阅。本文不代表已安装 SDK、建立安卓工程、验证依赖兼容性或授权实施。
+更新日期：2026-09-07。状态：用户已确认方案；P1-01 工程已建立，本轮已复跑构建和 JVM 测试，首轮审查因输入校验问题未通过。具体证据、工具链限制及未决差异见 [P1-01 审查](p1-01-review.md)，不代表完整应用或设备验收。
 
 产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。
 
 ## 建议技术路线
 
-保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。具体版本在建工程时按官方稳定版本和兼容矩阵核实并固定，不在此草案中猜测版本号。
+保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建，版本清单见审查记录；最新稳定 SDK 选择依据仍待补，Room/DataStore 尚未接入。
 
-以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名、最低系统版本、签名和发布目标实施前确定。
+以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名 `com.qingke.schedule`、最低 API 26 及首轮个人 debug 验证已确认，正式发布范围待定。
 
 参考：[Android 架构建议](https://developer.android.com/topic/architecture/recommendations)、[Jetpack 组件](https://developer.android.com/jetpack)、[Android Studio 安装](https://developer.android.com/studio/install)。
 
@@ -69,7 +69,7 @@ Room 建议保存元数据、单个学期、节次、课程和多个安排，保
 - 存储集成测试：关系和顺序、增改删、事务回滚、重启和迁移。
 - Compose／设备测试：覆盖 A01 至 A11 核心流程，确认／取消、错误反馈及无障碍。
 - 真机测试：权限拒绝与变化、锁屏／休眠、重启、长时间未打开、时间变化、修改删除后旧提醒取消，以及系统文件导入分享。
-- 建工程后提供可复现构建和测试命令。当前没有 Gradle Wrapper，不提供伪装可运行的安卓测试命令。
+- 建工程后提供可复现构建和测试命令。现有 `Android/gradlew` 与 `gradlew.bat`；配置 JDK 17 和有效 SDK 路径后，在 `Android/` 运行 `./gradlew assembleDebug` 和 `./gradlew test`。本轮具体环境和结果见审查记录。
 - 每项交付记录提交、命令、结果和未验证限制；对照清单仍需人工验收，不以自动测试代替所有设备检查。
 
 当前文档验证命令（仓库根目录执行）：

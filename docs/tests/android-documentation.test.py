@@ -16,6 +16,7 @@ NAMES = (
     "implementation-plan.md",
     "handoff.md",
 )
+REVIEW_NAME = "p1-01-review.md"
 
 
 def missing_links(path, contents):
@@ -32,7 +33,7 @@ def missing_links(path, contents):
 
 class AndroidDocumentationTests(unittest.TestCase):
     def test_required_documents_and_local_references(self):
-        for name in NAMES:
+        for name in (*NAMES, REVIEW_NAME):
             with self.subTest(document=name):
                 path = DOCS / name
                 self.assertTrue(path.is_file(), name)
@@ -106,6 +107,35 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("自动开始下一阶段开发", rules)
         handoff = (DOCS / "handoff.md").read_text()
         self.assertIn("实际窗口模型和档位未核实", handoff)
+
+    def test_p1_review_preserves_scope_evidence_and_unfinished_gate(self):
+        review = (DOCS / REVIEW_NAME).read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        for marker in (
+            "9b521db^..9b521db", "0a498b9", "85e3234", "P1-01-R1",
+            "SDK location not found", "68 个任务", "各 12 项",
+            "未知字段决定待确认", "安装／启动未验证", "用户未验收",
+            "schemaVersion 字符串", "非法 UTF-8", "0000-01-01",
+            "允许修改：Android/**", "建议模型／思考档位：Terra／中",
+        ):
+            self.assertIn(marker, review)
+        for document in NAMES:
+            self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
+        self.assertIn("P1 未完成", handoff)
+        self.assertIn("审查未通过", handoff)
+        self.assertIn("证据未齐时下一项仍属 P1", handoff)
+        self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
+        for commit in ("9b521db", "0a498b9", "85e3234"):
+            subprocess.run(
+                ["git", "cat-file", "-e", commit + "^{commit}"],
+                cwd=ROOT, check=True, capture_output=True,
+            )
+        implementation_files = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "9b521db"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(len(implementation_files), 20)
+        self.assertTrue(all(path.startswith("Android/") for path in implementation_files))
 
 
 if __name__ == "__main__":
