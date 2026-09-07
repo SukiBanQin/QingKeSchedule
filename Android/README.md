@@ -1,83 +1,66 @@
-# QingKeSchedule Android
+# 轻课 Android
 
-This directory is the native Android implementation. It currently contains the P1
-build and domain/JSON-contract foundation, not a finished application. The shared
-version-1 JSON schema and fixtures remain in `../ios/Shared/`; Android tests read
-them directly and do not copy them.
+`Android/` 是原生 Android 实现。本阶段只包含 P1 的 Compose 工程、领域规则和版本 1 JSON 契约骨架，不是完整 App。共享 schema 与 fixtures 保留在 `../ios/Shared/`，测试直接读取它们，不复制或修改共享文件。
 
-## Pinned build toolchain
+## 当前固定工程组合
 
-| Component | Pinned version |
-| --- | --- |
-| JDK / Kotlin JVM target | 17 |
-| Gradle Wrapper | 8.10.2 |
-| Android Gradle Plugin | 8.8.2 |
-| Kotlin / Compose compiler plugin | 2.0.21 |
-| compileSdk / targetSdk | 35 |
-| minSdk | 26 |
-| Android SDK platform / Build Tools | android-35 / 35.0.0 |
-| Compose BOM | 2024.12.01 |
-| Kotlin serialization JSON | 1.7.3 |
+| 组件 | 当前版本 | 状态 |
+| --- | --- | --- |
+| JDK / Kotlin JVM target | 17 | 已用于构建 |
+| Gradle Wrapper | 8.10.2 | 已固定 |
+| Android Gradle Plugin | 8.8.2 | 已固定 |
+| Kotlin / Compose compiler plugin | 2.0.21 | 已固定 |
+| compileSdk / targetSdk | 35 | 当前实现，非 D02 最新稳定性结论 |
+| minSdk | 26 | 用户已确认 |
+| Android SDK Platform / Build Tools | android-35 revision 2 / 35.0.0 | 已在临时 SDK 中验证 |
+| Compose BOM | 2024.12.01 | 已固定 |
+| Kotlin serialization JSON | 1.7.3 | 已固定 |
 
-API 35 is a reproducible **current-project** choice: Android's AGP 8.8 release
-notes specify API 35 as its maximum supported API and specify Gradle 8.10.2,
-Build Tools 35.0.0, and JDK 17. Android's Android 15 setup guide specifies
-`compileSdk = 35` and `targetSdk = 35` and documents installing Platform 35 and
-Build Tools 35.x.
+## 通用环境配置
 
-As checked on 2026-09-07, this does **not** establish that API 35 still meets D02's
-"latest stable SDK available in the implementation environment" rule: stable
-Android tooling has moved past it. Moving the project to API 36.1 requires a
-separate reviewed upgrade, at least AGP 9.0.x, Gradle 9.1.0, Build Tools 36.0.0,
-and migration from the applied Kotlin Android Gradle plugin to AGP's built-in
-Kotlin support. JDK 17 remains compatible. Do not make that upgrade as part of a
-contract-only change.
-
-Official references:
-
-- [AGP 8.8 compatibility](https://developer.android.com/build/releases/agp-8-8-0-release-notes)
-- [Android 15 / API 35 SDK setup](https://developer.android.com/about/versions/15/setup-sdk)
-- [AGP 9.0 compatibility and migration changes](https://developer.android.com/build/releases/agp-9-0-0-release-notes)
-
-## Local setup
-
-Install a JDK 17 and the Android SDK command-line tools (or Android Studio), then
-install Platform 35 and Build Tools 35.0.0. Point Gradle at the SDK using exactly
-one of the following approaches; do not commit a machine-specific `local.properties`.
+安装 JDK 17、Android Studio 或 Android command-line tools，并通过 `sdkmanager` 安装所需 SDK。不要提交机器相关的 `local.properties`；它已被 Git 忽略。
 
 ```bash
-export JAVA_HOME="$(/usr/libexec/java_home -v 17)"     # macOS example
+export JAVA_HOME="/absolute/path/to/jdk-17"
 export ANDROID_HOME="/absolute/path/to/android-sdk"
-export ANDROID_SDK_ROOT="$ANDROID_HOME"                # optional compatibility alias
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
   "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 ```
 
-Alternatively, create `Android/local.properties` locally with
-`sdk.dir=/absolute/path/to/android-sdk`; that file is ignored by Git. On Windows,
-set the equivalent environment variables and use `gradlew.bat`.
+macOS 也可以使用 `export JAVA_HOME="$(/usr/libexec/java_home -v 17)"`。Windows 使用等价环境变量和 `gradlew.bat`。
 
-## Build, test, and reports
+## 构建、测试与报告
 
-From this directory:
+在 `Android/` 目录执行：
 
 ```bash
 ./gradlew assembleDebug
 ./gradlew test
 ```
 
-The debug APK is written to
-`app/build/outputs/apk/debug/app-debug.apk`. JVM HTML test reports are written to
-`app/build/reports/tests/testDebugUnitTest/index.html` and
-`app/build/reports/tests/testReleaseUnitTest/index.html`. Test XML is under
-`app/build/test-results/`.
+Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`；JVM 报告位于 `app/build/reports/tests/`，XML 结果位于 `app/build/test-results/`。
 
-`ScheduleDataDecoderTest` reads the shared fixture manifest from
-`../ios/Shared/fixtures/manifest.json`. It also records the current strict Android
-unknown-field behavior; Swift currently accepts those fields, and that policy
-difference is intentionally unresolved rather than a product decision. Duplicate
-IDs and period-number ordering are likewise not tightened here.
+`ScheduleDataDecoderTest` 从 `../ios/Shared/fixtures/manifest.json` 读取全部有效和无效 fixture，并覆盖显式 `semester: null`、严格版本/字段/业务校验与 5 MiB 输入上限。未知字段当前按严格 schema 拒绝，而 Swift 实际宽容接受；该兼容策略仍未由产品决定。
 
-No emulator or device is configured by this repository. A successful JVM build or
-test does not prove installation or startup; use an authorized emulator/device for
-that separate P1 verification.
+## SDK 稳定渠道核查（2026-09-07）
+
+实际查询命令：
+
+```bash
+"$ANDROID_HOME/cmdline-tools/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --list
+```
+
+稳定渠道清单显示已安装 `platforms;android-35`，同时可用稳定平台至少包含 `android-36`、`android-36.1`、`android-37.0`、`android-37.1`（另有 beta 条目）。因此 API 35 只能作为当前可复现组合，不能声称满足 D02“环境可用的最新稳定版本”。
+
+当前 AGP 8.8.2 的官方兼容说明支持 API 35、Gradle 8.10.2 和 JDK 17。若要跟随稳定渠道升级，建议先由 Astra 审查最小组合：目标 API 取查询结果中的最高稳定平台，配套同代稳定 AGP/Gradle、Build Tools 和 Kotlin/Compose 插件；这会影响 `compileSdk`/`targetSdk`、插件迁移、缓存和 CI，故本任务不实施升级。API 36.1/AGP 9 仅是待审查方向，不是已核实结论。
+
+官方依据：
+
+- [AGP 8.8 release notes](https://developer.android.com/build/releases/agp-8-8-0-release-notes)
+- [Android SDK setup](https://developer.android.com/about/versions/15/setup-sdk)
+- [SDK command-line tools](https://developer.android.com/tools/sdkmanager)
+
+## P1-02 启动验证限制
+
+本机为 Apple Silicon（aarch64）。API 35 `google_apis;x86_64` system image 可列出但不能由本机 QEMU2 启动，错误为 `Avd's CPU Architecture 'x86_64' is not supported by the QEMU2 emulator on aarch64 host`。ARM64 image 在当前网络中未完成下载。因此本任务未取得模拟器或真机安装、冷启动、重启、截图和 logcat 崩溃证据；不得将构建通过写成启动通过。详见 `../docs/Android/p1-02-validation.md`。
