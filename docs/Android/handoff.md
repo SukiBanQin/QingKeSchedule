@@ -16,11 +16,11 @@
 
 ## 建议与待决定事项
 
-- Kotlin + Compose、Room、DataStore 和 Mac 主力开发是已提出的建议，本文不把技术细节记录为全部批准。
+- Kotlin + Compose、Room、DataStore 和 Mac 主力开发是已提出的建议；本轮确认 P1 采用 Kotlin + Compose 单 app 工程，Room/DataStore 仍按阶段计划在 P2 接入。
 - D01：是否让备份携带教学日历设置并同步扩展 iOS 协议；现有版本 1 不携带这些设置。
-- D02：最低安卓版本、目标机型、包名等工程参数尚未确定。
+- D02：已确认包名 `com.qingke.schedule`、最低 API 26；目标 API 使用实施环境可用的最新稳定版本。目标机型尚未扩大为固定清单。
 - D03：精确提醒不可用时的降级方式与文案尚未确定。
-- D04：个人安装还是商店发布，签名与发行范围尚未确定。
+- D04：已确认 P1 仅做个人安装验证和可复现 debug 构建，不配置商店签名；正式发布范围仍未确定。
 - Astra 思考档位尚无固定设置决定；不要替用户变更模型、档位或服务商配置。
 
 ## 当前代码与既有改动
@@ -67,8 +67,7 @@ iOS／Web 应用构建和安卓应用测试：未运行。本轮不修改应用�
 
 当前只需用户确认会影响 P1 工程落地且无法从项目推断的事项：
 
-1. 是否接受建议的包名 `com.qingke.schedule`、最低 API 26，以及“目标 API 取实施机可用的最新稳定版本”？
-2. P1 是否按个人安装验证处理（仅 debug/reproducible build，不做商店发布签名），将 D04 的正式决定延后？
+用户已确认：包名 `com.qingke.schedule`、最低 API 26、目标 API 采用实施环境可用的最新稳定版本；P1 仅做个人安装验证（debug/reproducible build），不做商店发布签名。上述决定不等同于 D01、D03 或 D04 的完整产品决定。
 
 ## 给 Terra 的第一项实施提示词
 
@@ -79,7 +78,7 @@ iOS／Web 应用构建和安卓应用测试：未运行。本轮不修改应用�
 代码基准／当前分支：基于提交 78e362e；当前分支 codex/ios-ui-redesign-demo。开始前运行 git status --short --branch、git log -5 --oneline，保留两处既有 iOS 工程配置改动，不覆盖、不暂存、不提交它们。
 必读文档与参考源码：AGENTS.md；docs/Android/handoff.md；docs/Android/product-baseline.md；docs/Android/technical-design.md；docs/Android/implementation-plan.md；ios/Shared/schedule-data.schema.json；ios/Shared/fixtures/manifest.json 及其 fixtures。
 允许修改的路径：Android/**；必要的 Android 测试与构建配置仅限 Android/**。不得修改 ios/**、web/**、共享 schema/fixtures 或 docs/Android/**（交接记录由分析窗口维护）。
-已确认决定及不能自行决定的差异：目标是复现 iOS；P1 不扩展 D01 协议。D02（包名、最低/目标 API）若用户尚未确认，暂停写入冲突参数并把问题返回分析窗口；不得自行决定 D01—D04。
+已确认决定及不能自行决定的差异：目标是复现 iOS；P1 不扩展 D01 协议。D02 已确认：包名 `com.qingke.schedule`、最低 API 26、目标 API 采用实施环境可用的最新稳定版本；D04 当前仅限个人安装 debug 验证。不得自行扩展 D01、D03 或 D04 的范围。
 验收条件：./gradlew assembleDebug 可复现通过；./gradlew test 通过；JVM 测试覆盖教学周边界、单双周、版本/必填字段/颜色/日期时间/课程安排校验、semester:null，以及有效和无效共享 fixtures；未知版本、非法业务数据和超出输入上限按文档拒绝。提供实际命令与输出摘要。
 交付：修改摘要、测试文件和结果、构建命令和结果、提交编号、未完成项/限制、下一步建议。只暂存 Android/** 并创建一个独立 Git commit；完成后把提交号和证据回传，并说明交接记录待分析窗口更新。
 ```
