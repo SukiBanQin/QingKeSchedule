@@ -197,6 +197,14 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, plan)
         self.assertNotIn("复制给 Astra", plan)
         self.assertNotIn("由 Astra 复审时更新", plan)
+        for name in ("AGENTS.md", "docs/Android/implementation-plan.md", "docs/Android/handoff.md"):
+            contents = (ROOT / name).read_text()
+            self.assertIn("执行为主、分析按需、关键点审查", contents, name)
+            self.assertIn("P1-03", contents, name)
+            self.assertIn("专项复审", contents, name)
+        self.assertIn("审查要求：", plan)
+        self.assertNotIn("交接记录默认由分析审查窗口维护", plan)
+        self.assertIn("不需要转交时直接报告完成", plan)
 
     def test_d02_scope_sources_and_sdk_evidence_are_traceable(self):
         changed = subprocess.check_output(
