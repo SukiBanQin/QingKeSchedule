@@ -87,6 +87,26 @@ class AndroidDocumentationTests(unittest.TestCase):
         for name in NAMES:
             self.assertIn(name, rules)
 
+    def test_model_guidance_and_review_gate_are_present(self):
+        plan = (DOCS / "implementation-plan.md").read_text()
+        rows = re.findall(r"^\| (Astra|Terra) \| (低|中|高) \|", plan, re.M)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(set(rows), {
+            (model, effort)
+            for model in ("Astra", "Terra")
+            for effort in ("低", "中", "高")
+        })
+        for marker in (
+            "建议模型／思考档位：", "选择理由：", "提交编号／范围：",
+            "实际模型／档位（如已知）：", "证据不足", "不修改应用代码",
+        ):
+            self.assertIn(marker, plan)
+        rules = (ROOT / "AGENTS.md").read_text()
+        self.assertIn("建议设置不等于已应用设置", rules)
+        self.assertIn("自动开始下一阶段开发", rules)
+        handoff = (DOCS / "handoff.md").read_text()
+        self.assertIn("实际窗口模型和档位未核实", handoff)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
