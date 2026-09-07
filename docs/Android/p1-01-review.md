@@ -1,6 +1,6 @@
 # P1-01 实施审查与修正任务
 
-最新状态以文末 2026-09-08 补充复核为准：原三项修正样例通过，但发现尚未处理的 JSON 数字语法问题，须 P1-01-R2 修正；已有 API 35 启动验证保留，不重复执行历史任务。
+最新状态以文末 2026-09-08 P1-01-R2 复审为准：数字词法、真实截断 UTF-8 和完整共享 fixture 保真修正已独立复核通过；P1-01 的已授权范围通过，但 D02 升级决定仍未解决，P1 未完成且不进入 P2。
 
 审查日期：2026-09-07。角色：专职分析与审查；未修改应用代码，未启动子 Agent。建议配置 Astra／中，实际窗口模型、档位及服务商未核实。
 
@@ -247,3 +247,35 @@
 结论：**原 R1/R2/R3 修正通过的样例结论保留；P1-01 因新数字语法问题重新进入待修正状态，下一项 P1-01-R2。P1 仍未完成，不进入 P2，用户未验收。** 此次修正不依赖工具链升级或未知字段决定，可由 Terra／中实施；模型建议由用户选择，不声称已生效。
 
 范围：仅 Android 解码器及相关测试；不改依赖／SDK、iOS、Web、共享 schema/fixtures 或其他业务功能。验收包括原合法与非法样例、顶层及嵌套数字词法、真实截断 UTF-8、完整 fixture 保真和实际构建／测试。交接由 Astra 维护，最终回复直接提供已填好的唯一 Terra 交接块。
+
+
+## 2026-09-08 P1-01-R2 复审
+
+本轮按用户指定的分析审查职责接手，建议配置 Sol／高；实际窗口模型、思考档位及服务商设置无法从仓库独立核实。复审范围严格限定为 `985cdd6^..985cdd6`，实际只改动以下两个文件：
+
+- `Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt`
+- `Android/app/src/test/java/com/qingke/schedule/transfer/ScheduleDataDecoderTest.kt`
+
+后续流程与分支规则提交 `c11bd2b` 未计入实施内容。复审开始时位于 `Android` 分支，工作区干净并跟踪 `origin/Android`；两处 iOS 工程配置已经在历史提交 `bef808b` 中独立提交，当前 `ios` 目录相对该提交无差异，不再属于未提交改动。
+
+### 代码与跨端契约结论
+
+- 解码器在 `BigDecimal` 归一化前对原始 token 执行完整 JSON 数字词法匹配。表达式覆盖 JSON 允许的负号、整数、小数和指数形式，同时拒绝前导加号、非零整数前导零、缺少小数位和缺少整数位。该检查复用于 `schemaVersion`、`semester.totalWeeks`、节次编号及全部课程安排整数字段，随后仍执行精确整数和 `Int` 范围检查。
+- 共享 schema 的整数语义允许数学值为整数的 `1.0` 和指数形式；Swift `previewImport` 实测也接受 `1.0`、`1e0`、`1e+0`。新实现保留这些形式，未通过收紧词法误拒绝合法跨端输入。
+- 测试对 8 类整数位置逐项覆盖合法和非法形式；合法形式比较完整 DTO。全部共享有效 fixture 直接比较原 JSON 树与编码后 JSON 树，覆盖完整字段、课程／安排顺序及 `semester:null`。原单独完整 fixture 测试合并进全量 fixture 树比较，因此 Debug/Release 测试由各 21 项变为各 20 项，属于用更强断言合并测试方法，不是覆盖倒退。
+- 截断 UTF-8 测试在其余结构完整的共享 fixture 中删除“秋”字最后一个字节，字节与 InputStream 入口都必须拒绝；合法中文仍有断言。辅助函数实际只删除目标字符的最后一个字节，并保留其前后内容。
+- 未知字段仍是 Android 严格拒绝、Swift 宽容接受；重复 ID 和节次编号顺序仍保持既有行为。`985cdd6` 没有改变这些未决项，也没有修改 SDK、依赖、iOS、Web、共享 schema 或 fixtures。
+
+### 独立证据
+
+| 检查 | 结果 |
+| --- | --- |
+| `ANDROID_HOME=/tmp/qingke-android-sdk-t3cH7L ANDROID_SDK_ROOT=/tmp/qingke-android-sdk-t3cH7L JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew clean assembleDebug test --no-daemon --console=plain` | `BUILD SUCCESSFUL`；69 个任务执行；Debug/Release 各 20 项，失败／错误／跳过均为 0；JDK 17.0.20.1、Platform 35 rev.2、Build Tools 35.0.0 |
+| `python3 docs/tests/android-contract-review-probe.py` | 本轮新构建解码器的 16 例探针退出 0；四种非法数字两端均拒绝，`1e0`／`1e+0` 两端均接受；未知字段差异仍可见。Swift 结果来自 macOS 编译原源码，不是 iOS App 或设备测试 |
+| `/tmp/qingke-r2-before-probe.log` 与 `/tmp/qingke-r2-after-probe.log` | 两个临时日志均仍存在；统一 diff 只显示四种非法数字由 Android 接受改为拒绝，与交接自述一致。临时文件不作为长期仓库证据，本轮独立探针结果才是当前验证依据 |
+| `Android/scripts/p1-02-apk-check.sh Android/app/build/outputs/apk/debug/app-debug.apk` | 通过；包名 `com.qingke.schedule`、minSdk 26、targetSdk 35 |
+| `git diff 985cdd6^ 985cdd6 --check` | 通过；提交范围与 Terra 回传一致 |
+
+构建仍有既有 `libandroidx.graphics.path.so` 无法 strip、按原样打包提示，不影响任务成功。本轮没有重新运行模拟器或真机安装启动；沿用已复审的 `23e0501`／`525910f` API 35 ARM64 启动证据，并明确它不是 R2 当轮设备证据。未运行 AGP 9.4 升级构建、CI、Windows、iOS 全量构建／测试或真机测试。
+
+结论：**P1-01-R2 独立复审通过；至此 P1-01 的工程、领域规则、版本 1 解码／校验和共享 fixtures 基础范围审查通过。** 这不表示整个 P1 完成，也不表示用户已验收。D02 仍只有候选组合和 API 35 构建／启动证据，目标 API 升级尚未授权或实测；未知字段策略也仍待产品决定。依照现有交接规则，用户决定 D02 目标并授权前不生成 P1-03，不进入 P2。

@@ -233,6 +233,30 @@ class AndroidDocumentationTests(unittest.TestCase):
                      "number-trailing-point", "number-leading-point"):
             self.assertIn(case, probe)
 
+    def test_r2_rereview_records_scope_independent_evidence_and_remaining_gate(self):
+        review = (DOCS / REVIEW_NAME).read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        latest = review.split("## 2026-09-08 P1-01-R2 复审", 1)[1]
+        for marker in (
+            "985cdd6^..985cdd6", "P1-01-R2 独立复审通过", "69 个任务",
+            "各 20 项", "qingke-r2-before-probe.log", "qingke-r2-after-probe.log",
+            "未知字段策略", "不生成 P1-03", "不进入 P2",
+        ):
+            self.assertIn(marker, latest)
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "985cdd6"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(changed, [
+            "Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt",
+            "Android/app/src/test/java/com/qingke/schedule/transfer/ScheduleDataDecoderTest.kt",
+        ])
+        self.assertIn("P1-01-R2 已复审通过", handoff)
+        self.assertIn("P1-01（含 R1/R2）审查通过", plan)
+        self.assertIn("`Android`", handoff)
+        self.assertIn("`c11bd2b`", handoff)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
