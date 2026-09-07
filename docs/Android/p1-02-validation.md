@@ -72,12 +72,38 @@ echo no | "$SDK/cmdline-tools/bin/avdmanager" create avd -n qingke-api35-arm \
 
 结果：ARM64 system image 安装命令在 30 秒窗口内无有效下载输出，本地目录仍约 4 KiB、无可用镜像元数据；`avdmanager` 返回 `Package path is not valid`，仅列出既有 `qingke-api35`（API 35、x86_64）。`adb devices -l` 仍无设备。因此 R1 未取得安装、冷启动、再次启动、Activity、截图或 logcat 证据，P1 启动门槛继续阻塞。
 
+## P1-02-R2 实际设备验证（2026-09-07）
+
+ARM64 镜像随后完成安装（`system-images;android-35;google_apis;arm64-v8a`，约 3.8 GiB），创建并启动 AVD `qingke-api35-arm`。启动时使用 `-sysdir` 指向临时 SDK 镜像目录，以绕过临时 SDK 路径重定位问题。
+
+设备信息：
+
+- 型号：`sdk_gphone64_arm64`
+- API：35（`ro.build.version.sdk=35`）
+- ABI：`arm64-v8a`
+- ADB：`emulator-5554`，`get-state` 返回 `device`，`sys.boot_completed=1`
+
+实际命令与结果：
+
+```bash
+adb -s emulator-5554 install -r Android/app/build/outputs/apk/debug/app-debug.apk
+# Success
+adb -s emulator-5554 shell am start -W -n com.qingke.schedule/.MainActivity
+# Status: ok; LaunchState: COLD; Activity: com.qingke.schedule/.MainActivity
+adb -s emulator-5554 shell am force-stop com.qingke.schedule
+adb -s emulator-5554 shell am start -W -n com.qingke.schedule/.MainActivity
+# Status: ok; LaunchState: COLD; Activity: com.qingke.schedule/.MainActivity
+```
+
+两次启动后 `dumpsys activity activities` 均显示 `com.qingke.schedule/.MainActivity` 可见；`pidof com.qingke.schedule` 返回进程号。截图已生成但不纳入仓库提交（临时证据路径：`/tmp/p1-02-r2-cold-start.png`、`/tmp/p1-02-r2-restart.png`，均为 1080×1920 PNG）。清空并检查 logcat 后未发现 `FATAL EXCEPTION` 或 `AndroidRuntime` 崩溃；其余 WindowManager/输入法告警不影响启动结果。
+
 ## 全部验收命令
 
 | 命令 | 结果 |
 | --- | --- |
 | `ANDROID_HOME=... ANDROID_SDK_ROOT=... ./gradlew assembleDebug test --rerun-tasks --no-daemon --console=plain` | 成功；68 个任务执行，Debug/Release JVM 测试通过 |
 | `ANDROID_HOME=... bash Android/scripts/p1-02-apk-check.sh` | 成功；包名/minSdk/targetSdk 符合已确认 D02 基线 |
+| P1-02-R2 ARM64 AVD install/两次启动/Activity/logcat | 成功；设备 `sdk_gphone64_arm64` API 35、ABI `arm64-v8a`；截图见临时路径 |
 | `python3 docs/tests/android-documentation.test.py` | 成功；9 项通过 |
 | `bash docs/tests/documentation.test.sh` | 成功 |
 | `bash docs/tests/repository-layout.test.sh` | 成功 |
