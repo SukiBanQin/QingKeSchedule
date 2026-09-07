@@ -172,3 +172,18 @@
 - 当前仍无 ARM64 模拟器或授权真机，因此没有 Activity、截图、冷启动、再次启动或 `logcat` 证据。
 
 后续门槛：取得可运行 ARM64 模拟器或用户授权真机完成最小安装启动验证；API 35 与 D02 的最新稳定目标及升级组合仍需 Astra 单独审查。未知字段策略仍未决定，不进入 P2。
+
+
+## P1-02-R2 复审记录
+
+复审日期：2026-09-07。复审范围为提交 `23e0501` 对 `docs/Android/p1-02-validation.md` 的更新；未修改应用代码。
+
+结论：**P1-02-R2 启动验证通过；P1 仍不能关闭，也不进入 P2。**
+
+- 提交实际只更新 P1-02 验证记录，与 Terra 回传范围一致。
+- ARM64 AVD `qingke-api35-arm`（`sdk_gphone64_arm64`、API 35、`arm64-v8a`）已取得可追溯设备信息，`adb` 状态为 `device` 且 `sys.boot_completed=1`。
+- debug APK 安装返回 `Success`；两次 force-stop 后冷启动均返回 `Status: ok`、`LaunchState: COLD`，`dumpsys activity` 显示 MainActivity 可见，`pidof` 返回进程号。
+- 两次启动截图路径、分辨率和未纳入仓库的临时证据已记录；清空后的 `logcat` 未发现 `FATAL EXCEPTION` 或 `AndroidRuntime` 崩溃。
+- 独立复跑 APK 预检成功；9 项安卓文档测试、文档/布局检查及 `git diff --check` 均通过。Gradle 本轮未重跑，沿用 `e80ea2f` 已复核的有效 SDK 构建证据，记录对此有限制。
+
+剩余门槛：D02 要求的最新稳定 SDK 目标仍未形成经审查的升级组合；未知字段 Android/Swift 行为差异仍待产品决定。P1-02 的安装启动门槛已满足，但在上述事项明确前不关闭 P1、不进入 P2。
