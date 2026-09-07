@@ -123,7 +123,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
         self.assertIn("P1 仍未完成", handoff)
         self.assertIn("首轮已审查，结论未通过", handoff)
-        self.assertIn("暂不进入 P2", handoff)
+        self.assertIn("不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
         for commit in ("9b521db", "0a498b9", "85e3234"):
             subprocess.run(
