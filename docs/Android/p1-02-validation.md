@@ -1,6 +1,6 @@
 # P1-02 工具链核查与最小启动验证记录
 
-验证日期：2026-09-07。角色：Terra 执行；未启动子 Agent。范围限于工具链核查、现有 debug 骨架构建和启动条件探测；不进入 P2，不修改应用业务源码、依赖版本、iOS、Web 或共享协议。
+验证日期：2026-09-07。角色：Terra 执行；未启动子 Agent。P1-02-R1 复核 ARM64 模拟器安装条件；范围限于工具链核查、现有 debug 骨架构建和启动条件探测；不进入 P2，不修改应用业务源码、依赖版本、iOS、Web 或共享协议。
 
 ## 现场与提交
 
@@ -57,6 +57,20 @@ ANDROID_HOME=/tmp/qingke-android-sdk-1788767128 bash Android/scripts/p1-02-apk-c
 ```
 
 结果：`adb devices -l` 无设备，install/start 返回 `adb: no devices/emulators found`。没有 Activity 状态、截图、冷启动/重启或 logcat 崩溃证据。ARM64 API 35 image 已尝试下载但未完成，未记为可用设备。
+
+P1-02-R1 再次探测 ARM64：
+
+```bash
+SDK=/tmp/qingke-android-sdk-1788767128
+yes | "$SDK/cmdline-tools/bin/sdkmanager" --sdk_root="$SDK" \
+  'system-images;android-35;google_apis;arm64-v8a'
+echo no | "$SDK/cmdline-tools/bin/avdmanager" create avd -n qingke-api35-arm \
+  -k 'system-images;android-35;google_apis;arm64-v8a' -d pixel_2 --force
+"$SDK/cmdline-tools/bin/avdmanager" list avd
+"$SDK/platform-tools/adb" devices -l
+```
+
+结果：ARM64 system image 安装命令在 30 秒窗口内无有效下载输出，本地目录仍约 4 KiB、无可用镜像元数据；`avdmanager` 返回 `Package path is not valid`，仅列出既有 `qingke-api35`（API 35、x86_64）。`adb devices -l` 仍无设备。因此 R1 未取得安装、冷启动、再次启动、Activity、截图或 logcat 证据，P1 启动门槛继续阻塞。
 
 ## 全部验收命令
 
