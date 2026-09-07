@@ -90,12 +90,12 @@ class AndroidDocumentationTests(unittest.TestCase):
 
     def test_model_guidance_and_review_gate_are_present(self):
         plan = (DOCS / "implementation-plan.md").read_text()
-        rows = re.findall(r"^\| (Astra|Terra) \| (低|中|高) \|", plan, re.M)
-        self.assertEqual(len(rows), 6)
+        rows = re.findall(r"^\| (Sol|Astra|Terra) \| (低|中|高) \|", plan, re.M)
+        self.assertEqual(len(rows), 7)
         self.assertEqual(set(rows), {
-            (model, effort)
-            for model in ("Astra", "Terra")
-            for effort in ("低", "中", "高")
+            ("Sol", "中"), ("Sol", "高"),
+            ("Astra", "中"), ("Astra", "高"),
+            ("Terra", "低"), ("Terra", "中"), ("Terra", "高")
         })
         for marker in (
             "建议模型／思考档位：", "选择理由：", "提交编号／范围：",
@@ -150,7 +150,7 @@ class AndroidDocumentationTests(unittest.TestCase):
 
     def test_direct_handoff_templates_cover_both_roles(self):
         plan = (DOCS / "implementation-plan.md").read_text()
-        for role in ("Terra → Astra", "Astra → Terra"):
+        for role in ("执行窗口 → 分析审查窗口", "分析审查窗口 → 执行窗口"):
             section = plan.split("### " + role, 1)[1].split("### ", 1)[0]
             blocks = re.findall(r"```text\n(.*?)\n```", section, re.S)
             self.assertEqual(len(blocks), 1, role)
@@ -162,6 +162,17 @@ class AndroidDocumentationTests(unittest.TestCase):
         handoff = (DOCS / "handoff.md").read_text()
         self.assertIn("用户只复制", handoff)
         self.assertIn("3924d26", handoff)
+
+    def test_current_workflow_uses_roles_and_sol_default(self):
+        for name in ("AGENTS.md", "docs/Android/product-baseline.md", "docs/Android/handoff.md"):
+            contents = (ROOT / name).read_text()
+            self.assertIn("分析审查窗口（默认 Sol）", contents, name)
+            self.assertNotIn("各一个 Astra 分析窗口", contents, name)
+        plan = (DOCS / "implementation-plan.md").read_text()
+        for marker in ("不绑定模型名称", "本次改动及相关依赖", "疑难问题", "默认 Sol"):
+            self.assertIn(marker, plan)
+        self.assertNotIn("复制给 Astra", plan)
+        self.assertNotIn("由 Astra 复审时更新", plan)
 
     def test_d02_scope_sources_and_sdk_evidence_are_traceable(self):
         changed = subprocess.check_output(
