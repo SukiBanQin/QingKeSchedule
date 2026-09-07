@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Observe Android/iOS import boundaries; not a pass/fail product acceptance test.
+"""观察 Android/iOS 导入边界，不作为产品验收通过断言。
 
-Run a fresh Android assembleDebug first. Requires JDK 17, swiftc, and the
-Gradle dependency cache for the versions in P1-01. All generated files are
-temporary; this script never edits app sources or shared fixtures.
+先针对待审源码重新运行 Android assembleDebug。需要 JDK 17、swiftc 和
+P1-01 固定版本的 Gradle 依赖缓存。生成物均在临时目录，不修改应用和共享样例。
 """
 
 import copy
@@ -55,6 +54,19 @@ def main():
         tmp = Path(directory)
         for name, data in cases.items():
             (tmp / (name + ".json")).write_text(json.dumps(data, ensure_ascii=False))
+        # 保留原始数字文本，避免生成样例时先把非法表示规范化。
+        source = json.dumps(base, ensure_ascii=False)
+        for name, token in {
+            "number-leading-plus": "+1",
+            "number-leading-zero": "01",
+            "number-trailing-point": "1.",
+            "number-leading-point": ".1e1",
+            "number-valid-exponent": "1e0",
+            "number-valid-exponent-plus": "1e+0",
+        }.items():
+            (tmp / (name + ".json")).write_text(
+                source.replace('"schemaVersion": 1', '"schemaVersion": ' + token, 1)
+            )
         damaged = copy.deepcopy(base)
         damaged["semester"]["id"] = "BADBYTE"
         (tmp / "invalid-utf8.json").write_bytes(

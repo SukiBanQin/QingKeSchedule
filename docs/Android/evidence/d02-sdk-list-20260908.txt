@@ -1,0 +1,14 @@
+日期：2026-09-08（Asia/Shanghai）
+用途：独立复核 D02；只保留与本次比较有关的可用包行，不是完整清单。
+命令：/tmp/qingke-android-sdk-1788767128/cmdline-tools/bin/sdkmanager --sdk_root=/tmp/qingke-android-sdk-1788767128 --list --channel=0
+退出码：0
+说明：清单可见性不等于产品稳定性、官方 AGP 兼容性或项目构建通过。未安装这些候选平台。
+
+build-tools;36.0.0                                                              | 36.0.0            | Android SDK Build-Tools 36
+build-tools;36.1.0                                                              | 36.1.0            | Android SDK Build-Tools 36.1
+build-tools;37.0.0                                                              | 37.0.0            | Android SDK Build-Tools 37
+platforms;android-36                                                            | 2                 | Android SDK Platform 36
+platforms;android-36.1                                                          | 1                 | Android SDK Platform 36.1
+platforms;android-37.0                                                          | 2                 | Android SDK Platform 37.0
+platforms;android-37.1                                                          | 1                 | Android SDK Platform 37.1
+platforms;android-37.2                                                          | 1                 | Android SDK Platform 37.2

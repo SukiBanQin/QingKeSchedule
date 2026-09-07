@@ -1,5 +1,7 @@
 # P1-01 实施审查与修正任务
 
+最新状态以文末 2026-09-08 补充复核为准：原三项修正样例通过，但发现尚未处理的 JSON 数字语法问题，须 P1-01-R2 修正；已有 API 35 启动验证保留，不重复执行历史任务。
+
 审查日期：2026-09-07。角色：专职分析与审查；未修改应用代码，未启动子 Agent。建议配置 Astra／中，实际窗口模型、档位及服务商未核实。
 
 首轮结论（历史；最新结论见末尾复审记录）：**审查未通过，返回 P1-01-R1；P1 未完成，未进入 P2，用户未验收。** 构建及现有测试通过，但额外跨端检查发现输入校验缺陷及未决兼容差异。
@@ -217,3 +219,31 @@
 - 文档实际仅新增一个 D02 记录文件，未修改 Android 构建配置、业务代码、iOS、Web 或共享协议。
 
 限制：API 36.1、37.0、37.1 的逐项发布日期/产品公告及 API 37.1 官方 AGP 映射仍未核实；AGP 9.4 组合未实际构建。下一步需用户明确是否授权另立 P1-03 升级验证任务。
+
+
+## 2026-09-08 补充复核：D02 与数字语法
+
+本轮延续专职复审，核对最新 `398fa43` 现场及 `55eff97` 文档。历史 `5780b81` 等提交仅记录原 R1/R2/R3 样例通过；本次独立发现的问题补充如下，不能把历史“通过”当作所有 JSON 边界都已审查。实际业务源码与测试从 `3924d26` 到当前 HEAD 均未变化；后续 Android 改动只有 README 与 APK 预检脚本。两处 iOS 配置已经独立提交 `bef808b`，本轮开始工作区干净，不再描述为未提交改动。
+
+### 新阻塞：JSON 数字词法未校验（优先级 P1）
+
+位置：[ScheduleDataDecoder.kt](../../Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt) 第 144–166 行，尤其 `BigDecimal(primitive.content)` 及归一化步骤。最小输入：`{"schemaVersion":+1,"semester":null,"courses":[],"updatedAt":"1970-01-01T00:00:00Z"}`。把版本分别改为 `01`、`1.`、`.1e1` 也能复现：Android 接受，原 Swift previewImport 拒绝。
+
+原因是 BigDecimal 接受的文本宽于 JSON 数字语法，而后续归一化抹去原非法形式；整数值精确、在 Int 范围内，不代表原 JSON 合法。这使损坏文件能够进入领域层，两端行为不同。修正应在精确整数和范围转换前检查原始 JSON 数字语法；所有整数字段统一处理，保留 `1.0`、`1e0`、`1e+0` 等合法表示。不能通过修改共享协议或 iOS 消除差异。
+
+### 测试证据仍需补齐（优先级 P2）
+
+[ScheduleDataDecoderTest.kt](../../Android/app/src/test/java/com/qingke/schedule/transfer/ScheduleDataDecoderTest.kt) 的 `truncatedMultibyte` 变量包含完整“中”字再编码，只是 JSON 结尾不完整，不是真正截断 UTF-8。该测试不能证明错误来自字符解码。修正时在一个其余结构完整的 JSON 字符串值内删除“中”字的最后一个 UTF-8 字节，字节／流入口均断言编码拒绝。此项是测试缺口，不据此认定严格解码实现已经失败。
+
+同文件的完整字段测试只显式核对首门课程／首个安排和少量节次字段，再对已解码 DTO 自行往返，不能独立证明其他课程初次解码没有丢字段。应比较所有共享有效 fixture 的原 JSON 树与编码结果（包括数组顺序和 null），合法数值归一化场景还应断言完整 DTO 相等。
+
+### 本次实际验证与结论
+
+- 在 Android 运行 `ANDROID_HOME=/tmp/qingke-android-sdk-1788767128 ./gradlew assembleDebug test --rerun-tasks --console=plain`：BUILD SUCCESSFUL，68 个任务全部执行，debug/release 各 21 项，失败／错误／跳过均 0。仍有 path.so 无法 strip、原样打包提示；不是构建失败。
+- 扩展 `python3 docs/tests/android-contract-review-probe.py` 并运行 16 个案例：原有效数据、`1.0`、`1e0`、`1e+0` 两端接受；数字字符串、非法 UTF-8、年份 0000 两端拒绝；上述 4 个非法数字 Android 接受、Swift 拒绝；未知字段及重复 ID／节次顺序保持先前观察。Swift 是 macOS 编译原源码，不是 iOS 全量或设备测试；脚本退出 0 不表示跨端一致。
+- 本轮没有重跑设备启动，沿用 `23e0501`／`525910f` 记录的 API 35 ARM64 启动证据并标明来源，没有撤销这项历史验证。没有运行升级工具链构建、CI、Windows、iOS 全量或真机测试。
+- D02 的官方兼容参数核对及措辞修正见 [工具链复核](d02-toolchain-review.md)。9.4 是候选而非最低要求；37.1／37.2 映射仍未证实，不授权升级。
+
+结论：**原 R1/R2/R3 修正通过的样例结论保留；P1-01 因新数字语法问题重新进入待修正状态，下一项 P1-01-R2。P1 仍未完成，不进入 P2，用户未验收。** 此次修正不依赖工具链升级或未知字段决定，可由 Terra／中实施；模型建议由用户选择，不声称已生效。
+
+范围：仅 Android 解码器及相关测试；不改依赖／SDK、iOS、Web、共享 schema/fixtures 或其他业务功能。验收包括原合法与非法样例、顶层及嵌套数字词法、真实截断 UTF-8、完整 fixture 保真和实际构建／测试。交接由 Astra 维护，最终回复直接提供已填好的唯一 Terra 交接块。

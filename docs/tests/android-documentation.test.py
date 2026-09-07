@@ -33,7 +33,7 @@ def missing_links(path, contents):
 
 class AndroidDocumentationTests(unittest.TestCase):
     def test_required_documents_and_local_references(self):
-        for name in (*NAMES, REVIEW_NAME):
+        for name in (*NAMES, REVIEW_NAME, "d02-toolchain-review.md"):
             with self.subTest(document=name):
                 path = DOCS / name
                 self.assertTrue(path.is_file(), name)
@@ -162,6 +162,41 @@ class AndroidDocumentationTests(unittest.TestCase):
         handoff = (DOCS / "handoff.md").read_text()
         self.assertIn("用户只复制", handoff)
         self.assertIn("3924d26", handoff)
+
+    def test_d02_scope_sources_and_sdk_evidence_are_traceable(self):
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "55eff97"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(changed, ["docs/Android/d02-toolchain-review.md"])
+        review = (DOCS / "d02-toolchain-review.md").read_text()
+        for marker in ("2026-09-08", "55eff97^..55eff97", "9.1.1", "9.3.1",
+                       "agp-9-4-0-release-notes", "升级可执行性仍未验证"):
+            self.assertIn(marker, review)
+        evidence = (DOCS / "evidence/d02-sdk-list-20260908.txt").read_text()
+        self.assertIn("--channel=0", evidence)
+        self.assertIn("退出码：0", evidence)
+        for package in ("platforms;android-36", "platforms;android-36.1",
+                        "platforms;android-37.0", "platforms;android-37.1",
+                        "platforms;android-37.2", "build-tools;36.0.0",
+                        "build-tools;36.1.0", "build-tools;37.0.0"):
+            self.assertRegex(evidence, re.escape(package) + r"\s+\|")
+
+    def test_supplemental_review_keeps_new_defect_and_prior_startup_distinct(self):
+        review = (DOCS / REVIEW_NAME).read_text()
+        latest = review.split("## 2026-09-08 补充复核", 1)[1]
+        for marker in ("P1-01-R2", "16 个案例", "各 21 项", "优先级 P1",
+                       "truncatedMultibyte", "23e0501", "525910f",
+                       "不依赖工具链升级或未知字段决定"):
+            self.assertIn(marker, latest)
+        for name in ("handoff.md", "implementation-plan.md"):
+            current = (DOCS / name).read_text()
+            self.assertIn("P1-01-R2", current)
+            self.assertIn("不进入 P2", current)
+        probe = (ROOT / "docs/tests/android-contract-review-probe.py").read_text()
+        for case in ("number-leading-plus", "number-leading-zero",
+                     "number-trailing-point", "number-leading-point"):
+            self.assertIn(case, probe)
 
 
 if __name__ == "__main__":
