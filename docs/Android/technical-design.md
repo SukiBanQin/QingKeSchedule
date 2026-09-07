@@ -2,13 +2,13 @@
 
 ## 文档状态
 
-更新日期：2026-09-07。状态：用户已确认方案；P1-01 工程已建立，本轮已复跑构建和 JVM 测试，首轮审查因输入校验问题未通过。具体证据、工具链限制及未决差异见 [P1-01 审查](p1-01-review.md)，不代表完整应用或设备验收。
+更新日期：2026-09-08。状态：用户已确认方案；P1-01 及两轮修正已完成独立审查。用户已授权 P1-03 将工具链升级到经 D02 核对的 API 37.0 组合，但应用代码目前仍是 API 35，升级结果尚待实施和复审。具体证据、工具链限制及未决差异见 [P1-01 审查](p1-01-review.md)，不代表完整应用或设备验收。
 
 产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。
 
 ## 建议技术路线
 
-保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建，版本清单见审查记录；最新稳定 SDK 选择依据仍待补，Room/DataStore 尚未接入。
+保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；D02 已授权 P1-03 采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 的实际迁移结果仍须构建验证；Room/DataStore 尚未接入。
 
 以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名 `com.qingke.schedule`、最低 API 26 及首轮个人 debug 验证已确认，正式发布范围待定。
 

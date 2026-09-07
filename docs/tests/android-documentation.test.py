@@ -257,6 +257,28 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("`Android`", handoff)
         self.assertIn("`c11bd2b`", handoff)
 
+    def test_d02_authorization_defines_p1_03_without_claiming_completion(self):
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        d02 = (DOCS / "d02-toolchain-review.md").read_text()
+        review = (DOCS / REVIEW_NAME).read_text()
+        for contents in (baseline, design, plan, handoff, d02, review):
+            self.assertIn("P1-03", contents)
+            self.assertIn("API 37.0", contents)
+        authorized = handoff.split("### P1-03 已授权范围", 1)[1]
+        for marker in (
+            "AGP 9.4.0", "Gradle 9.6.0", "Build Tools 36.0.0", "JDK 17",
+            "minSdk` 26", "built-in Kotlin", "Kotlin serialization",
+            "org.jetbrains.kotlin.plugin.compose", "离线 clean 构建",
+            "16 例跨端契约探针", "targetSdk 37", "API 37 ARM64",
+            "lintDebug", "不进入 P2",
+        ):
+            self.assertIn(marker, authorized)
+        self.assertIn("升级尚未执行", review)
+        self.assertIn("不表示候选组合已经成功构建", d02)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
