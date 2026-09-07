@@ -2,7 +2,7 @@
 
 ## 最近更新与阅读入口
 
-更新时间：2026-09-07。本轮职责：分析与文档整理。用户授权：写入安卓文档、更新根目录规则及对应验证；未授权启动安卓应用开发。
+更新时间：2026-09-07。本轮职责：分析与审查、P1 实施准备。用户已确认文档，准备实施 P1；本轮仅维护安卓文档，未授权本窗口修改应用代码。
 
 先读 [根目录规则](../../AGENTS.md)，再按任务阅读 [功能对照](product-baseline.md)、[技术方案](technical-design.md)、[实施计划](implementation-plan.md)。接手时检查 `git status --short`、`git branch --show-current` 和 `git log -5 --oneline`，不能只信文档中的状态。
 
@@ -55,9 +55,38 @@
 
 iOS／Web 应用构建和安卓应用测试：未运行。本轮不修改应用实现，安卓工程尚不存在；不能据此宣称任一平台的完整应用测试通过。
 
+## P1 实施准备建议
+
+以下是进入 P1 前的具体建议，均不替用户把 D01—D04 记为已决定：
+
+- P1 工程建议先采用 Kotlin + Compose + 单 `app` 模块，领域与 JSON 契约先不依赖 Android UI；Room、DataStore 在 P2 再接入。这样首个提交可独立验证构建、日期规则和共享协议。
+- D02 建议首轮以当前可获得的 Android Studio/SDK 稳定组合为准，最低版本优先选择 API 26（Android 8.0），目标版本使用安装环境可用的最新稳定 API；包名建议暂用 `com.qingke.schedule`。这些参数影响 Gradle 配置和真机覆盖，需用户确认后锁定。
+- D03 不阻塞 P1 领域与协议测试；提醒实现前建议采用“降级为系统允许的非精确提醒，并在设置页明确提示可能延迟”的方案，具体文案留待提醒阶段确认。
+- D04 不阻塞 P1；P1 只产出可复现的 debug 构建和测试，不配置商店签名或发布流水线。
+- D01 不阻塞 P1；P1 仅兼容现有版本 1 JSON，不修改 iOS、共享 schema 或备份协议。
+
+当前只需用户确认会影响 P1 工程落地且无法从项目推断的事项：
+
+1. 是否接受建议的包名 `com.qingke.schedule`、最低 API 26，以及“目标 API 取实施机可用的最新稳定版本”？
+2. P1 是否按个人安装验证处理（仅 debug/reproducible build，不做商店发布签名），将 D04 的正式决定延后？
+
+## 给 Terra 的第一项实施提示词
+
+```text
+任务编号与阶段：P1-01，工程与规则基础
+角色：执行；仅实施本次范围，不完成整个 App。
+目标：在 Android/ 建立可构建的 Kotlin Android 工程（Compose、单 app 模块），固定经过验证的稳定依赖；实现与 Android UI 无关的最小领域/JSON 契约骨架，覆盖教学周计算、单双周判断、版本 1 数据解码与业务校验，并接入共享 fixtures。
+代码基准／当前分支：基于提交 78e362e；当前分支 codex/ios-ui-redesign-demo。开始前运行 git status --short --branch、git log -5 --oneline，保留两处既有 iOS 工程配置改动，不覆盖、不暂存、不提交它们。
+必读文档与参考源码：AGENTS.md；docs/Android/handoff.md；docs/Android/product-baseline.md；docs/Android/technical-design.md；docs/Android/implementation-plan.md；ios/Shared/schedule-data.schema.json；ios/Shared/fixtures/manifest.json 及其 fixtures。
+允许修改的路径：Android/**；必要的 Android 测试与构建配置仅限 Android/**。不得修改 ios/**、web/**、共享 schema/fixtures 或 docs/Android/**（交接记录由分析窗口维护）。
+已确认决定及不能自行决定的差异：目标是复现 iOS；P1 不扩展 D01 协议。D02（包名、最低/目标 API）若用户尚未确认，暂停写入冲突参数并把问题返回分析窗口；不得自行决定 D01—D04。
+验收条件：./gradlew assembleDebug 可复现通过；./gradlew test 通过；JVM 测试覆盖教学周边界、单双周、版本/必填字段/颜色/日期时间/课程安排校验、semester:null，以及有效和无效共享 fixtures；未知版本、非法业务数据和超出输入上限按文档拒绝。提供实际命令与输出摘要。
+交付：修改摘要、测试文件和结果、构建命令和结果、提交编号、未完成项/限制、下一步建议。只暂存 Android/** 并创建一个独立 Git commit；完成后把提交号和证据回传，并说明交接记录待分析窗口更新。
+```
+
 ## 下一步
 
-用户先审阅本次文件，确认对照清单是否符合“照着 iOS 做”的目标，并决定待定事项。分析窗口根据反馈更新文档；收到明确开发任务后，再为 P1 准备执行提示词。
+用户确认上面两项 P1 工程参数后，交由 Terra 执行 `P1-01`。在收到 Terra 提交前，本窗口不启动安卓工程、不修改应用代码。
 
 ## 后续更新约定
 
