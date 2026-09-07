@@ -137,6 +137,21 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertEqual(len(implementation_files), 20)
         self.assertTrue(all(path.startswith("Android/") for path in implementation_files))
 
+    def test_direct_handoff_templates_cover_both_roles(self):
+        plan = (DOCS / "implementation-plan.md").read_text()
+        for role in ("Terra → Astra", "Astra → Terra"):
+            section = plan.split("### " + role, 1)[1].split("### ", 1)[0]
+            blocks = re.findall(r"```text\n(.*?)\n```", section, re.S)
+            self.assertEqual(len(blocks), 1, role)
+            for marker in ("任务", "提交", "验证", "AGENTS.md", "最终", "交接块"):
+                self.assertIn(marker, blocks[0], role)
+        rules = (ROOT / "AGENTS.md").read_text()
+        for marker in ("最终回复末尾", "唯一一段", "不得只指向文档位置", "使用中文", "无后续任务"):
+            self.assertIn(marker, rules)
+        handoff = (DOCS / "handoff.md").read_text()
+        self.assertIn("用户只复制", handoff)
+        self.assertIn("3924d26", handoff)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
