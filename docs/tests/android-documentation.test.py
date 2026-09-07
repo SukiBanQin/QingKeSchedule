@@ -163,6 +163,19 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("用户只复制", handoff)
         self.assertIn("3924d26", handoff)
 
+    def test_platform_branch_policy_is_consistent(self):
+        for name in ("AGENTS.md", "docs/Android/handoff.md", "docs/Android/implementation-plan.md"):
+            contents = (ROOT / name).read_text()
+            for branch in ("`Android`", "`IOS`", "`main`"):
+                self.assertIn(branch, contents, name)
+        rules = (ROOT / "AGENTS.md").read_text()
+        for marker in ("worktree", "不自动合并", "报告本地提交编号", "保留作历史"):
+            self.assertIn(marker, rules)
+        subprocess.run(
+            ["git", "diff", "--exit-code", "bef808b", "8791dbe", "--", "ios"],
+            cwd=ROOT, check=True, capture_output=True,
+        )
+
     def test_github_sync_contract_is_consistent(self):
         for name in ("AGENTS.md", "docs/Android/handoff.md", "docs/Android/implementation-plan.md"):
             contents = (ROOT / name).read_text()
