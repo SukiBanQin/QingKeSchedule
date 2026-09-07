@@ -163,6 +163,17 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("用户只复制", handoff)
         self.assertIn("3924d26", handoff)
 
+    def test_github_sync_contract_is_consistent(self):
+        for name in ("AGENTS.md", "docs/Android/handoff.md", "docs/Android/implementation-plan.md"):
+            contents = (ROOT / name).read_text()
+            self.assertIn("https://github.com/SukiBanQin/QingKeSchedule", contents)
+            self.assertIn("推送", contents)
+            self.assertIn("main", contents)
+        rules = (ROOT / "AGENTS.md").read_text()
+        for marker in ("不强制推送", "upstream", "未推送", "本地 HEAD 一致"):
+            self.assertIn(marker, rules)
+        self.assertIn("远程同步：", (DOCS / "implementation-plan.md").read_text())
+
     def test_current_workflow_uses_roles_and_sol_default(self):
         for name in ("AGENTS.md", "docs/Android/product-baseline.md", "docs/Android/handoff.md"):
             contents = (ROOT / name).read_text()
