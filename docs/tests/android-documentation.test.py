@@ -444,7 +444,10 @@ class AndroidDocumentationTests(unittest.TestCase):
         for contents in (handoff, plan, baseline, design):
             self.assertIn("P1-03-R3", contents)
             self.assertIn("P1-03-R2", contents)
-        self.assertIn("下一步只执行 P1-03-R3", handoff)
+        self.assertTrue(
+            "下一步只执行 P1-03-R3" in handoff
+            or "P1-03-R3 失败证据已复审通过" in handoff
+        )
 
     def test_p1_03_r3_records_persistent_sdk_without_claiming_device_success(self):
         handoff = (DOCS / "handoff.md").read_text()
@@ -460,6 +463,21 @@ class AndroidDocumentationTests(unittest.TestCase):
             "未安装", "另一可用宿主",
         ):
             self.assertIn(marker, evidence)
+
+    def test_p1_03_r3_review_keeps_device_gate_blocked(self):
+        review = (DOCS / "p1-03-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        for marker in (
+            "P1-03-R3 的范围和失败证据记录通过专项复审",
+            "API 37 设备启动门槛仍未通过",
+            "23743be",
+            "origin/Android",
+            "sys.boot_completed=1",
+            "API 37 ARM64 真机或另一台可正常完成 API 37 开机的宿主",
+        ):
+            self.assertIn(marker, review)
+        self.assertIn("P1-03-R3 提交 `23743be`", handoff)
+        self.assertIn("不进入 P2", handoff)
 
 
 if __name__ == "__main__":

@@ -241,3 +241,65 @@ SDK 位置、Emulator 版本或启动进程权限中的哪一项。复审没有�
 4. 只维护设备环境、P1-03 证据、验证／交接文档和对应文档测试；不修改应用 Kotlin、
    构建配置、依赖、iOS、Web 或共享协议，不进入 P2。完成后提交并推送 `Android`，再申请
    P1-03-R3 专项复审。
+
+## 2026-09-08 P1-03-R3 专项复审
+
+复审范围为 `23743be^..23743be`，实际提交 4 个文件：持久 SDK／干净 AVD 失败证据、
+P1-03 验证记录、交接记录和安卓文档测试。复审开始时分支为 `Android`，本地 HEAD 与
+`origin/Android` 均为 `23743bee9c49eac6f95c414780acb02f136273e4`，工作区干净；未修改应用
+代码或构建配置。
+
+### 结论
+
+**P1-03-R3 的范围和失败证据记录通过专项复审；API 37 设备启动门槛仍未通过，P1-03、P1
+和用户验收继续未完成，不进入 P2。**
+
+- 持久 SDK、组件版本、Apple Silicon 宿主、Hypervisor.Framework 检查、独立 AVD 根目录和
+  ARM64 API 37 image 均有具体记录。
+- 默认图形启动和 `-no-snapshot -no-window -gpu software` 对照均限定在 30 秒内；十次
+  ADB 探测均为设备不存在，进程退出。软件图形日志中的 `hvf is not enabled on this
+  aarch64 host` 与 `qemu_mprotect__osdep: mprotect failed: Permission denied` 被原样记录，
+  没有把它们解释成 APK 或业务代码错误。
+- 既有 API 35 `emulator-5554` 未被操作；本轮没有伪造 API/ABI、安装、启动、Activity、进程、
+  截图或应用崩溃证据，也没有用 API 35 历史结果替代 API 37 验收。
+- 独立复跑 `android-documentation.test.py` 24 项、既有文档和布局检查、`git diff --check`
+  及本地/远端 HEAD 一致性均通过。应用 Gradle 测试本轮未重跑，符合本次仅改文档和环境证据
+  的范围；既有构建证据仍按原记录引用。
+
+### 剩余门槛
+
+需要 API 37 ARM64 真机或另一台可正常完成 API 37 开机的宿主，取得
+`sys.boot_completed=1` 后再安装当前 Debug APK，完成两次 `force-stop` 后冷启动、
+MainActivity／进程检查、截图和清空后的无崩溃 `logcat`。在此之前不关闭 P1-03，不进入 P2。
+D02 最新稳定 SDK 组合和未知字段策略仍保持未决。
+
+## 2026-09-08 P1-03-R3 专项复审
+
+复审范围为 `23743be^..23743be`，实际提交 4 个文件：持久 SDK／干净 AVD 失败证据、
+P1-03 验证记录、交接记录和安卓文档测试。复审开始时分支为 `Android`，本地 HEAD 与
+`origin/Android` 均为 `23743bee9c49eac6f95c414780acb02f136273e4`，工作区干净；未修改应用
+代码或构建配置。
+
+### 结论
+
+**P1-03-R3 的范围和失败证据记录通过专项复审；API 37 设备启动门槛仍未通过，P1-03、P1
+和用户验收继续未完成，不进入 P2。**
+
+- 持久 SDK、组件版本、Apple Silicon 宿主、Hypervisor.Framework 检查、独立 AVD 根目录和
+  ARM64 API 37 image 均有具体记录。
+- 默认图形启动和 `-no-snapshot -no-window -gpu software` 对照均限定在 30 秒内；十次
+  ADB 探测均为设备不存在，进程退出。软件图形日志中的 `hvf is not enabled on this
+  aarch64 host` 与 `qemu_mprotect__osdep: mprotect failed: Permission denied` 被原样记录，
+  没有把它们解释成 APK 或业务代码错误。
+- 既有 API 35 `emulator-5554` 未被操作；本轮没有伪造 API/ABI、安装、启动、Activity、进程、
+  截图或应用崩溃证据，也没有用 API 35 历史结果替代 API 37 验收。
+- 独立复跑 `android-documentation.test.py` 23 项、既有文档和布局检查、`git diff --check`
+  及本地/远端 HEAD 一致性均通过。应用 Gradle 测试本轮未重跑，符合本次仅改文档和环境证据
+  的范围；既有构建证据仍按原记录引用。
+
+### 剩余门槛
+
+需要 API 37 ARM64 真机或另一台可正常完成 API 37 开机的宿主，取得
+`sys.boot_completed=1` 后再安装当前 Debug APK，完成两次 `force-stop` 后冷启动、
+MainActivity／进程检查、截图和清空后的无崩溃 `logcat`。在此之前不关闭 P1-03，不进入 P2。
+D02 最新稳定 SDK 组合和未知字段策略仍保持未决。
