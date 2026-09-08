@@ -1,0 +1,37 @@
+P1-03-R3 API 37 ARM64 持久 SDK／干净 AVD 启动诊断（2026-09-08）
+
+范围：只使用官方 `emulator/emulator` 启动器；未直接执行内部 `qemu-system-aarch64`，未操作既有 API 35 `emulator-5554`，未安装 APK。
+
+宿主与持久环境：
+
+- 宿主架构：`arm64`；可用磁盘约 118 GiB。
+- SDK：`/Users/takagisan/Library/Android/sdk-qingke-api37`（由此前已验证的 API 37 官方组件复制到持久位置，约 6.0 GiB）。
+- Emulator：37.1.11.0；`emulator-check accel` 退出 0，输出 `Hypervisor.Framework OS X Version 26.6`。
+- 已安装包：Platform Tools 37.0.1、Build Tools 36.0.0、Platform 37.0 revision 2、`system-images;android-37.0;google_apis;arm64-v8a` revision 6。
+- 新 AVD：`qingke-api37-r3-arm`，AVD 根目录 `/Users/takagisan/.android/qingke-api37-r3-avd`，image sysdir 指向持久 SDK；无旧快照。
+
+默认启动（端口 5570）：
+
+```bash
+ANDROID_HOME=<persistent-sdk> ANDROID_SDK_ROOT=<persistent-sdk> ANDROID_AVD_HOME=<r3-avd-root> \
+  emulator/emulator -avd qingke-api37-r3-arm -port 5570
+```
+
+限定 30 秒内十次 `adb -s emulator-5570 get-state` 均为 `error: device 'emulator-5570' not found`；启动进程已退出，未得到 ADB 或 `sys.boot_completed=1`。重定向日志没有应用或 QEMU 错误文本，故不推断退出原因。
+
+软件图形对照（端口 5572）：
+
+```bash
+ANDROID_HOME=<persistent-sdk> ANDROID_SDK_ROOT=<persistent-sdk> ANDROID_AVD_HOME=<r3-avd-root> \
+  emulator/emulator -avd qingke-api37-r3-arm -port 5572 -no-snapshot -no-window -gpu software -verbose
+```
+
+限定 30 秒内十次 `adb -s emulator-5572 get-state` 均为 `error: device 'emulator-5572' not found`。前台最小日志确认 SDK、API 37 ARM64 image、软件图形和 Hypervisor.Framework 检查均被启动器识别，随后出现：
+
+```text
+CPU Acceleration status: Hypervisor.Framework OS X Version 26.6
+hvf is not enabled on this aarch64 host.
+qemu-system-aarch64-headless: qemu_mprotect__osdep: mprotect failed: Permission denied
+```
+
+观察期结束后只终止端口 5572 的 R3 进程；`adb devices -l` 仍仅列出既有 `emulator-5554 device`。未取得 API 37 `sys.boot_completed=1`，因此没有读取 R3 SDK/ABI、没有安装当前 APK、没有两次冷启动、MainActivity/进程、截图或应用 logcat 证据。结论是当前 Mac 进程环境仍阻塞 API 37 设备开机；不能据此推断 APK 通过或失败，需等效 API 37 ARM64 真机或另一可用宿主继续验证；P1-03 尚未通过且不进入 P2。

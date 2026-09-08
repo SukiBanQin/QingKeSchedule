@@ -187,3 +187,25 @@ API 37 真实运行验证；这不是 API 37 应用通过结论。
 P1-03-R2 仍需在可正常完成 API 37 开机的 ARM64 或等效设备补做安装、两次冷启动、
 Activity／进程、截图和无崩溃 logcat。在该设备证据补齐并通过独立复审前，不声明
 P1-03、P1 或用户验收完成。P1-03-R2 完成设备证据后仍需要独立专项复审。
+
+## P1-03-R3 持久 API 37 设备环境恢复尝试
+
+2026-09-08，按 R3 范围将已验证的官方 API 37 SDK 复制到持久目录
+`/Users/takagisan/Library/Android/sdk-qingke-api37`，并在
+`/Users/takagisan/.android/qingke-api37-r3-avd` 建立干净的
+`qingke-api37-r3-arm` AVD。组件为 Emulator 37.1.11.0、Platform Tools 37.0.1、
+Platform 37.0 revision 2、Build Tools 36.0.0 和 API 37 ARM64 Google APIs image revision 6；
+宿主为 arm64，`emulator-check accel` 退出 0 且报告 Hypervisor.Framework 可用。
+
+只使用官方 `emulator/emulator` 启动器，未直接运行内部 QEMU，也未影响既有 API 35
+`emulator-5554`。默认启动（端口 5570）在限定 30 秒观察中始终没有 ADB 设备且进程退出；
+随后一次 `-no-snapshot -no-window -gpu software` 对照（端口 5572）同样未取得设备，前台
+最小日志仍有 `hvf is not enabled on this aarch64 host` 与
+`qemu_mprotect__osdep: mprotect failed: Permission denied`。完整命令、ADB 状态和最小日志见
+[R3 持久 SDK 诊断证据](evidence/p1-03-r3-api37-persistent-sdk-attempt-20260908.txt)。
+
+因此 R3 没有获得 API 37 `sys.boot_completed=1`；没有读取 R3 的 API/ABI、安装 APK、两次
+`force-stop` 后显式启动、检查 MainActivity resumed/可见或 `pidof`、保存截图、或取得清空后
+无应用崩溃/ANR logcat。API 35 历史结果没有替代本轮证据。当前 Mac 仍被环境阻塞，下一步
+须改用 API 37 ARM64 真机或另一台可正常启动 API 37 的宿主；P1-03、P1 和用户验收仍未完成，
+不进入 P2，且本轮未发现或修改应用代码缺陷。

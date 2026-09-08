@@ -446,6 +446,21 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("P1-03-R2", contents)
         self.assertIn("下一步只执行 P1-03-R3", handoff)
 
+    def test_p1_03_r3_records_persistent_sdk_without_claiming_device_success(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        validation = (DOCS / "p1-03-validation.md").read_text()
+        evidence = (DOCS / "evidence/p1-03-r3-api37-persistent-sdk-attempt-20260908.txt").read_text()
+        for contents in (handoff, validation, evidence):
+            self.assertIn("P1-03-R3", contents)
+            self.assertIn("sys.boot_completed", contents)
+            self.assertIn("不进入 P2", contents)
+        for marker in (
+            "sdk-qingke-api37", "Emulator：37.1.11.0", "revision 6",
+            "-no-snapshot -no-window -gpu software", "mprotect failed",
+            "未安装", "另一可用宿主",
+        ):
+            self.assertIn(marker, evidence)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
