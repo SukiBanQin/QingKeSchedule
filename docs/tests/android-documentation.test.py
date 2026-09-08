@@ -577,7 +577,8 @@ class AndroidDocumentationTests(unittest.TestCase):
         current = "\n".join(handoff.splitlines()[:25])
         self.assertIn("P1-04 已从基准", current)
         self.assertIn("实施完成", current)
-        self.assertIn("待独立复审", current)
+        self.assertIn("独立专项复审通过", current)
+        self.assertNotIn("待独立复审", current)
         self.assertIn("两端严格拒绝", handoff)
         for contents in (plan, baseline, design):
             self.assertIn("P1-04", contents)
@@ -599,7 +600,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         probe = (ROOT / "docs/tests/android-contract-review-probe.py").read_text()
         for marker in (
             "70 个任务实际执行", "19 例", "93 项通过", "失败/跳过均为 0",
-            "待独立复审", "不授权进入 P2",
+            "独立专项复审", "不进入 P2",
         ):
             self.assertIn(marker, task + handoff)
         self.assertLess(

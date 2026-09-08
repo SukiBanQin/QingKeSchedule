@@ -65,5 +65,24 @@ Debug/Release JVM 各 20 项通过，失败/错误/跳过均为 0。跨端探针
 和反序节次现状保持接受，其他既有非法案例保持拒绝。探针中的 Swift 结果来自 macOS
 `swiftc`，只作为跨端导入边界补充；iOS App 测试证据来自上述 Simulator 测试。
 
-P1-04 属于共享协议行为修正，实施完成后必须由分析审查窗口独立复审。只有 P1-04 通过且
-P1 全部门槛再次核对通过，才能记录 P1 关闭；这不等于用户验收，也不授权进入 P2。
+## 独立专项复审结论
+
+2026-09-08，分析审查窗口依据实施基准 `cb7323fb6b4726d58896242d0c7ed6faedac4ac7`
+独立核对提交 `4b7ff3e8ed1f990ad15ebb5348cba3a01ca145dd`。实际 diff 仅包含本任务列出的
+6 个文件，未发现 Android 应用、构建依赖、共享 schema/fixtures、Web、P2 或未授权 iOS UI 改动。
+
+复审逐项解析 `ios/Shared/schedule-data.schema.json`，确认顶层、semester、period、course、
+courseSchedule 五层允许字段集合与 `hasOnlyVersion1Fields` 完全一致。`previewImport` 先读取并
+判断 `schemaVersion`，再执行白名单检查；不支持版本与未知字段并存时仍优先返回
+`unsupportedSchemaVersion`。`semester: null`、完整有效 fixture、合法指数、重复课程 ID、反序节次、
+非法 UTF-8、非法数字词法、年份 0000 和业务校验结果均与既有记录一致。
+
+独立执行跨端探针，19 例结果与交付记录一致：五层未知字段 Android/Swift 均拒绝，其余案例保持原有结果。
+独立执行 API 37/JDK 17 下 `assembleDebug test --rerun-tasks --no-daemon --console=plain`，70 个任务成功，
+Debug/Release JVM 各 20 项通过；独立执行 `bash ios/scripts/ios-test.sh`，iPhone 17 Pro、iOS 26.5 Simulator
+共 93 项通过，失败和跳过均为 0。文档测试 27 项、`documentation.test.sh`、`repository-layout.test.sh`、
+`git diff --check` 均通过。
+
+复审结论：**P1-04 通过独立专项复审，无阻塞或修正任务。** 本结论只覆盖版本 1 未知字段跨端一致性，
+不代表 P1 阶段关闭、完整应用完成或用户验收，也不授权自动进入 P2。后续应另行核对 P1 全部交付门槛，
+并按用户安排将同一跨端修正同步到 `IOS` 分支。
