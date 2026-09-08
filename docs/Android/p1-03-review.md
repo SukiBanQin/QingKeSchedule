@@ -4,8 +4,8 @@
 复审对象为提交 `7d34c78b77462178ce2119c2fb21952ce187d18b`，提交范围
 `7d34c78^..7d34c78`；开始基准 `ec236b9`、授权提交 `274f3b9` 均是其祖先。
 
-最新状态以文末 P1-03-R1 独立复审为准：R1 设备失败记录有效，但 Android 17 依赖层
-边界表述需修正，API 37 设备门槛仍未满足；下一步为 P1-03-R2。
+最新状态以文末 P1-03-R2 独立专项复审为准：R2 的源码／依赖层边界修正和设备失败
+记录通过复审，但 API 37 设备门槛仍未满足；下一步为 P1-03-R3 设备环境恢复与运行验证。
 
 ## 结论
 
@@ -164,3 +164,79 @@ logcat，因此 P1-03-R1、P1-03、P1 和用户验收均未通过，不进入 P2
    证据。若仍无可用设备，如实记录新的环境结果，不宣称 P1-03 通过。
 3. 更新交接和对应文档测试，只提交本任务文件并推送 `Android`。完成后再次申请专项复审；
    不进入 P2，不扩展 D01／D03／D04，不修改未知字段、重复 ID 或节次顺序。
+
+## 2026-09-08 P1-03-R2 独立专项复审
+
+复审范围为 `2e5b8ec^..2e5b8ec`，基准为
+`a16a52bbfba109aecc629ff19d8697ca2b1e9ca4`。实际提交与执行报告一致，只修改
+`Android/README.md`、R2 设备证据、交接、P1-03 验证记录和文档测试共 5 个文件；没有
+修改应用 Kotlin 源码、构建配置、依赖、Wrapper、iOS、Web、共享 schema／fixtures 或
+P2 内容。复审开始时本地 `Android`、HEAD 与 `origin/Android` 均为
+`2e5b8ecd4a479d2f7d4d6978fd4123f5a071b584`，工作区干净。
+
+### 结论
+
+R2 的文档修正范围通过专项复审。README 与验证记录已经明确区分平台入口、全部项目
+自编写源码和现有 Compose／AndroidX 依赖；不再把领域／解码源码排除在项目范围外，也
+没有把源码静态检查写成依赖层或 API 37 运行通过。APK 中
+`lib/*/libandroidx.graphics.path.so` 的说明经独立读取构建产物确认，应用内存限制、
+target 37 的新 `MessageQueue` 及依赖层运行风险仍明确保留为设备待验项。
+
+R2 设备证据也如实记录为一次失败尝试：ADB 曾短暂进入 `device`，但
+`sys.boot_completed` 为空后模拟器退出；没有读取本轮 SDK／ABI、安装 APK 或执行冷启动、
+Activity／进程、截图和应用 logcat。历史 API 35 结果没有混入本轮。因此没有发现需要
+继续修改 R2 文档或应用代码的问题。
+
+P1-03 整体仍不通过。设备门槛是原授权任务的验收条件，环境失败只能说明检查无法完成，
+不能替代 API 37 应用运行证据。P1、P1-03 和用户验收均未完成，不进入 P2。
+
+### 用户截图与独立设备诊断
+
+用户提供的 09:36 桌面截图补充了两类信息：正常模拟器窗口出现
+`qemu_mprotect__osdep: mprotect failed: Permission denied`、快照读取失败和
+DisplaySurfaceGL 创建失败；macOS 再打开的窗口则直接执行内部
+`qemu-system-aarch64`，报告找不到 `@rpath/libandroid-emu-tracing.dylib`。复审检查确认
+该动态库实际位于 Emulator 包的 `lib64` 目录，右侧错误来自绕过 `emulator` 启动器，
+不能据此判定 SDK 缺包，更与 APK 无关。
+
+复审环境中 `emulator-check accel` 返回 0 并报告 Hypervisor.Framework 可用，
+`kern.hv_support=1`，QEMU 签名也包含 JIT 和 hypervisor 权限。随后使用官方 `emulator`
+启动器，以 `-no-snapshot -no-window -gpu software -accel on` 排除快照和宿主图形路径后，
+ADB 连续 8 次、每隔 5 秒仍为 `offline`；日志同时出现 `hvf is not enabled on this
+aarch64 host` 和反复的 `mprotect failed`。达到限定时间后只终止本次端口 5560 的进程，
+没有操作既有 API 35 模拟器。完整最小记录见
+[R2 独立启动诊断](evidence/p1-03-r2-review-api37-attempt-20260908.txt)。
+
+这些结果把问题进一步限定在当前宿主进程／模拟器环境，但还不足以断定是 macOS、临时
+SDK 位置、Emulator 版本或启动进程权限中的哪一项。复审没有安装 APK，故仍没有应用层
+崩溃或兼容失败证据。
+
+### 独立验证
+
+| 检查 | 结果 |
+| --- | --- |
+| `git show 2e5b8ec^..2e5b8ec` 与受保护路径 diff | 仅 5 个获准文件；应用源码／构建配置／iOS／Web／共享协议无差异 |
+| R1 文档问题复核 | 已准确区分项目源码和现有依赖层；原两项问题均修正 |
+| `./gradlew assembleDebug --rerun-tasks --no-daemon --console=plain` | 独立通过；38 个任务执行；仅有既有 native 库无法 strip 提示 |
+| `bash Android/scripts/p1-02-apk-check.sh` | 独立通过；`com.qingke.schedule`、minSdk 26、targetSdk 37 |
+| APK 内容 | 确认 4 个 ABI 均含 `libandroidx.graphics.path.so`，与 R2 说明一致 |
+| API 37 ARM64 AVD | 官方启动器、禁快照、无窗口、软件图形后仍连续 8 次 `offline`；设备门槛未完成 |
+| `python3 docs/tests/android-documentation.test.py` | 22 项通过 |
+| 既有文档、布局与空白检查 | `documentation.test.sh`、`repository-layout.test.sh`、工作区与暂存区 `git diff --check` 均通过 |
+
+### P1-03-R3 设备环境任务
+
+1. 不再直接执行 `emulator/qemu/darwin-aarch64/qemu-system-aarch64`；只使用官方
+   `emulator/emulator` 启动器或 Android Studio Device Manager。优先在持久 SDK 目录重新
+   安装当前稳定 Emulator 与 API 37 ARM64 system image，并新建无历史快照的 AVD，避免
+   临时目录和旧 AVD 状态继续混淆诊断。
+2. 启动前记录 Emulator 版本、`emulator -accel-check`、宿主架构和 AVD image；先用默认
+   图形启动，失败时只做 `-no-snapshot` 与官方支持的 `-gpu software` 对照。保留每种启动
+   的命令、退出码和最小错误日志，不反复无界重试。
+3. 只有取得 `sys.boot_completed=1` 后，才安装当前 Debug APK，清空应用相关 logcat，
+   完成两次 `force-stop` 后显式启动；保存 MainActivity resumed／可见、`pidof`、截图及
+   无应用崩溃 logcat。若同一 Mac 仍失败，改用等效 API 37 ARM64 真机或另一台可运行
+   API 37 的宿主，不降级到 API 35 充当证据。
+4. 只维护设备环境、P1-03 证据、验证／交接文档和对应文档测试；不修改应用 Kotlin、
+   构建配置、依赖、iOS、Web 或共享协议，不进入 P2。完成后提交并推送 `Android`，再申请
+   P1-03-R3 专项复审。

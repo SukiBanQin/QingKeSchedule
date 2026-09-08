@@ -326,7 +326,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertIn("Android 17（targetSdk 37）行为适用性", readme)
         self.assertIn("sys.boot_completed", readme)
-        self.assertIn("P1-03-R1", handoff)
+        self.assertIn("P1-03-R2", handoff)
         self.assertIn("设备门槛仍未满足", handoff)
 
     def test_p1_03_special_review_records_scope_evidence_and_correction_gate(self):
@@ -358,7 +358,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertFalse(any(path.startswith("ios/") or path.startswith("web/") for path in changed))
         self.assertFalse(any(path.startswith("Android/app/src/main/") for path in changed))
         for contents in (handoff, plan, baseline, design):
-            self.assertIn("P1-03-R1", contents)
+            self.assertIn("P1-03-R2", contents)
             self.assertIn("p1-03-review.md", contents)
         self.assertIn("Terra／中", handoff)
         self.assertIn("API 37 设备", handoff)
@@ -409,6 +409,41 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertIn("P1-03-R2", handoff)
         self.assertIn("设备门槛仍未满足", handoff)
+
+    def test_p1_03_r2_review_accepts_boundaries_and_keeps_device_gate(self):
+        review = (DOCS / "p1-03-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        evidence = (DOCS / "evidence/p1-03-r2-review-api37-attempt-20260908.txt").read_text()
+        latest = review.split("## 2026-09-08 P1-03-R2 独立专项复审", 1)[1]
+        for marker in (
+            "2e5b8ec^..2e5b8ec", "R2 的文档修正范围通过专项复审",
+            "用户提供的 09:36 桌面截图", "libandroid-emu-tracing.dylib",
+            "连续 8 次", "P1-03 整体仍不通过", "P1-03-R3", "不进入 P2",
+        ):
+            self.assertIn(marker, latest)
+        for marker in (
+            "官方 emulator 启动器", "-no-snapshot -no-window", "-gpu software",
+            "hvf is not enabled", "mprotect failed", "不能推出应用通过或应用缺陷",
+        ):
+            self.assertIn(marker, evidence)
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "2e5b8ec"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(changed, [
+            "Android/README.md",
+            "docs/Android/evidence/p1-03-r2-api37-host-attempt-20260908.txt",
+            "docs/Android/handoff.md",
+            "docs/Android/p1-03-validation.md",
+            "docs/tests/android-documentation.test.py",
+        ])
+        for contents in (handoff, plan, baseline, design):
+            self.assertIn("P1-03-R3", contents)
+            self.assertIn("P1-03-R2", contents)
+        self.assertIn("下一步只执行 P1-03-R3", handoff)
 
 
 if __name__ == "__main__":
