@@ -1,0 +1,28 @@
+P1-03-R2 API 37 ARM64 单次宿主启动尝试（2026-09-08）
+
+目标：在不修改 Android 工程、构建配置或 AVD 配置的前提下，使用宿主 Terminal 正常启动
+API 37 ARM64 AVD，并仅在 sys.boot_completed=1 后继续安装与冷启动验收。
+
+AVD：qingke-api37-arm
+SDK：/tmp/qingke-api37-sdk-iJNEtV
+AVD 根目录：/tmp/qingke-api37-avd-2BJSGW
+system image：system-images;android-37.0;google_apis;arm64-v8a revision 6
+单次启动命令：
+
+ANDROID_AVD_HOME=/tmp/qingke-api37-avd-2BJSGW \
+  /tmp/qingke-api37-sdk-iJNEtV/emulator/emulator \
+  -avd qingke-api37-arm -port 5558
+
+观察：
+
+1. 启动约 10 秒后，adb devices -l 列出 emulator-5558 offline。
+2. 30 秒内三次 adb -s emulator-5558 get-state 均为 device offline。
+3. 后续同一进程的第四次观察短暂返回 device，但
+   adb -s emulator-5558 shell getprop sys.boot_completed 为空。
+4. 后续两次观察均为 device emulator-5558 not found；进程清单不再包含
+   qingke-api37-arm/QEMU，adb devices 只剩历史 API 35 emulator-5554。
+
+结论：本轮只尝试了一次 API 37 启动，未获得 sys.boot_completed=1 的设备。故未读取
+本轮设备的 SDK/ABI，也未安装 Debug APK、执行两次 force-stop 冷启动、检查
+MainActivity resumed、pidof、截图或清空后的应用 logcat。历史 API 35 设备未参与，
+不能替代 API 37 证据。

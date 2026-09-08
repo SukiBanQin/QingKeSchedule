@@ -392,6 +392,24 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("API 37", contents)
             self.assertIn("不进入 P2", contents)
 
+    def test_p1_03_r2_preserves_project_and_dependency_boundaries(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        validation = (DOCS / "p1-03-validation.md").read_text()
+        readme = (ROOT / "Android/README.md").read_text()
+        evidence = (DOCS / "evidence/p1-03-r2-api37-host-attempt-20260908.txt").read_text()
+        for contents in (readme, validation):
+            for marker in (
+                "领域模型", "JSON 解码源码", "项目自编写", "Compose／AndroidX",
+                "lib/*/libandroidx.graphics.path.so", "MessageQueue", "static final",
+                "依赖层", "API 37 安装启动", "应用内存限制",
+            ):
+                self.assertIn(marker, contents)
+            self.assertNotIn("唯一直接相关", contents)
+        for marker in ("emulator-5558", "只尝试了一次", "sys.boot_completed", "未安装 Debug APK"):
+            self.assertIn(marker, evidence)
+        self.assertIn("P1-03-R2", handoff)
+        self.assertIn("设备门槛仍未满足", handoff)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

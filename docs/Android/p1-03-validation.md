@@ -130,13 +130,21 @@ API 37 设备，未安装 APK，也未执行两次 `am force-stop`／显式 `Mai
 
 资料来源为 Android Developers 的[全部应用行为变化](https://developer.android.com/about/versions/17/behavior-changes-all)、[目标 Android 17 的行为变化](https://developer.android.com/about/versions/17/behavior-changes-17)及[迁移说明](https://developer.android.com/about/versions/17/migration)。迁移说明要求在 Android 17 设备／模拟器安装并走通应用流程，且分别审查全部应用与目标版本行为；构建成功不能替代该步骤。
 
-当前源码范围仅为 `MainActivity` 的 Compose `MaterialTheme`、`Surface`、`Text`；
-manifest 仅声明 launcher Activity。以下“未使用”均以这份源码和 manifest 检查为
-依据，不表示未来 P2/P3/P4 实现已经验证。
+当前 Android 平台界面入口和平台能力实现仅为 `MainActivity` 的 Compose
+`MaterialTheme`、`Surface`、`Text`，manifest 仅声明 launcher Activity；工程还包含
+领域模型、规则、校验和 JSON 解码源码。已检查全部项目自编写 Kotlin 源码与 manifest，
+没有发现本轮 Android 17 行为涉及的平台 API 调用。以下“未使用”是项目自编写代码的
+静态检查结论，不表示未来 P2/P3/P4 实现已经验证，也不覆盖现有依赖层运行行为。
+
+当前 APK 已含 Compose／AndroidX 等依赖，且构建输出已确认打包
+`lib/*/libandroidx.graphics.path.so`。项目没有自行编写 JNI、`System.load()`、动态 native
+加载、`MessageQueue` 私有反射或修改 static final 字段的代码；但这些结论不能排除依赖层
+的 `MessageQueue`、反射和原生库兼容性。它们仍须由 API 37 安装启动和清空后的 logcat
+验证，不能推迟为“以后引入第三方 SDK”才需检查。
 
 | 官方变化 | 当前 P1 判断 | 本轮验证或后续门槛 |
 | --- | --- | --- |
-| 全部应用：应用内存限制 | 无大位图、缓存、后台流程或多进程；没有直接触发路径 | API 37 未开机，未执行 memory limiter 压力测试；后续有图片/列表/存储时建立内存基线。 |
+| 全部应用：应用内存限制 | 此限制适用于所有 Android 17 应用；项目自编写代码无已知高内存流程 | API 37 未开机，未执行 memory limiter 压力测试；现有依赖运行与后续图片/列表/存储均需建立内存基线。 |
 | 全部应用：WebOTP/SMS OTP 保护 | 无 `READ_SMS`、SMS Receiver 或 OTP 流程 | 暂不适用；若加入登录/OTP，采用 SMS Retriever/User Consent 并复核。 |
 | 全部应用：明文网络迁移提醒 | 无网络请求或 network security config | 暂不适用；网络能力加入时按配置复核。 |
 | 全部应用：隐式 URI 授权诊断 | 无 `ACTION_SEND`、`ACTION_SEND_MULTIPLE`、相机或 `Uri` 分享 | 暂不适用；P4 导入导出／分享实现时以显式 grant 和 StrictMode 检查。 |
@@ -147,25 +155,35 @@ manifest 仅声明 launcher Activity。以下“未使用”均以这份源码�
 | 全部应用：后台音频硬化 | 无音频 API、前台服务或提醒音 | 暂不适用；D03/提醒阶段验证 exact alarm 与前台服务边界。 |
 | 全部应用：Bluetooth 自动重新配对 | 无 Bluetooth 权限、Receiver 或连接 | 暂不适用；硬件功能不在 P1 范围。 |
 | target 37：RemoteViews bitmap/icon 限制 | 无 App Widget、RemoteViews 或通知大图 | 暂不适用；通知/小组件阶段验证大小和崩溃处理。 |
-| target 37：lock-free `MessageQueue` | 无 `MessageQueue` 私有字段/方法反射 | 暂不适用；第三方 SDK 引入时以 API 37 logcat 和 non-SDK 检查复核。 |
-| target 37：static final 不可修改 | 无反射/JNI 修改 static final 字段 | 暂不适用；未来不得依赖此类实现。 |
+| target 37：lock-free `MessageQueue` | target 37 会启用；项目自编写代码无 `MessageQueue` 私有字段/方法反射 | 现有 Compose／AndroidX 依赖仍待 API 37 安装启动、logcat 和 non-SDK 检查复核。 |
+| target 37：static final 不可修改 | 项目自编写代码无反射/JNI 修改 static final 字段 | 现有依赖层仍待 API 37 安装启动和 logcat 验证；未来不得依赖此类实现。 |
 | target 37：CJK 物理键盘辅助功能 | 无 TextField、custom InputConnection 或自发 accessibility event | 暂不适用；P3 输入控件使用标准 Compose/Android 文本组件并补辅助功能测试。 |
 | target 37：ECH 和局域网权限 | 无 TLS、HTTP client、LAN 扫描或设备连接 | 暂不适用；网络/LAN 功能阶段按权限或系统 picker 验证。 |
 | target 37：物理键盘密码显示、标准 SMS OTP | 无密码输入、SMS 权限或 OTP 流程 | 暂不适用；认证功能引入时复核。 |
-| target 37：BAL、CT、动态 native DCL | 无后台 Activity/IntentSender、网络证书、自定义 native 动态加载 | 暂不适用；分享、通知跳转、网络和 native 依赖阶段分别验证。 |
+| target 37：BAL、CT、动态 native DCL | 项目自编写代码无后台 Activity/IntentSender、网络证书、JNI、`System.load()` 或动态 native 加载 | APK 已含依赖原生库，仍待 API 37 安装启动和 logcat；分享、通知跳转、网络和 native 依赖阶段分别继续验证。 |
 | target 37：Contacts CP2、Content Capture | 无 Contacts 查询或 `setContentCaptureEnabled(false)` | 暂不适用；若出现敏感内容，设计时评估 FLAG_SECURE。 |
-| target 37：大屏方向/可调整大小/宽高比 | 未在 manifest 设置方向、可调整大小或宽高比限制 | 这是当前唯一直接相关的 UI 平台变化；API 37 未开机，未取得渲染截图。P3 页面完成后以 phone/tablet/旋转视觉用例验证。 |
+| target 37：大屏方向/可调整大小/宽高比 | 未在 manifest 设置方向、可调整大小或宽高比限制 | 这是当前 manifest／UI 层最直接的变化，但不是唯一需设备验证的项；API 37 未开机，未取得渲染截图。P3 页面完成后以 phone/tablet/旋转视觉用例验证。 |
 | target 37：Bluetooth RFCOMM `read()` 返回 -1 | 无 BluetoothSocket | 暂不适用；硬件通信若引入，读循环显式处理 -1。 |
 
-结论：当前 P1 骨架没有已识别的 Android 17 目标行为冲突，但这只是静态适用性判断，
-不是 API 37 应用运行通过结论。只有在可正常开机的 API 37 ARM64 或等效设备完成安装、
-两次冷启动、MainActivity resumed／进程／截图以及清空后无崩溃 logcat 检查，才能补齐
-设备门槛。
+### P1-03-R2 单次设备尝试
+
+从 R2 基准 `a16a52bbfba109aecc629ff19d8697ca2b1e9ca4` 重新构建 Debug APK（38 个任务）
+并运行 APK 预检，包名 `com.qingke.schedule`、minSdk 26、targetSdk 37 均通过。随后在
+宿主 Terminal 用标准 AVD 命令和独立端口 5558 **仅启动一次** API 37 ARM64
+`qingke-api37-arm`。设备先持续 `offline`，短暂为 `device`，但
+`sys.boot_completed` 仍为空，随后 QEMU/ADB 条目退出。完整命令和观察记录见
+[R2 宿主启动证据](evidence/p1-03-r2-api37-host-attempt-20260908.txt)。
+
+本轮没有获得 `sys.boot_completed=1`，也没有再次启动 AVD。因此没有安装 APK、两次
+`force-stop` 后显式 `MainActivity` 冷启动、resumed／可见检查、`pidof`、截图或清空后的
+应用 logcat；历史 API 35 设备未参与。结论：项目自编写源码的静态检查没有发现已知
+高风险 Android 17 调用，但应用内存限制、新 `MessageQueue` 和现有依赖层兼容性仍待
+API 37 真实运行验证；这不是 API 37 应用通过结论。
 
 ## 范围与下一步
 
 本轮没有修改应用 Kotlin 源码、iOS、Web、共享 schema／fixtures、未知字段策略、
 重复 ID 或节次顺序，也没有新增业务功能或进入 P2。工具链和主机侧验证已经专项复审；
-P1-03-R1 仍需在可正常完成 API 37 开机的 ARM64 或等效设备补做安装、两次冷启动、
+P1-03-R2 仍需在可正常完成 API 37 开机的 ARM64 或等效设备补做安装、两次冷启动、
 Activity／进程、截图和无崩溃 logcat。在该设备证据补齐并通过独立复审前，不声明
-P1-03、P1 或用户验收完成。P1-03-R1 完成设备证据后仍需要独立专项复审。
+P1-03、P1 或用户验收完成。P1-03-R2 完成设备证据后仍需要独立专项复审。

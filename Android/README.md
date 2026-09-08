@@ -82,21 +82,28 @@ JDK 17。官方 built-in Kotlin 迁移说明要求 AGP 9 工程移除
 
 ## Android 17（targetSdk 37）行为适用性
 
-已阅读 Android Developers 的[全部应用行为变化](https://developer.android.com/about/versions/17/behavior-changes-all)、[以 Android 17 为目标的行为变化](https://developer.android.com/about/versions/17/behavior-changes-17)和[迁移说明](https://developer.android.com/about/versions/17/migration)。当前 P1 是单一
-`MainActivity` 的 Compose `MaterialTheme`／`Surface`／`Text` 骨架：没有网络、短信、
-蓝牙、音频、通知／小组件、前台服务、Room/DataStore、文件分享／导入、Keystore、
-Contacts、JNI／动态代码、反射或自定义输入实现。
+已阅读 Android Developers 的[全部应用行为变化](https://developer.android.com/about/versions/17/behavior-changes-all)、[以 Android 17 为目标的行为变化](https://developer.android.com/about/versions/17/behavior-changes-17)和[迁移说明](https://developer.android.com/about/versions/17/migration)。当前 Android 平台界面入口和平台能力实现仅有
+`MainActivity` 的 Compose `MaterialTheme`／`Surface`／`Text`；工程还包含领域模型、规则、
+校验和 JSON 解码源码。已检查这些项目自编写源码，未发现本轮 Android 17 行为涉及的
+网络、短信、蓝牙、音频、通知／小组件、前台服务、文件分享／导入、Keystore、Contacts、
+自定义输入、JNI、`System.load()`、动态 native 加载、`MessageQueue` 私有反射或修改
+static final 字段的调用。
+
+上述结论仅针对项目自编写代码。当前 APK 已含 Compose／AndroidX 等依赖，并打包
+`lib/*/libandroidx.graphics.path.so`；依赖层的 `MessageQueue`、反射和原生库兼容性仍须
+通过 API 37 安装启动及清空后的 logcat 验证，不能因项目源码未调用而写成已通过。
 
 | 行为变化组 | 当前结论与验证边界 |
 | --- | --- |
-| 应用内存限制、锁定式 `MessageQueue`、静态 final 反射、IME／触控板、CJK 输入 | 当前没有大内存流程、私有反射、可编辑控件、旋转后键盘需求或 pointer capture；API 37 未成功开机，未作运行时压力／交互测试。后续 P3 页面与表单阶段复核。 |
+| 应用内存限制、锁定式 `MessageQueue`、静态 final 反射、IME／触控板、CJK 输入 | 应用内存限制适用于所有 Android 17 应用，target 37 会启用新 `MessageQueue`；项目自编写源码未见高风险用法、可编辑控件或 pointer capture，但 Compose／AndroidX 依赖的运行兼容性仍待 API 37 安装启动与 logcat。后续 P3 页面、表单和内存基线继续复核。 |
 | SMS/WebOTP、Keystore、跨 profile loopback、Bluetooth 配对／RFCOMM、Contacts | 当前没有对应权限、API 或硬件通信；暂不适用。新增导入、账户或设备功能时重新核对。 |
 | ECH、局域网权限、证书透明度、明文网络迁移、后台音频 | 当前没有网络、LAN、音频或前台服务；暂不适用。后续网络、提醒或媒体能力阶段验证。 |
-| RemoteViews 小组件、后台 Activity 启动、Content Capture、动态 native 代码 | 当前没有小组件、后台启动、敏感窗口处理或 `System.load()`；暂不适用。通知／小组件、分享和系统能力阶段复核。 |
-| 大屏方向／可调整大小 | 目标 37 会强制 API 36 起的大屏方向、可调整大小和宽高比行为；当前未设置相应限制，但 API 37 未成功开机，尚未取得实际渲染证据。后续 P3 多尺寸视觉验证必须覆盖。 |
+| RemoteViews 小组件、后台 Activity 启动、Content Capture、动态 native 代码 | 项目自编写代码没有小组件、后台启动、敏感窗口处理或 `System.load()`／动态 native 加载；但 APK 已含依赖原生库，运行兼容性仍待 API 37 启动与 logcat。通知／小组件、分享和系统能力阶段继续复核。 |
+| 大屏方向／可调整大小 | 这是当前 manifest／UI 层最直接的变化：目标 37 会强制 API 36 起的大屏方向、可调整大小和宽高比行为。当前未设置相应限制，但 API 37 未成功开机，尚未取得实际渲染证据；并非唯一需设备验证的 Android 17 项。后续 P3 多尺寸视觉验证必须覆盖。 |
 
-P1-03-R1 已用宿主 Terminal 启动 API 37 ARM64 AVD；设备曾报告 SDK 37 和
-`arm64-v8a`，但 `sys.boot_completed` 未达到 1 后即退出。因此 Android 17 运行行为
+P1-03-R1/R2 均用宿主 Terminal 尝试启动 API 37 ARM64 AVD；R1 曾报告 SDK 37 和
+`arm64-v8a`，R2 在 `sys.boot_completed` 达到 1 前退出。因此 Android 17 运行行为
 尚无应用级通过结论，未安装或启动 APK。完整逐项判断、启动尝试和未运行项目见
 [P1-03 验证记录](../docs/Android/p1-03-validation.md)及
-[R1 宿主启动证据](../docs/Android/evidence/p1-03-r1-api37-host-attempt-20260908.txt)。
+[R1 宿主启动证据](../docs/Android/evidence/p1-03-r1-api37-host-attempt-20260908.txt)和
+[R2 宿主启动证据](../docs/Android/evidence/p1-03-r2-api37-host-attempt-20260908.txt)。
