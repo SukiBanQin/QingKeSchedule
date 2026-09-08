@@ -1,5 +1,18 @@
 # 安卓项目当前交接状态
 
+## P1-04-IOS-SYNC 独立复审状态（最新，2026-09-08）
+
+`IOS` 分支提交 `0a3252d` 已推送并与
+`origin/IOS` 一致。相对基准 `c11bd2b`，实际只包含
+`ScheduleDataTransfer.swift` 和 `ScheduleDataTransferTests.swift` 两个授权文件；内容与已审查
+来源提交 `4b7ff3e` 一致。iOS 独立复审确认五层未知字段拒绝、
+`unsupportedSchemaVersion` 优先级、`semester:null` 和既有校验行为保持不变，新增 7 项测试均覆盖。
+`bash ios/scripts/ios-test.sh` 在 iPhone 17 Pro / iOS 26.5 Simulator 上 93 项全部通过，失败和跳过均为 0。
+详细记录见 [P1-04-IOS-SYNC 复审](p1-04-ios-sync-review.md)。
+
+结论：**P1-04-IOS-SYNC 通过独立复审，无修正任务。** P1-04 的跨分支同步门槛已满足，
+但 P1 阶段整体仍需另行核对全部关闭条件和两分支一致性；本轮不标记 P1 关闭，不进入 P2，也不代表用户验收。
+
 ## 当前分支安排（优先于下方历史记录）
 
 2026-09-08 用户确认使用 `Android`、`IOS` 两条开发分支和 `main` 稳定分支。当前工作目录留在 `Android`，所有安卓窗口接手先核对这一分支。旧 `codex/ios-ui-redesign-demo` 保留在 `8791dbe` 作为历史，不再用于日常开发。
