@@ -1,8 +1,9 @@
 # P1-03 API 37 工具链升级专项复审
 
-最新补充（2026-09-08）：P1-03-R4 已修正本机 AVD 登记并取得 API 37 ARM64
-运行证据，见 [验证记录](p1-03-validation.md) 首节。本轮环境修复及新增证据
-待独立复审；下方已完成的历史专项审查结论不自动覆盖 R4，不进入 P2。
+最新结论（2026-09-08）：P1-03-R4 的 AVD 根因修复、API 37 ARM64 设备证据和应用
+最小启动证据已通过独立专项复审，P1-03 授权范围完成。P1 阶段关闭、未知字段策略和
+用户验收不在本次结论内，不进入 P2。详见文末 R4 复审及
+[独立证据](evidence/p1-03-r4-review-20260908.txt)。
 
 复审日期：2026-09-08。角色：分析审查；未启动子 Agent，未修改应用代码。
 复审对象为提交 `7d34c78b77462178ce2119c2fb21952ce187d18b`，提交范围
@@ -277,33 +278,58 @@ P1-03 验证记录、交接记录和安卓文档测试。复审开始时分支�
 MainActivity／进程检查、截图和清空后的无崩溃 `logcat`。在此之前不关闭 P1-03，不进入 P2。
 D02 最新稳定 SDK 组合和未知字段策略仍保持未决。
 
-## 2026-09-08 P1-03-R3 专项复审
+## 2026-09-08 P1-03-R4 独立专项复审
 
-复审范围为 `23743be^..23743be`，实际提交 4 个文件：持久 SDK／干净 AVD 失败证据、
-P1-03 验证记录、交接记录和安卓文档测试。复审开始时分支为 `Android`，本地 HEAD 与
-`origin/Android` 均为 `23743bee9c49eac6f95c414780acb02f136273e4`，工作区干净；未修改应用
-代码或构建配置。
+复审范围为 `729fbaa^..729fbaa`，基准为 `4ee8919`。实际提交共 15 个文件：4 份
+P1-03／交接／实施计划文档、1 份文档测试，以及 R4 证据目录中的 10 个文本或 PNG 文件。
+没有修改 Android 应用源码、构建配置、依赖、Wrapper、iOS、Web、共享 schema／fixtures、
+业务策略或 P2 内容。复审开始时本地 `Android`、HEAD 与 `origin/Android` 均为
+`729fbaa5fda460c547d2df47e38ec111a2dc2a15`，工作区干净。
 
 ### 结论
 
-**P1-03-R3 的范围和失败证据记录通过专项复审；API 37 设备启动门槛仍未通过，P1-03、P1
-和用户验收继续未完成，不进入 P2。**
+**P1-03-R4 通过独立专项复审，P1-03 的工具链升级与 API 37 设备运行门槛完成。**
 
-- 持久 SDK、组件版本、Apple Silicon 宿主、Hypervisor.Framework 检查、独立 AVD 根目录和
-  ARM64 API 37 image 均有具体记录。
-- 默认图形启动和 `-no-snapshot -no-window -gpu software` 对照均限定在 30 秒内；十次
-  ADB 探测均为设备不存在，进程退出。软件图形日志中的 `hvf is not enabled on this
-  aarch64 host` 与 `qemu_mprotect__osdep: mprotect failed: Permission denied` 被原样记录，
-  没有把它们解释成 APK 或业务代码错误。
-- 既有 API 35 `emulator-5554` 未被操作；本轮没有伪造 API/ABI、安装、启动、Activity、进程、
-  截图或应用崩溃证据，也没有用 API 35 历史结果替代 API 37 验收。
-- 独立复跑 `android-documentation.test.py` 23 项、既有文档和布局检查、`git diff --check`
-  及本地/远端 HEAD 一致性均通过。应用 Gradle 测试本轮未重跑，符合本次仅改文档和环境证据
-  的范围；既有构建证据仍按原记录引用。
+AVD 根因可独立复现：修正前备份和当前登记只有 `target=android-0` 改为
+`target=android-37` 一行差异。复审在临时登记目录中把只读副本恢复为 `android-0`，同一
+SDK／AVD 再次被识别为 API 3，不启用 HVF 并出现 `mprotect failed`；当前登记则在独立
+端口被识别为 API 37，QEMU 带 `-enable-hvf`，约 13 秒完成启动。这个受控对照支持
+“错误 target 登记导致此前本机失败”的结论。错误登记最初由哪个命令产生仍未复现，文档
+没有擅自归因为官方缺陷，边界正确。
 
-### 剩余门槛
+执行提交的设备证据互相一致：APK SHA-256 与当前产物相同，两次冷启动均为
+`Status: ok`／`LaunchState: COLD`，PID 分别为 4283 和 4341；两份 Activity 输出均显示
+MainActivity resumed／visible。两张有效的 1080×1920 PNG 都显示“轻课”骨架，且验证
+记录如实指出文字贴近状态栏、未进行完整视觉或安全区域验收。清空后的 logcat 没有匹配
+应用 FATAL EXCEPTION、ANR、am_crash、am_anr 或 Fatal signal，但保留了模拟器图形权限
+警告，没有夸大成“无任何警告”。
 
-需要 API 37 ARM64 真机或另一台可正常完成 API 37 开机的宿主，取得
-`sys.boot_completed=1` 后再安装当前 Debug APK，完成两次 `force-stop` 后冷启动、
-MainActivity／进程检查、截图和清空后的无崩溃 `logcat`。在此之前不关闭 P1-03，不进入 P2。
-D02 最新稳定 SDK 组合和未知字段策略仍保持未决。
+复审开始时 `emulator-5586` 已不在线，因此没有沿用执行者所述“当前可见窗口”。复审用
+当前登记在端口 5588 再次启动，约 16 秒取得 `sys.boot_completed=1`，实测 API 37、
+`arm64-v8a`；重新安装同一 APK 后，独立冷启动为 `Status: ok`／`LaunchState: COLD`，
+MainActivity resumed／visible，PID 为 3155，独立截图显示“轻课”，清空后的 logcat 同样
+没有匹配应用崩溃或 ANR。复验后已关闭端口 5588 的模拟器。
+
+### 独立验证
+
+| 检查 | 结果 |
+| --- | --- |
+| `git show 729fbaa^..729fbaa` 与受保护路径 diff | 15 个获准文档／证据文件；应用源码、构建配置、iOS、Web、共享协议无差异 |
+| AVD 登记与受控对照 | `android-0` 可复现 API 3／HVF 关闭／`mprotect`；`android-37` 可复现 API 37／`-enable-hvf`／正常开机 |
+| 提交设备证据 | API 37、ARM64、安装成功、两次不同 PID 冷启动、resumed／visible、两张截图及无应用崩溃／ANR logcat 一致 |
+| 审查侧设备复验 | 端口 5588 独立开机、安装与一次冷启动通过；Activity、PID、截图和清空后 logcat 通过 |
+| `./gradlew assembleDebug test --rerun-tasks --no-daemon --console=plain` | 通过；70 个任务实际执行；Debug／Release 各 20 项，失败／错误／跳过均为 0 |
+| APK 元数据 | 通过；`com.qingke.schedule`、minSdk 26、targetSdk 37，SHA-256 与提交证据一致 |
+| `android-documentation.test.py` | 通过；25 项 |
+| `documentation.test.sh`、`repository-layout.test.sh` | 通过 |
+| `git diff --check` | 通过 |
+
+### 限制与后续边界
+
+- 本结论只覆盖 P1-03 已授权的工具链、Android 17 静态适用性说明和 API 37 最小设备
+  运行门槛，不把“轻课”骨架启动扩大为 A01—A11、完整页面、存储、通知、多尺寸、内存
+  压力或视觉／安全区域验收。
+- 系统开发者模式仍保持用户授权的开启状态；它单独未解决问题，也未证明为必要条件。
+  隔离的 Emulator 37.2.7 预览版没有参与成功证据，项目仍使用稳定版 37.1.11.0。
+- P1-03 可以关闭；P1 阶段和用户验收不随本次专项审查自动完成。未知字段 Android 严格、
+  Swift 宽容的差异仍需产品决定。本轮没有 P2 授权，不生成或执行 P2 任务。

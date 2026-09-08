@@ -263,7 +263,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "Android/app/src/test/java/com/qingke/schedule/transfer/ScheduleDataDecoderTest.kt",
         ])
         self.assertIn("P1-01-R2 已复审通过", handoff)
-        self.assertIn("P1-01（含 R1/R2）审查通过", plan)
+        self.assertIn("P1-01 的已授权工程、规则和版本 1 契约基础范围通过", plan)
         self.assertIn("`Android`", handoff)
         self.assertIn("`c11bd2b`", handoff)
 
@@ -360,11 +360,12 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertFalse(any(path.startswith("ios/") or path.startswith("web/") for path in changed))
         self.assertFalse(any(path.startswith("Android/app/src/main/") for path in changed))
         for contents in (handoff, plan, baseline, design):
-            self.assertIn("P1-03-R2", contents)
-            self.assertIn("p1-03-review.md", contents)
+            self.assertIn("P1-03", contents)
+            self.assertIn("API 37", contents)
         self.assertIn("Terra／中", handoff)
         self.assertIn("API 37 设备", handoff)
-        self.assertIn("P1-03 和 P1 均未完成", plan)
+        self.assertIn("P1-03 授权范围完成", plan)
+        self.assertIn("不进入 P2", plan)
 
     def test_p1_03_r1_review_preserves_dependency_and_device_gates(self):
         review = (DOCS / "p1-03-review.md").read_text()
@@ -390,7 +391,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "docs/tests/android-documentation.test.py",
         ])
         for contents in (handoff, plan):
-            self.assertIn("P1-03-R2", contents)
+            self.assertIn("P1-03", contents)
             self.assertIn("API 37", contents)
             self.assertIn("不进入 P2", contents)
 
@@ -444,12 +445,10 @@ class AndroidDocumentationTests(unittest.TestCase):
             "docs/tests/android-documentation.test.py",
         ])
         for contents in (handoff, plan, baseline, design):
-            self.assertIn("P1-03-R3", contents)
-            self.assertIn("P1-03-R2", contents)
-        self.assertTrue(
-            "下一步只执行 P1-03-R3" in handoff
-            or "P1-03-R3 失败证据已复审通过" in handoff
-        )
+            self.assertIn("P1-03", contents)
+            self.assertIn("API 37", contents)
+        self.assertIn("P1-03 授权范围完成", handoff)
+        self.assertIn("不进入 P2", handoff)
 
     def test_p1_03_r3_records_persistent_sdk_without_claiming_device_success(self):
         handoff = (DOCS / "handoff.md").read_text()
@@ -482,10 +481,12 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("不进入 P2", handoff)
 
 
-    def test_r4_device_evidence_is_consistent_and_review_pending(self):
+    def test_r4_device_evidence_is_consistent_and_reviewed(self):
         evidence = DOCS / "evidence/p1-03-r4-target-fix"
         result = json.loads((evidence / "result.json").read_text())
         commands = (evidence / "device-validation.txt").read_text()
+        review_evidence = (DOCS / "evidence/p1-03-r4-review-20260908.txt").read_text()
+        review = (DOCS / "p1-03-review.md").read_text()
         self.assertEqual(result["sdk"], 37)
         self.assertEqual(result["abi"], "arm64-v8a")
         self.assertEqual(result["boot_completed"], "1")
@@ -509,10 +510,32 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("API level: 3 ", comparison)
         self.assertIn("API level: 37 ", comparison)
         self.assertIn("-enable-hvf", comparison)
+        for marker in (
+            "target=android-0", "target=android-37", "API level: 3", "API level: 37",
+            "-enable-hvf", "emulator-5588", "pidof 返回 3155", "70 个任务实际执行",
+            "Debug 与 Release JVM 报告各 20 项", "不进入 P2",
+        ):
+            self.assertIn(marker, review_evidence)
+        latest = review.split("## 2026-09-08 P1-03-R4 独立专项复审", 1)[1]
+        for marker in (
+            "729fbaa^..729fbaa", "P1-03-R4 通过独立专项复审",
+            "P1-03 的工具链升级与 API 37 设备运行门槛完成",
+            "P1 阶段和用户验收不随本次专项审查自动完成",
+        ):
+            self.assertIn(marker, latest)
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "729fbaa"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(len(changed), 15)
+        self.assertFalse(any(path.startswith("Android/app/") for path in changed))
+        self.assertFalse(any(path.startswith("ios/") or path.startswith("web/") for path in changed))
         for name in ("handoff.md", "p1-03-validation.md", "p1-03-review.md", "implementation-plan.md"):
-            current = (DOCS / name).read_text().splitlines()[:30]
-            self.assertIn("待独立复审", "\n".join(current))
-            self.assertIn("不进入 P2", "\n".join(current))
+            current = "\n".join((DOCS / name).read_text().splitlines()[:35])
+            self.assertIn("独立专项复审", current)
+            self.assertIn("P1-03 授权范围完成", current)
+            self.assertIn("不进入 P2", current)
+            self.assertNotIn("待独立复审", current)
 
 
 if __name__ == "__main__":
