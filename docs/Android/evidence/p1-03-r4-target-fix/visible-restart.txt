@@ -1,0 +1,15 @@
+带窗口复验：临时 launchctl 作业 com.qingke.api37.verified，KeepAlive=false；启动记录见本机 /tmp/qingke-api37-visible.log。
+
+前次受控观察为第 9 次轮询取得 1，约 27 秒；am start -W 为 Status: ok、COLD、TotalTime 3325。以下为交付前再次读取：
+
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop sys.boot_completed
+1
+exit=0
+
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop ro.build.version.sdk
+37
+exit=0
+
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell pidof com.qingke.schedule
+1727
+exit=0

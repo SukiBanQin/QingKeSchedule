@@ -2,6 +2,8 @@
 """Validate the Android handoff contract without installing app dependencies."""
 
 import re
+import json
+import struct
 import subprocess
 import unittest
 from pathlib import Path
@@ -478,6 +480,39 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, review)
         self.assertIn("P1-03-R3 提交 `23743be`", handoff)
         self.assertIn("不进入 P2", handoff)
+
+
+    def test_r4_device_evidence_is_consistent_and_review_pending(self):
+        evidence = DOCS / "evidence/p1-03-r4-target-fix"
+        result = json.loads((evidence / "result.json").read_text())
+        commands = (evidence / "device-validation.txt").read_text()
+        self.assertEqual(result["sdk"], 37)
+        self.assertEqual(result["abi"], "arm64-v8a")
+        self.assertEqual(result["boot_completed"], "1")
+        self.assertEqual(commands.count("LaunchState: COLD"), 2)
+        self.assertEqual(commands.count("Status: ok"), 2)
+        self.assertIn(result["apk_sha256"], commands)
+        self.assertIn("targetSdk 37", commands)
+        for n, pid in enumerate(result["cold_start_pids"], 1):
+            activity = (evidence / f"activity-{n}.txt").read_text()
+            self.assertIn("topResumedActivity=", activity)
+            self.assertIn("com.qingke.schedule/.MainActivity", activity)
+            self.assertIn("visible=true", activity)
+            self.assertIn(str(pid) + ":com.qingke.schedule", activity)
+            png = (evidence / f"cold-start-{n}.png").read_bytes()
+            self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertEqual(struct.unpack(">II", png[16:24]), (1080, 1920))
+        log = (evidence / "logcat.txt").read_text()
+        self.assertIn("com.qingke.schedule", log)
+        self.assertIsNone(re.search(r"FATAL EXCEPTION|ANR in|am_anr\s*:|am_crash\s*:|Fatal signal", log))
+        comparison = (evidence / "startup-comparison.txt").read_text()
+        self.assertIn("API level: 3 ", comparison)
+        self.assertIn("API level: 37 ", comparison)
+        self.assertIn("-enable-hvf", comparison)
+        for name in ("handoff.md", "p1-03-validation.md", "p1-03-review.md", "implementation-plan.md"):
+            current = (DOCS / name).read_text().splitlines()[:30]
+            self.assertIn("待独立复审", "\n".join(current))
+            self.assertIn("不进入 P2", "\n".join(current))
 
 
 if __name__ == "__main__":

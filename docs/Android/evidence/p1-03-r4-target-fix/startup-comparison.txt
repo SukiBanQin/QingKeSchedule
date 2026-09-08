@@ -1,0 +1,23 @@
+稳定版修正前
+INFO         | Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)
+DEBUG   | Crash dump message: 'Deciding if GLDirectMem/Vulkan should be enabled. Selected GLES renderer: Angle Indirect Selected Vulkan renderer: Swiftshader Indirect API level: 3 '
+DEBUG   | CPU Acceleration: working
+DEBUG   | CPU Acceleration status: Hypervisor.Framework OS X Version 26.6
+WARNING      | hvf is not enabled on this aarch64 host.
+qemu-system-aarch64-headless: qemu_mprotect__osdep: mprotect failed: Permission denied
+
+预览版修正前
+INFO         | Android emulator version 37.2.7.0 (build_id 16195039) (CL:N/A)
+DEBUG   | Crash dump message: 'Deciding if GLDirectMem/Vulkan should be enabled. Selected GLES renderer: Angle Indirect Selected Vulkan renderer: Swiftshader Indirect API level: 3 '
+DEBUG   | CPU Acceleration: working
+DEBUG   | CPU Acceleration status: Hypervisor.Framework OS X Version 26.6
+WARNING      | hvf is not enabled on this aarch64 host.
+qemu-system-aarch64-headless: qemu_mprotect__osdep: mprotect failed: Permission denied
+
+稳定版修正后
+INFO         | Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)
+DEBUG   | Crash dump message: 'Deciding if GLDirectMem/Vulkan should be enabled. Selected GLES renderer: Angle Indirect Selected Vulkan renderer: Lavapipe API level: 37 '
+DEBUG   | CPU Acceleration: working
+DEBUG   | CPU Acceleration status: Hypervisor.Framework OS X Version 26.6
+INFO         | 	 argv[11] = "-enable-hvf"
+INFO         | Boot completed in 14699 ms

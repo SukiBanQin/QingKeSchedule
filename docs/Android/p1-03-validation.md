@@ -1,5 +1,83 @@
 # P1-03 API 37 工具链升级验证记录
 
+## P1-03-R4 本机模拟器恢复（2026-09-08，最新状态）
+
+本轮由分析审查窗口按用户新增授权修复项目所需本机环境，基准 `4ee8919`，
+分支 `Android`，开始工作区干净。没有修改应用代码、构建依赖或产品决定。
+**本机 API 37 ARM64 运行证据已补齐，待独立复审；不进入 P2，用户未验收。**
+本节取代历史“只能换真机／另一宿主”的下一步要求，历史失败观察仍保留。
+
+### 根因与修复
+
+AVD 登记文件 `/Users/takagisan/.android/qingke-api37-r3-avd/qingke-api37-r3-arm.ini`
+实际含 `target=android-0`；稳定版与预览版启动日志均将镜像误识别为 `API level: 3`，
+不启用 HVF，随后出现 `mprotect failed: Permission denied`。备份到
+`/tmp/qingke-api37-r3-arm-before-target-fix.ini` 后，仅将此参数改为
+`target=android-37`。同一 SDK、同一镜像、原稳定版 Emulator 37.1.11.0 随即识别
+API 37，QEMU 参数出现 `-enable-hvf`，约 15 秒取得 `sys.boot_completed=1`。
+此处只是修正宿主 AVD 登记，不修改镜像内 Android 版本；ADB 实测 SDK 37 和
+`arm64-v8a`。错误登记由哪个历史命令产生尚未复现，不能断言是官方已确认缺陷。
+
+此前按用户授权开启 `DevToolsSecurity`，中文“开发者工具”内终端开关开启；
+单独开启后仍失败，未证明它是必要条件，本轮保持已授权的开启状态。没有关闭 SIP、
+Gatekeeper 或重签 Emulator。清理了本任务遗留、反复崩溃重启的
+`com.qingke.api37.emulator` launchctl 作业。预览版 37.2.7 校验成功但同样失败，
+隔离保存在 `/Users/takagisan/Library/Android/emulator-preview-37.2.7`，没有替换稳定 SDK。
+
+公开同类记录已实际读取：
+[DataDog #3606](https://github.com/DataDog/dd-sdk-android/pull/3606) 报告 API 37、macOS
+Sonoma 上相同 HVF／mprotect 文本；[Jerico #57](https://github.com/Appnova-EU-OU/jerico/issues/57)
+也有相同文本。它们仅证明相同症状曾出现，不证明本机也是权限或 macOS 兼容问题。
+此前先断言系统兼容问题及“预览版很可能修复”的说法缺乏依据，本轮予以更正。
+
+### 实测命令与证据
+
+```bash
+export ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+"$ANDROID_HOME/emulator/emulator" -avd qingke-api37-r3-arm \
+  -no-snapshot -no-window -gpu software -port 5586 -verbose
+# 在另一个终端执行；仅当下面返回 1 才安装
+"$ANDROID_HOME/platform-tools/adb" -s emulator-5586 shell getprop sys.boot_completed
+cd /Users/takagisan/课表软件/Android
+./gradlew assembleDebug test --no-daemon --console=plain
+bash scripts/p1-02-apk-check.sh
+```
+
+- 构建命令通过，70 个任务 up-to-date；读取既有报告 Debug／Release 各 20 项，
+  failures/errors/skipped 为 0。本轮未重新执行 JVM 测试；既有 clean／离线验证沿用已复审记录。
+- APK 包名 `com.qingke.schedule`，minSdk 26、targetSdk 37；`adb install -r` 成功。
+- 清空 `logcat -b all` 后，两次 `am force-stop` 和 `am start -W` 均为
+  `Status: ok`、`LaunchState: COLD`，耗时 607／691 ms；PID 分别为 4283／4341。
+- 两次 `dumpsys activity activities` 均显示 MainActivity resumed、visible；两张
+  1080×1920 截图显示“轻课”文字骨架。文字靠近状态栏，未做完整视觉／安全区域验收。
+- 清空后的完整 logcat 未匹配 FATAL EXCEPTION、ANR in、am_anr、am_crash 或 Fatal signal；
+  存在 `vendor.mesa.virtgpu.kumquat` 读取权限警告，不能写成“没有任何警告”。
+- 之后用 `adb emu kill` 正常关闭，再用同一稳定版带窗口启动，约 27 秒再次开机成功，
+  APK 无需重装，MainActivity 冷启动成功（3325 ms）。本机当前保留可见窗口。
+
+提交的文本证据仅规范行尾空白，原始输出保留在 `/tmp/qingke-api37-targetfix-evidence`。
+文档验证 25 项、既有文档及布局测试通过；暂存检查发现日志原始行尾空白后已规范并复验。
+
+提交证据：[启动前后对照](evidence/p1-03-r4-target-fix/startup-comparison.txt)、
+[构建输出](evidence/p1-03-r4-target-fix/build.txt)、
+[设备命令与结果](evidence/p1-03-r4-target-fix/device-validation.txt)、
+[第一次截图](evidence/p1-03-r4-target-fix/cold-start-1.png)、
+[第二次截图](evidence/p1-03-r4-target-fix/cold-start-2.png)、
+[清空后的 logcat](evidence/p1-03-r4-target-fix/logcat.txt)、
+[结构化摘要](evidence/p1-03-r4-target-fix/result.json)。APK SHA256 在设备证据和摘要中。
+
+后续正常启动去掉 `-no-window` 即可，不需要 Android Studio。当前窗口由临时
+`/tmp/com.qingke.api37.verified.plist` 启动，作业 `com.qingke.api37.verified` 不自动重启、
+不安装为登录启动项；停止可用 `adb -s emulator-5586 emu kill`，不要重复启动同一 AVD。
+
+新增文档验证检查真实证据中的两次冷启动、API/ABI、Activity、PID、PNG 尺寸、日志边界
+与 APK 摘要关联。P1-03-R4 环境修复与运行证据仍需独立复审；本窗口没有实施应用代码。
+不将本次最小启动扩展为 A01—A11、存储、通知、内存压力或完整依赖兼容测试通过。
+未知字段策略仍未决定，不自动安排 P2。
+
+
 验证日期：2026-09-08。角色：执行；未启动子 Agent。任务从 `ec236b9` 开始，
 授权提交为 `274f3b9`，分支为 `Android`。本轮仅升级已授权工具链、维护构建／
 验证脚本和中文说明，不进入 P2，不修改 iOS、Web、共享协议、业务规则或应用 Kotlin

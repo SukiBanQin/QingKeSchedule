@@ -1,0 +1,17 @@
+{
+  "base_commit": "4ee8919",
+  "emulator": "37.1.11.0",
+  "avd_target_before": "android-0",
+  "avd_target_after": "android-37",
+  "sdk": 37,
+  "abi": "arm64-v8a",
+  "boot_completed": "1",
+  "apk_sha256": "2bf6b1abdfdb11c479573dc7ceab0dae654a3c7ace70f7fbe1effe8f113d3c4f",
+  "cold_start_pids": [
+    4283,
+    4341
+  ],
+  "app_crash_or_anr_matches": 0,
+  "build_tasks": "70 up-to-date",
+  "test_execution": "本轮复用报告，Debug/Release 各 20 项；未重新执行 JVM 测试"
+}
