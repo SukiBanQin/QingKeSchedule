@@ -732,6 +732,43 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("P2-01 独立复审未通过，等待修正", handoff)
         self.assertIn("当前不得标记 P2-01 已审查通过", handoff)
 
+    def test_p2_01_r1_review_closes_code_issue_but_keeps_device_gate(self):
+        review = (DOCS / "p2-01-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        latest_review = review.split(
+            "## P2-01-R1 重新独立复审结论（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_review = re.sub(r"\s+", " ", latest_review)
+        for marker in (
+            "932f4b5367c641e3d1abc5a5ba1f7286283b2613",
+            "c96658a3a5c8943a820893ff8c46d1079185a0ea",
+            "协程取消修正通过代码复审",
+            "Debug／Release JVM 各 28 项",
+            "0 failures、0 errors、0 skipped",
+            "0 errors",
+            "9 个 warnings",
+            "DeviceException: No connected devices!",
+            "实际 Room 测试数仍为 0",
+            "P2-01 整体仍未达到“已验证／已审查通过”",
+            "没有新的应用代码修正任务",
+            "不进入 P2-02、P3",
+        ):
+            self.assertIn(marker, normalized_review)
+
+        latest_handoff = handoff.split(
+            "## P2-01-R1 代码复审通过，设备门槛仍开放（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest_handoff)
+        for marker in (
+            "P2-01-R1 协程取消修正通过代码复审",
+            "P2-01 整体仍未验证、未审查通过",
+            "实际 Room 集成测试数为 0",
+            "没有修改应用代码",
+            "没有启动子 Agent",
+            "不得进入 P2-02",
+        ):
+            self.assertIn(marker, normalized_handoff)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

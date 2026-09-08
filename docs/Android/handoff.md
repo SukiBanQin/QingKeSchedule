@@ -1,5 +1,30 @@
 # 安卓项目当前交接状态
 
+## P2-01-R1 代码复审通过，设备门槛仍开放（最新，2026-09-09）
+
+分析审查窗口已重新独立复审 `c96658a3a5c8943a820893ff8c46d1079185a0ea`，修正基准为
+`932f4b5367c641e3d1abc5a5ba1f7286283b2613`，详见
+[P2-01 复审记录](p2-01-review.md)首节。实际 diff 与回传的 6 个文件一致，没有越过 R1 授权
+范围；重新获取远端后本地 HEAD、`refs/heads/Android` 和 `origin/Android` 均为 `c96658a`，
+`origin/IOS` 为 `81ae16f`，复审开始工作区干净。本窗口没有修改应用代码，也没有启动子 Agent。
+
+结论：repository 读取取消在普通异常包装前重新抛出；状态加载／保存取消恢复操作前快照并
+重新抛出，不发布 `FAILED`、普通错误或遗留 `isSaving`。状态取消测试在 Debug／Release JVM
+各自实际通过；Room 读取取消和提交前取消回滚测试的源码范围与断言正确。因此
+**P2-01-R1 协程取消修正通过代码复审，无新的应用代码修正项。**
+
+独立使用 API 37 SDK 完成 clean 双变体构建、测试和 lint：112 个任务中 109 executed、
+3 up-to-date，Debug／Release JVM 各 28 项且失败／错误／跳过均为 0；`lintDebug` 为 0 errors，
+当前在线检查为 9 个既有 warnings。独立 `connectedDebugAndroidTest` 仍在设备执行前因
+`DeviceException: No connected devices!` 失败，74 个任务中 33 executed、41 up-to-date，
+实际 Room 集成测试数为 0；指定 SDK 的 `adb devices -l` 为空，也没有运行中的 Emulator／qemu。
+
+所以 P2-01-R2 设备门槛仍开放，**P2-01 整体仍未验证、未审查通过**。当前证据只证明没有连接
+设备，不足以证明此前 HVF／`mprotect` 环境问题仍存在或已经解除；不得把测试 APK 编译当作
+Room 运行通过。后续只需在可用 API 37 ARM64 模拟器或等效 API 37 设备实际运行全部
+`connectedDebugAndroidTest` 并回传测试数量、失败和跳过；未取得该证据前不得进入 P2-02、
+P3，也不得宣称 A09、P2 或完整 App 完成。
+
 ## P2-01-R1 已实施，等待重新独立复审（最新，2026-09-09）
 
 执行窗口仅修正 P2-01 独立复审的协程取消语义，未进入 P2-02、P3 或完整 App。基准为
