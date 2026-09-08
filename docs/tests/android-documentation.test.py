@@ -60,18 +60,21 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("Android", [p.name for p in (ROOT / "docs").iterdir()])
 
     def test_baseline_commit_exists_and_matches_handoff(self):
-        hashes = []
-        for name in ("product-baseline.md", "handoff.md"):
-            found = re.findall(r"`([0-9a-f]{40})`", (DOCS / name).read_text())
-            self.assertEqual(len(found), 1, name)
-            hashes.extend(found)
-        self.assertEqual(hashes[0], hashes[1])
-        subprocess.run(
-            ["git", "cat-file", "-e", hashes[0] + "^{commit}"],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
+        baseline_hashes = re.findall(
+            r"`([0-9a-f]{40})`", (DOCS / "product-baseline.md").read_text()
         )
+        self.assertEqual(len(baseline_hashes), 1)
+        handoff_hashes = re.findall(
+            r"`([0-9a-f]{40})`", (DOCS / "handoff.md").read_text()
+        )
+        self.assertIn(baseline_hashes[0], handoff_hashes)
+        for commit_hash in set(handoff_hashes):
+            subprocess.run(
+                ["git", "cat-file", "-e", commit_hash + "^{commit}"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+            )
 
     def test_acceptance_and_phase_ids_are_unique_and_complete(self):
         baseline = (DOCS / "product-baseline.md").read_text()
@@ -575,7 +578,9 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(field, task)
 
-        current = "\n".join(handoff.splitlines()[:45])
+        current = handoff.split(
+            "## P1-04 未知字段复审状态", 1
+        )[1].split("\n## ", 1)[0]
         self.assertIn("P1-04 已从基准", current)
         self.assertIn("实施完成", current)
         self.assertIn("独立专项复审通过", current)
@@ -617,6 +622,36 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(name, tests)
         for case in ("period-unknown", "course-unknown", "course-schedule-unknown"):
             self.assertIn(case, probe)
+
+
+    def test_analysis_role_handoff_records_safe_p2_01_boundary(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        current = handoff.split(
+            "## 分析审查窗口切换状态（最新，2026-09-08）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_current = re.sub(r"\s+", " ", current)
+        for marker in (
+            "6f5258c15cb7df3b4b31b4eb818161bdd98036fc",
+            "81ae16f7f4ddc9acd51c67ffb8f66482c6d3d587",
+            "当前分支 `Android`",
+            "P1 已完成独立审查并获用户确认",
+            "P2 已获授权",
+            "P2 尚无应用实施提交",
+            "P2-01",
+            "不授权分析窗口修改应用代码",
+            "没有启动子 Agent",
+            "没有发现连接中的 Android 设备",
+            "没有发现正在运行的 Gradle",
+            "D01、D03 和正式发行范围仍未决定",
+        ):
+            self.assertIn(marker, normalized_current)
+        self.assertIn("不提前实施页面、导入导出、通知或发布能力", normalized_current)
+        subprocess.run(
+            ["git", "cat-file", "-e", "6f5258c^{commit}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
 
 
 if __name__ == "__main__":
