@@ -11,6 +11,7 @@ import com.qingke.schedule.domain.ScheduleValidator
 import com.qingke.schedule.domain.Semester
 import java.time.Clock
 import java.time.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -18,6 +19,7 @@ class RoomScheduleRepository(
     internal val database: ScheduleDatabase,
     private val clock: Clock = Clock.systemUTC(),
     private val beforeCommit: suspend () -> Unit = {},
+    private val beforeRead: suspend () -> Unit = {},
 ) : ScheduleRepository {
     private val mutex = Mutex()
     private val dao get() = database.scheduleDao()
@@ -63,6 +65,7 @@ class RoomScheduleRepository(
 
     private suspend fun read(): ScheduleData {
         try {
+            beforeRead()
             val metadata = dao.metadata(); val semesters = dao.semesters(); val periods = dao.periods(); val courses = dao.courses()
             if (metadata.isEmpty() && semesters.isEmpty() && periods.isEmpty() && courses.isEmpty()) return empty()
             if (metadata.size != 1 || semesters.size > 1 || metadata.firstOrNull()?.slot != 1) inconsistent("元数据缺失或重复")
@@ -76,6 +79,7 @@ class RoomScheduleRepository(
             }
             val data = ScheduleData(meta.schemaVersion, semester, mappedCourses, meta.updatedAt)
             validate(data); return data
+        } catch (error: CancellationException) { throw error
         } catch (error: ScheduleRepositoryException) { throw error
         } catch (error: Throwable) { throw ScheduleRepositoryException.InconsistentStore("读取失败", error) }
     }

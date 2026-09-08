@@ -8,6 +8,7 @@ import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.persistence.ScheduleRepository
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -43,6 +44,14 @@ class ScheduleAppStateTest {
         assertNull(state.state.value.error)
     }
 
+    @Test fun cancelledLoadPropagatesAndRestoresPreviousState() = runTest {
+        val state = ScheduleAppState(FakeRepository(data = fixture()).also { it.cancelLoad = true })
+        assertThrowsCancellation { state.load() }
+        assertEquals(LoadStatus.NOT_LOADED, state.state.value.loadStatus)
+        assertEquals(emptyData(), state.state.value.data)
+        assertNull(state.state.value.error)
+    }
+
     @Test fun successfulWritePublishesReturnedSnapshotWithoutSecondLoad() = runTest {
         val returned = fixture().copy(updatedAt = "2026-01-02T00:00:00Z")
         val repository = FakeRepository(data = fixture()).also { it.replaceResult = returned }
@@ -64,6 +73,17 @@ class ScheduleAppStateTest {
         state.clearError(); assertNull(state.state.value.error)
     }
 
+    @Test fun cancelledWritePropagatesWithoutPublishingAnError() = runTest {
+        val original = fixture()
+        val state = ScheduleAppState(FakeRepository(data = original).also { it.cancelWrites = true })
+        state.load()
+        assertThrowsCancellation { state.replace(emptyData()) }
+        assertEquals(original, state.state.value.data)
+        assertEquals(LoadStatus.READY, state.state.value.loadStatus)
+        assertFalse(state.state.value.isSaving)
+        assertNull(state.state.value.error)
+    }
+
     @Test fun concurrentWritesAreSerialized() = runTest {
         val repository = FakeRepository(data = fixture()).also { it.delayWrites = true }
         val state = ScheduleAppState(repository); state.load()
@@ -77,23 +97,35 @@ class ScheduleAppStateTest {
     private class FakeRepository(var data: ScheduleData) : ScheduleRepository {
         var failLoad = false
         var failWrites = false
+        var cancelLoad = false
+        var cancelWrites = false
         var delayWrites = false
         var replaceResult: ScheduleData? = null
         val loadCalls = AtomicInteger()
         val maxConcurrentWrites = AtomicInteger()
         private val concurrentWrites = AtomicInteger()
-        override suspend fun load(): ScheduleData { loadCalls.incrementAndGet(); if (failLoad) error("load failed"); return data }
+        override suspend fun load(): ScheduleData { loadCalls.incrementAndGet(); if (cancelLoad) throw CancellationException("load cancelled"); if (failLoad) error("load failed"); return data }
         override suspend fun replace(data: ScheduleData): ScheduleData = write { replaceResult ?: data }
         override suspend fun saveSemester(semester: Semester): ScheduleData = write { data.copy(semester = semester) }
         override suspend fun saveCourse(course: Course): ScheduleData = write { data.copy(courses = data.courses + course) }
         override suspend fun deleteCourse(id: String): ScheduleData = write { data.copy(courses = data.courses.filterNot { it.id == id }) }
         private suspend fun write(block: () -> ScheduleData): ScheduleData {
+            if (cancelWrites) throw CancellationException("write cancelled")
             if (failWrites) error("write failed")
             val running = concurrentWrites.incrementAndGet(); maxConcurrentWrites.updateAndGet { maxOf(it, running) }
             if (delayWrites) delay(10)
             return block().also { data = it; concurrentWrites.decrementAndGet() }
         }
     }
+}
+
+private inline fun assertThrowsCancellation(block: () -> Unit) {
+    try {
+        block()
+    } catch (_: CancellationException) {
+        return
+    }
+    throw AssertionError("Expected CancellationException")
 }
 
 private fun emptyData() = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00.000Z")

@@ -13,6 +13,7 @@ import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -53,10 +54,36 @@ class RoomScheduleRepositoryTest {
         assertEquals("2026-01-03T00:00:00Z", result.updatedAt)
     }
 
-    private fun repository(file: File?, beforeCommit: suspend () -> Unit = {}): RoomScheduleRepository {
+    @Test fun cancellationPropagatesFromReadAndRollsBackWrite() = runBlocking {
+        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-cancellation-${System.nanoTime()}.db")
+        val stable = data()
+        val repository = repository(file)
+        repository.replace(stable)
+
+        val readCancelled = repository(file, beforeRead = { throw CancellationException("read cancelled") })
+        assertThrows(CancellationException::class.java) { runBlocking { readCancelled.load() } }
+
+        val writeCancelled = repository(file, beforeCommit = { throw CancellationException("write cancelled") })
+        assertThrows(CancellationException::class.java) { runBlocking { writeCancelled.replace(stable.copy(updatedAt = "2026-01-02T00:00:00Z")) } }
+        repository.database.close(); readCancelled.database.close(); writeCancelled.database.close()
+        val reopened = repository(file)
+        assertEquals(stable, reopened.load())
+        reopened.database.close(); file.delete()
+    }
+
+    private fun repository(
+        file: File?,
+        beforeCommit: suspend () -> Unit = {},
+        beforeRead: suspend () -> Unit = {},
+    ): RoomScheduleRepository {
         val builder = if (file == null) Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ScheduleDatabase::class.java) else Room.databaseBuilder(ApplicationProvider.getApplicationContext(), ScheduleDatabase::class.java, file.absolutePath)
         val database = builder.allowMainThreadQueries().build()
-        return RoomScheduleRepository(database, Clock.fixed(Instant.parse("2026-01-03T00:00:00Z"), ZoneOffset.UTC), beforeCommit)
+        return RoomScheduleRepository(
+            database = database,
+            clock = Clock.fixed(Instant.parse("2026-01-03T00:00:00Z"), ZoneOffset.UTC),
+            beforeCommit = beforeCommit,
+            beforeRead = beforeRead,
+        )
     }
 }
 

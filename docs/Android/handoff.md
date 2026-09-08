@@ -1,5 +1,30 @@
 # 安卓项目当前交接状态
 
+## P2-01-R1 已实施，等待重新独立复审（最新，2026-09-09）
+
+执行窗口仅修正 P2-01 独立复审的协程取消语义，未进入 P2-02、P3 或完整 App。基准为
+`932f4b5367c641e3d1abc5a5ba1f7286283b2613`，开始工作区干净。`RoomScheduleRepository.read` 在
+包装普通读取异常前显式重新抛出 `CancellationException`；`ScheduleAppState.load` 与写入边界在
+取消时恢复操作前快照并重新抛出取消，不发布 `FAILED`、普通 `error` 或遗留 `isSaving` 状态。
+新增的状态 JVM 测试覆盖加载／写入取消传播和无误导状态；Room Android 集成测试新增可控读取取消与
+事务提交前取消，断言取消原样传播且重新打开数据库仍为旧快照。原有事务、重复 ID、显式顺序、
+损坏数据及成功写入不二次读取语义未改。
+
+本机使用临时 `ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37` 完成
+`clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug`；Gradle 记录为
+`BUILD SUCCESSFUL in 48s`。Debug／Release JVM 各 28 项（共 56 项）均为 0 failures／0 errors／0 skipped；
+`lintDebug` 为 0 errors、7 个既有 warnings。`python3 docs/tests/android-documentation.test.py`（30 项）、
+`bash docs/tests/documentation.test.sh`、`bash docs/tests/repository-layout.test.sh` 及 `git diff --check`
+均已通过。
+
+`connectedDebugAndroidTest` 已重新执行，测试 APK 74 个任务中完成 34 个、40 个 up-to-date，但因
+`DeviceException: No connected devices!` 在设备执行前失败，没有运行 Room 集成用例。随后
+`adb devices -l` 为空；SDK 可列出 `qingke-api37-r3-arm` 等 AVD，但没有正在运行的 Emulator。
+此前 API 37 ARM64 宿主的 HVF／`qemu_mprotect__osdep`／ADB offline 限制仍未解除；本轮完整命令和
+现场证据见 [P2-01-R1 connected 测试证据](evidence/p2-01-r1-connected-debug-android-test-20260909.txt)。
+因此不得将设备集成测试、P2-01、A09 或 P2 标记为已验证／已审查通过。完成本轮文档验证、提交和推送后，
+必须回交分析审查窗口复审实际 diff、取消测试和设备限制。
+
 ## P2-01 独立复审未通过，等待修正（最新，2026-09-09）
 
 本窗口已独立复审提交 `39eeaa3529aa761174ff6c4f3c7fcd38edb06d6f`（范围

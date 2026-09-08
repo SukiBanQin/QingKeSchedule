@@ -5,6 +5,7 @@ import com.qingke.schedule.domain.SUPPORTED_SCHEMA_VERSION
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.persistence.ScheduleRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,9 +29,13 @@ class ScheduleAppState(private val repository: ScheduleRepository) {
     val state: StateFlow<ScheduleState> = mutableState.asStateFlow()
 
     suspend fun load() {
+        val previous = mutableState.value
         mutableState.value = mutableState.value.copy(loadStatus = LoadStatus.LOADING, error = null)
         try {
             mutableState.value = mutableState.value.copy(data = repository.load(), loadStatus = LoadStatus.READY, error = null)
+        } catch (error: CancellationException) {
+            mutableState.value = previous
+            throw error
         } catch (error: Throwable) {
             mutableState.value = mutableState.value.copy(loadStatus = LoadStatus.FAILED, error = message(error))
         }
@@ -44,9 +49,13 @@ class ScheduleAppState(private val repository: ScheduleRepository) {
 
     private suspend fun save(block: suspend () -> ScheduleData) = writeMutex.withLock {
         check(mutableState.value.loadStatus == LoadStatus.READY) { "课表尚未加载" }
+        val previous = mutableState.value
         mutableState.value = mutableState.value.copy(isSaving = true, error = null)
         try {
             mutableState.value = mutableState.value.copy(data = block(), isSaving = false, error = null)
+        } catch (error: CancellationException) {
+            mutableState.value = previous
+            throw error
         } catch (error: Throwable) {
             mutableState.value = mutableState.value.copy(isSaving = false, error = message(error))
         }

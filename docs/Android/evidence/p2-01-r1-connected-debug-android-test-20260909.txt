@@ -1,0 +1,38 @@
+P2-01-R1 connectedDebugAndroidTest 重新尝试证据
+日期：2026-09-09
+分支／基准：Android / 932f4b5367c641e3d1abc5a5ba1f7286283b2613
+
+执行环境：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+执行命令：
+cd Android
+./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果摘要：
+- Android app 和 debug Android test APK 均完成编译及打包。
+- :app:connectedDebugAndroidTest FAILED。
+- 74 actionable tasks：34 executed，40 up-to-date。
+- 未启动任何设备测试；没有可报告的测试数量、失败数量或跳过数量。
+
+Gradle 失败原文：
+Execution failed for task ':app:connectedDebugAndroidTest'
+> com.android.builder.testing.api.DeviceException: No connected devices!
+
+执行后现场检查：
+cd ..
+/Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb devices -l
+
+输出：
+List of devices attached
+
+可用 AVD 清单：
+- qingke-api35-arm
+- qingke-api35
+- qingke-api37-r3-arm
+- qingke-api371-ps16k-arm
+
+现场没有运行中的 emulator 或 qemu-system 进程。此前记录的 API 37 ARM64 宿主限制
+（HVF 未启用、qemu mprotect Permission denied、ADB offline）尚无解除证据；本轮只确认当前
+没有已连接设备，不能将 APK 编译当作 Room 设备集成测试通过。
