@@ -35,7 +35,13 @@ def missing_links(path, contents):
 
 class AndroidDocumentationTests(unittest.TestCase):
     def test_required_documents_and_local_references(self):
-        for name in (*NAMES, REVIEW_NAME, "d02-toolchain-review.md", "p1-03-review.md"):
+        for name in (
+            *NAMES,
+            REVIEW_NAME,
+            "d02-toolchain-review.md",
+            "p1-03-review.md",
+            "p1-04-unknown-fields.md",
+        ):
             with self.subTest(document=name):
                 path = DOCS / name
                 self.assertTrue(path.is_file(), name)
@@ -123,7 +129,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, review)
         for document in NAMES:
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
-        self.assertIn("P1 仍未完成", handoff)
+        self.assertIn("P1 尚未关闭", handoff)
         self.assertIn("首轮已审查，结论未通过", handoff)
         self.assertIn("不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
@@ -146,7 +152,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in ("3924d26", "各 21 项", "R1/R2/R3 修正通过", "无连接设备", "P1-02"):
             self.assertIn(marker, review)
         self.assertIn("bef808b", handoff)
-        self.assertIn("P1 仍未完成", handoff)
+        self.assertIn("P1 尚未关闭", handoff)
         self.assertNotIn("已提交待复审", plan)
         self.assertNotIn("未审查修正代码", handoff)
 
@@ -262,7 +268,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt",
             "Android/app/src/test/java/com/qingke/schedule/transfer/ScheduleDataDecoderTest.kt",
         ])
-        self.assertIn("P1-01-R2 已复审通过", handoff)
+        self.assertIn("P1-01-R2", handoff)
         self.assertIn("P1-01 的已授权工程、规则和版本 1 契约基础范围通过", plan)
         self.assertIn("`Android`", handoff)
         self.assertIn("`c11bd2b`", handoff)
@@ -286,7 +292,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "lintDebug", "不进入 P2",
         ):
             self.assertIn(marker, authorized)
-        self.assertIn("P1-03 工具链和主机侧验证已经复审", review)
+        self.assertIn("P1-03-R4 已通过独立复审", review)
         self.assertIn("不表示候选组合已经成功构建", d02)
 
     def test_p1_03_execution_record_preserves_review_and_device_gate(self):
@@ -304,8 +310,8 @@ class AndroidDocumentationTests(unittest.TestCase):
             "未执行 APK 安装", "独立专项复审", "不进入 P2",
         ):
             self.assertIn(marker, record)
-        self.assertIn("P1-03 验证记录", handoff)
-        self.assertIn("当前环境限制", handoff)
+        self.assertIn("p1-03-validation.md", handoff)
+        self.assertIn("P1-03 授权范围完成", handoff)
         self.assertIn("system-images;android-37.0;google_apis;arm64-v8a", evidence)
         self.assertIn("sys.boot_completed", evidence)
         self.assertEqual(missing_links(DOCS / "p1-03-validation.md", record), [])
@@ -328,8 +334,8 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertIn("Android 17（targetSdk 37）行为适用性", readme)
         self.assertIn("sys.boot_completed", readme)
-        self.assertIn("P1-03-R2", handoff)
-        self.assertIn("设备门槛仍未满足", handoff)
+        self.assertIn("P1-03-R4", handoff)
+        self.assertIn("设备运行门槛均已通过专项复审", handoff)
 
     def test_p1_03_special_review_records_scope_evidence_and_correction_gate(self):
         review = (DOCS / "p1-03-review.md").read_text()
@@ -410,8 +416,8 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertNotIn("唯一直接相关", contents)
         for marker in ("emulator-5558", "只尝试了一次", "sys.boot_completed", "未安装 Debug APK"):
             self.assertIn(marker, evidence)
-        self.assertIn("P1-03-R2", handoff)
-        self.assertIn("设备门槛仍未满足", handoff)
+        self.assertIn("P1-03-R4", handoff)
+        self.assertIn("设备运行门槛均已通过专项复审", handoff)
 
     def test_p1_03_r2_review_accepts_boundaries_and_keeps_device_gate(self):
         review = (DOCS / "p1-03-review.md").read_text()
@@ -454,10 +460,12 @@ class AndroidDocumentationTests(unittest.TestCase):
         handoff = (DOCS / "handoff.md").read_text()
         validation = (DOCS / "p1-03-validation.md").read_text()
         evidence = (DOCS / "evidence/p1-03-r3-api37-persistent-sdk-attempt-20260908.txt").read_text()
-        for contents in (handoff, validation, evidence):
+        for contents in (validation, evidence):
             self.assertIn("P1-03-R3", contents)
             self.assertIn("sys.boot_completed", contents)
             self.assertIn("不进入 P2", contents)
+        self.assertIn("P1-03-R4", handoff)
+        self.assertIn("API 37 模拟器环境阻塞已解除", handoff)
         for marker in (
             "sdk-qingke-api37", "Emulator：37.1.11.0", "revision 6",
             "-no-snapshot -no-window -gpu software", "mprotect failed",
@@ -477,7 +485,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "API 37 ARM64 真机或另一台可正常完成 API 37 开机的宿主",
         ):
             self.assertIn(marker, review)
-        self.assertIn("P1-03-R3 提交 `23743be`", handoff)
+        self.assertIn("R3 环境失败记录 `23743be`", handoff)
         self.assertIn("不进入 P2", handoff)
 
 
@@ -536,6 +544,46 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("P1-03 授权范围完成", current)
             self.assertIn("不进入 P2", current)
             self.assertNotIn("待独立复审", current)
+
+    def test_p1_04_records_strict_unknown_field_decision_and_scope(self):
+        task = (DOCS / "p1-04-unknown-fields.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        normalized_task = re.sub(r"\s+", " ", task)
+
+        for marker in (
+            "用户确认版本 1 课表 JSON 采用严格未知字段策略",
+            "additionalProperties: false",
+            "ScheduleDataTransfer.previewImport",
+            "ScheduleDataTransferError.malformedFile",
+            "unsupportedSchemaVersion",
+            "顶层以及学期、节次、",
+            "课程和课程安排对象",
+            "不进入 P2",
+        ):
+            self.assertIn(marker, normalized_task)
+        for field in (
+            "schemaVersion", "totalWeeks", "periods", "schedules",
+            "startPeriod", "endWeek", "classroom",
+        ):
+            self.assertIn(field, task)
+
+        current = "\n".join(handoff.splitlines()[:25])
+        self.assertIn("P1-04 已获实施授权", current)
+        self.assertIn("两端严格拒绝", handoff)
+        for contents in (plan, baseline, design):
+            self.assertIn("P1-04", contents)
+            self.assertIn("严格拒绝", contents)
+            self.assertIn("不进入 P2", contents)
+
+        decoder = (
+            ROOT / "Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt"
+        ).read_text()
+        schema = (ROOT / "ios/Shared/schedule-data.schema.json").read_text()
+        self.assertIn("ignoreUnknownKeys = false", decoder)
+        self.assertGreaterEqual(schema.count('"additionalProperties": false'), 5)
 
 
 if __name__ == "__main__":
