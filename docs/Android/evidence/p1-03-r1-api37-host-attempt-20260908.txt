@@ -1,0 +1,29 @@
+P1-03-R1 API 37 ARM64 宿主 Terminal 启动尝试（2026-09-08）
+
+目的：避开此前由受限执行进程启动 AVD 时出现的 HVF／QEMU 内存保护错误，改用宿主
+Terminal 正常启动同一 API 37 ARM64 AVD；不改变 Android 工程或 AVD 配置。
+
+SDK：/tmp/qingke-api37-sdk-iJNEtV
+AVD 根目录：/tmp/qingke-api37-avd-2BJSGW
+AVD：qingke-api37-arm
+system image：system-images;android-37.0;google_apis;arm64-v8a revision 6
+启动命令：
+
+ANDROID_AVD_HOME=/tmp/qingke-api37-avd-2BJSGW \
+  /tmp/qingke-api37-sdk-iJNEtV/emulator/emulator \
+  -avd qingke-api37-arm -port 5556 -no-snapshot -wipe-data
+
+ADB 观察结果：
+
+1. 启动后先出现：emulator-5556 offline。
+2. 随后 adb -s emulator-5556 get-state 返回 device。
+3. adb -s emulator-5556 shell getprop ro.build.version.sdk 返回 37。
+4. adb -s emulator-5556 shell getprop ro.product.cpu.abi 返回 arm64-v8a。
+5. 同一时刻 sys.boot_completed 为空，不是要求的 1。
+6. 后续轮询前该 AVD/QEMU 进程已退出，adb devices 不再列出 emulator-5556。
+
+结论：该宿主启动方式没有重现原先的 hvf is not enabled 或
+qemu_mprotect__osdep: mprotect failed: Permission denied 文本，但也没有完成 API 37
+开机。没有设备满足 sys.boot_completed=1，因此没有安装 APK、执行两次冷启动、取得
+MainActivity／进程／截图或清空后的应用 logcat。API 35 的既有运行设备没有被使用，
+也不能替代本次 API 37 设备门槛。

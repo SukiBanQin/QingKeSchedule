@@ -311,6 +311,24 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("intermediates/built_in_kotlinc", probe)
         self.assertIn("kotlin-stdlib/2.2.10", probe)
 
+    def test_p1_03_r1_records_target_behavior_and_unmet_device_gate(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        validation = (DOCS / "p1-03-validation.md").read_text()
+        readme = (ROOT / "Android/README.md").read_text()
+        evidence = (DOCS / "evidence/p1-03-r1-api37-host-attempt-20260908.txt").read_text()
+        for marker in (
+            "P1-03-R1", "全部应用行为变化", "目标 Android 17 的行为变化",
+            "sys.boot_completed", "未安装 APK", "两次冷启动", "不进入 P2",
+            "targetSdk 37", "大屏方向", "RemoteViews", "局域网权限",
+        ):
+            self.assertIn(marker, validation)
+        for marker in ("ro.build.version.sdk 返回 37", "arm64-v8a", "不再列出 emulator-5556"):
+            self.assertIn(marker, evidence)
+        self.assertIn("Android 17（targetSdk 37）行为适用性", readme)
+        self.assertIn("sys.boot_completed", readme)
+        self.assertIn("P1-03-R1", handoff)
+        self.assertIn("设备门槛仍未满足", handoff)
+
     def test_p1_03_special_review_records_scope_evidence_and_correction_gate(self):
         review = (DOCS / "p1-03-review.md").read_text()
         handoff = (DOCS / "handoff.md").read_text()
