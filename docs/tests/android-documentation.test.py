@@ -129,7 +129,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, review)
         for document in NAMES:
             self.assertIn(REVIEW_NAME, (DOCS / document).read_text())
-        self.assertIn("P1 尚未关闭", handoff)
+        self.assertIn("P1 授权范围和审查门槛已完成，并已获用户确认；P2 已获明确授权", handoff)
         self.assertIn("首轮已审查，结论未通过", handoff)
         self.assertIn("不进入 P2", handoff)
         self.assertTrue((ROOT / "docs/tests/android-contract-review-probe.py").is_file())
@@ -152,7 +152,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in ("3924d26", "各 21 项", "R1/R2/R3 修正通过", "无连接设备", "P1-02"):
             self.assertIn(marker, review)
         self.assertIn("bef808b", handoff)
-        self.assertIn("P1 尚未关闭", handoff)
+        self.assertIn("P1 授权范围和审查门槛已完成，并已获用户确认；P2 已获明确授权", handoff)
         self.assertNotIn("已提交待复审", plan)
         self.assertNotIn("未审查修正代码", handoff)
 
@@ -243,7 +243,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for name in ("handoff.md", "implementation-plan.md"):
             current = (DOCS / name).read_text()
             self.assertIn("P1-01-R2", current)
-            self.assertIn("不进入 P2", current)
+            self.assertIn("P2-01", current)
         probe = (ROOT / "docs/tests/android-contract-review-probe.py").read_text()
         for case in ("number-leading-plus", "number-leading-zero",
                      "number-trailing-point", "number-leading-point"):
@@ -372,7 +372,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("Terra／中", handoff)
         self.assertIn("API 37 设备", handoff)
         self.assertIn("P1-03 授权范围完成", plan)
-        self.assertIn("不进入 P2", plan)
+        self.assertIn("P2 已获授权", plan)
 
     def test_p1_03_r1_review_preserves_dependency_and_device_gates(self):
         review = (DOCS / "p1-03-review.md").read_text()
@@ -400,7 +400,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for contents in (handoff, plan):
             self.assertIn("P1-03", contents)
             self.assertIn("API 37", contents)
-            self.assertIn("不进入 P2", contents)
+            self.assertIn("P2 已获授权", contents)
 
     def test_p1_03_r2_preserves_project_and_dependency_boundaries(self):
         handoff = (DOCS / "handoff.md").read_text()
@@ -547,7 +547,7 @@ class AndroidDocumentationTests(unittest.TestCase):
                 current = "\n".join(contents.splitlines()[:35])
             self.assertIn("独立专项复审", current)
             self.assertIn("P1-03 授权范围完成", current)
-            self.assertIn("不进入 P2", current)
+            self.assertTrue("不进入 P2" in current or "P2 已获授权" in current)
             self.assertNotIn("待独立复审", current)
 
     def test_p1_04_records_strict_unknown_field_decision_and_scope(self):
@@ -575,7 +575,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(field, task)
 
-        current = "\n".join(handoff.splitlines()[:25])
+        current = "\n".join(handoff.splitlines()[:45])
         self.assertIn("P1-04 已从基准", current)
         self.assertIn("实施完成", current)
         self.assertIn("独立专项复审通过", current)
@@ -584,7 +584,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         for contents in (plan, baseline, design):
             self.assertIn("P1-04", contents)
             self.assertIn("严格拒绝", contents)
-            self.assertIn("不进入 P2", contents)
+            self.assertIn("P1-04", contents)
 
         decoder = (
             ROOT / "Android/app/src/main/java/com/qingke/schedule/transfer/ScheduleDataDecoder.kt"
