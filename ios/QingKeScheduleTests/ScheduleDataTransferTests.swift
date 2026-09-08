@@ -55,6 +55,82 @@ struct ScheduleDataTransferTests {
         }
     }
 
+    @Test("拒绝顶层未知字段")
+    func rejectsUnknownTopLevelField() throws {
+        try expectMalformedImport { root in
+            root["unexpected"] = true
+        }
+    }
+
+    @Test("拒绝学期未知字段")
+    func rejectsUnknownSemesterField() throws {
+        try expectMalformedImport { root in
+            var semester = try #require(root["semester"] as? [String: Any])
+            semester["unexpected"] = true
+            root["semester"] = semester
+        }
+    }
+
+    @Test("拒绝节次未知字段")
+    func rejectsUnknownPeriodField() throws {
+        try expectMalformedImport { root in
+            var semester = try #require(root["semester"] as? [String: Any])
+            var periods = try #require(semester["periods"] as? [[String: Any]])
+            periods[0]["unexpected"] = true
+            semester["periods"] = periods
+            root["semester"] = semester
+        }
+    }
+
+    @Test("拒绝课程未知字段")
+    func rejectsUnknownCourseField() throws {
+        try expectMalformedImport { root in
+            var courses = try #require(root["courses"] as? [[String: Any]])
+            courses[0]["unexpected"] = true
+            root["courses"] = courses
+        }
+    }
+
+    @Test("拒绝课程安排未知字段")
+    func rejectsUnknownCourseScheduleField() throws {
+        try expectMalformedImport { root in
+            var courses = try #require(root["courses"] as? [[String: Any]])
+            var schedules = try #require(courses[0]["schedules"] as? [[String: Any]])
+            schedules[0]["unexpected"] = true
+            courses[0]["schedules"] = schedules
+            root["courses"] = courses
+        }
+    }
+
+    @Test("空学期和有效完整输入继续接受")
+    func acceptsNullSemesterAndCompleteInput() throws {
+        let empty = try ScheduleDataTransfer.previewImport(
+            contents: SharedFixtureLoader.data(named: "empty-schedule.json"),
+            calendar: calendar
+        )
+        let complete = try ScheduleDataTransfer.previewImport(
+            contents: SharedFixtureLoader.data(named: "complete-schedule.json"),
+            calendar: calendar
+        )
+
+        #expect(empty.data.semester == nil)
+        #expect(empty.courseCount == 0)
+        #expect(complete.data.semester != nil)
+        #expect(complete.courseCount > 0)
+    }
+
+    @Test("不支持版本优先于未知字段")
+    func unsupportedVersionKeepsErrorPriority() throws {
+        let contents = try mutatedCompleteSchedule { root in
+            root["schemaVersion"] = 2
+            root["unexpected"] = true
+        }
+
+        #expect(throws: ScheduleDataTransferError.unsupportedSchemaVersion(2)) {
+            try ScheduleDataTransfer.previewImport(contents: contents, calendar: calendar)
+        }
+    }
+
     @Test("iOS 导出保持共享协议、文件名且不包含专属设置")
     func exportsSharedContract() throws {
         let fixture = try SharedFixtureLoader.scheduleData(named: "web-export.json")
@@ -153,5 +229,26 @@ struct ScheduleDataTransferTests {
         #expect(state.importFailure == nil)
         #expect(state.importStatusMessage == "已导入 6 门课程")
         #expect(state.courses.count == 6)
+    }
+
+    private func expectMalformedImport(
+        mutate: (inout [String: Any]) throws -> Void
+    ) throws {
+        let contents = try mutatedCompleteSchedule(mutate: mutate)
+        #expect(throws: ScheduleDataTransferError.malformedFile) {
+            try ScheduleDataTransfer.previewImport(contents: contents, calendar: calendar)
+        }
+    }
+
+    private func mutatedCompleteSchedule(
+        mutate: (inout [String: Any]) throws -> Void
+    ) throws -> Data {
+        var root = try #require(
+            JSONSerialization.jsonObject(
+                with: SharedFixtureLoader.data(named: "complete-schedule.json")
+            ) as? [String: Any]
+        )
+        try mutate(&root)
+        return try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
     }
 }
