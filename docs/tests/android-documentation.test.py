@@ -292,7 +292,8 @@ class AndroidDocumentationTests(unittest.TestCase):
             "lintDebug", "不进入 P2",
         ):
             self.assertIn(marker, authorized)
-        self.assertIn("P1-03-R4 已通过独立复审", review)
+        self.assertIn("P1-03-R4", review)
+        self.assertIn("P1-04 均已通过独立复审", review)
         self.assertIn("不表示候选组合已经成功构建", d02)
 
     def test_p1_03_execution_record_preserves_review_and_device_gate(self):
