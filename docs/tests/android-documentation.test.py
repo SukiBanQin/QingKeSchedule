@@ -709,9 +709,28 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, re.sub(r"\s+", " ", current))
 
-        self.assertIn("P2-01 已分析、待执行", plan)
+        self.assertTrue(
+            "P2-01 已分析、待执行" in plan
+            or "P2-01 已实施但独立复审未通过" in plan
+        )
         self.assertIn("p2-01-persistence-state.md", plan)
         self.assertIn("p2-01-persistence-state.md", design)
+
+    def test_p2_01_review_keeps_cancellation_and_device_gates_open(self):
+        review = (DOCS / "p2-01-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        for marker in (
+            "独立复审未通过",
+            "CancellationException",
+            "catch (Throwable)",
+            "connectedDebugAndroidTest",
+            "hvf is not enabled on this aarch64 host",
+            "qemu_mprotect__osdep: mprotect failed: Permission denied",
+            "不得进入",
+        ):
+            self.assertIn(marker, review)
+        self.assertIn("P2-01 独立复审未通过，等待修正", handoff)
+        self.assertIn("当前不得标记 P2-01 已审查通过", handoff)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,22 @@
 # 安卓项目当前交接状态
 
+## P2-01 独立复审未通过，等待修正（最新，2026-09-09）
+
+本窗口已独立复审提交 `39eeaa3529aa761174ff6c4f3c7fcd38edb06d6f`（范围
+`6f5258c..39eeaa3`）。Room schema、事务替换、重复 ID／顺序设计、StateFlow 不二次读取以及
+主机侧 JVM／文档验证大体符合 P2-01 范围，但复审未通过，详见 [P2-01 独立复审记录](p2-01-review.md)。
+
+必须先修正两项：
+
+1. `RoomScheduleRepository` 与 `ScheduleAppState` 的 `catch (Throwable)` 会吞掉
+   `CancellationException`，把协程取消误报为存储／状态失败；需要显式传播取消并补充取消测试。
+2. `connectedDebugAndroidTest` 尚未成功运行。API 37 ARM64 AVD 受宿主
+   `hvf is not enabled on this aarch64 host`、`qemu_mprotect__osdep: mprotect failed: Permission denied`
+   和 ADB `offline` 限制，当前只有测试 APK 编译证据，没有真实 Room 运行证据。
+
+当前不得标记 P2-01 已审查通过，不得进入 P2-02、P3 或宣称 A09／P2／完整 App 完成。修正建议为
+Terra／中；修正后回到本分析窗口复审。当前本地 HEAD 与 `origin/Android` 均为 `39eeaa3`，工作区干净。
+
 ## P2-01 执行完成，待独立审查（最新，2026-09-09）
 
 执行窗口在用户授权范围内完成 P2-01“持久化基础与状态边界”实施。开始前已读取
