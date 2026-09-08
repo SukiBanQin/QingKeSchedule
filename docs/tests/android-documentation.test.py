@@ -41,6 +41,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "d02-toolchain-review.md",
             "p1-03-review.md",
             "p1-04-unknown-fields.md",
+            "p2-01-persistence-state.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -652,6 +653,65 @@ class AndroidDocumentationTests(unittest.TestCase):
             check=True,
             capture_output=True,
         )
+
+    def test_p2_01_analysis_defines_atomic_storage_and_state_contract(self):
+        task = (DOCS / "p2-01-persistence-state.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        normalized = re.sub(r"\s+", " ", task)
+
+        for marker in (
+            "cba042bc68cb6254c9410fc9f84c6767bc6715e9",
+            "81ae16f7f4ddc9acd51c67ffb8f66482c6d3d587",
+            "P2-01 尚未实现、测试或审查",
+            "`androidx.room` 2.8.4",
+            "KSP 2.3.11",
+            "ScheduleRepository",
+            "已经提交的完整 `ScheduleData` 快照",
+            "返回即已提交，抛错即事务未提交",
+            "replace",
+            "saveSemester",
+            "saveCourse",
+            "deleteCourse",
+            "NotLoaded",
+            "Loading",
+            "Ready",
+            "Failed",
+            "StateFlow",
+            "API 37 Room 集成测试",
+            "connectedDebugAndroidTest",
+            "必须由分析审查窗口进行独立审查",
+        ):
+            self.assertIn(marker, normalized)
+
+        for boundary in (
+            "不得通过 DTO ID 唯一索引",
+            "删除也只 删除首个匹配项",
+            "状态层不得在成功写入后再额外 `load`",
+            "不得 自动返回默认课表",
+            "不实现 DataStore",
+            "不修改 `MainActivity` 的页面内容",
+            "不修改 iOS、Web、共享 schema／fixtures",
+            "不自动开始其余 P2 子任务、P3 或后续阶段",
+        ):
+            self.assertIn(boundary, normalized)
+
+        current = handoff.split(
+            "## P2-01 分析完成与执行边界（最新，2026-09-08）", 1
+        )[1].split("\n## ", 1)[0]
+        for marker in (
+            "P2-01 尚未实现、测试或审查",
+            "Room 2.8.4 + KSP 2.3.11",
+            "没有修改应用代码",
+            "没有启动子 Agent",
+            "不得自动进入其余 P2 或后续阶段",
+        ):
+            self.assertIn(marker, re.sub(r"\s+", " ", current))
+
+        self.assertIn("P2-01 已分析、待执行", plan)
+        self.assertIn("p2-01-persistence-state.md", plan)
+        self.assertIn("p2-01-persistence-state.md", design)
 
 
 if __name__ == "__main__":
