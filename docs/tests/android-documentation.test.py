@@ -33,7 +33,7 @@ def missing_links(path, contents):
 
 class AndroidDocumentationTests(unittest.TestCase):
     def test_required_documents_and_local_references(self):
-        for name in (*NAMES, REVIEW_NAME, "d02-toolchain-review.md"):
+        for name in (*NAMES, REVIEW_NAME, "d02-toolchain-review.md", "p1-03-review.md"):
             with self.subTest(document=name):
                 path = DOCS / name
                 self.assertTrue(path.is_file(), name)
@@ -284,7 +284,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "lintDebug", "不进入 P2",
         ):
             self.assertIn(marker, authorized)
-        self.assertIn("升级尚未执行", review)
+        self.assertIn("P1-03 工具链和主机侧验证已经复审", review)
         self.assertIn("不表示候选组合已经成功构建", d02)
 
     def test_p1_03_execution_record_preserves_review_and_device_gate(self):
@@ -303,13 +303,48 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, record)
         self.assertIn("P1-03 验证记录", handoff)
-        self.assertIn("设备验证受环境阻塞", handoff)
+        self.assertIn("当前环境限制", handoff)
         self.assertIn("system-images;android-37.0;google_apis;arm64-v8a", evidence)
         self.assertIn("sys.boot_completed", evidence)
         self.assertEqual(missing_links(DOCS / "p1-03-validation.md", record), [])
         self.assertIn("AGP 9.4 release notes", readme)
         self.assertIn("intermediates/built_in_kotlinc", probe)
         self.assertIn("kotlin-stdlib/2.2.10", probe)
+
+    def test_p1_03_special_review_records_scope_evidence_and_correction_gate(self):
+        review = (DOCS / "p1-03-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        for marker in (
+            "7d34c78b77462178ce2119c2fb21952ce187d18b",
+            "工具链改动和主机侧验证通过专项复审",
+            "P1-03 整体暂不通过",
+            "100 个任务执行",
+            "Debug／Release 各 20 项",
+            "16 例实际执行并逐项核对",
+            "android.onlyEnableUnitTestForTheTestedBuildType",
+            "hvf is not enabled",
+            "mprotect failed",
+            "Android 17 行为变化",
+            "P1-03-R1",
+            "不进入 P2",
+        ):
+            self.assertIn(marker, review)
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "7d34c78"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(len(changed), 14)
+        self.assertFalse(any(path.startswith("ios/") or path.startswith("web/") for path in changed))
+        self.assertFalse(any(path.startswith("Android/app/src/main/") for path in changed))
+        for contents in (handoff, plan, baseline, design):
+            self.assertIn("P1-03-R1", contents)
+            self.assertIn("p1-03-review.md", contents)
+        self.assertIn("Terra／中", handoff)
+        self.assertIn("API 37 设备", handoff)
+        self.assertIn("P1-03 和 P1 均未完成", plan)
 
 
 if __name__ == "__main__":
