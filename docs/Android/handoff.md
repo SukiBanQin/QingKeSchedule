@@ -1,5 +1,35 @@
 # 安卓项目当前交接状态
 
+## P2-01 执行完成，待独立审查（最新，2026-09-09）
+
+执行窗口在用户授权范围内完成 P2-01“持久化基础与状态边界”实施。开始前已读取
+`AGENTS.md`、本交接、P2-01 分析记录及相关基线文档；分支为 `Android`，开始基准、本地
+HEAD 与 `origin/Android` 均为 `e8aefb426f791cdda8c3fb748e973a2243b78a71`，工作区干净。
+本次不修改 iOS、Web、共享 schema／fixtures 或 `MainActivity`，未启动子 Agent，未进入
+P2-02。
+
+实际新增 Room 2.8.4/KSP 2.3.11 的版本 1 数据库及已提交 schema、可替换的 suspend
+`ScheduleRepository`、事务型 `RoomScheduleRepository` 和 `StateFlow` 的
+`ScheduleAppState`。业务 ID 与内部行键分离，显式顺序字段还原列表，课程删除由外键级联；
+空存储、损坏数据、整表替换、首个重复 ID 增改删、固定时钟及事务故障回滚均按 P2-01 契约
+实现。写仓库调用返回已提交完整快照，状态层仅在成功后发布该快照而不二次读取；加载／保存
+失败保留旧内存快照且可重试。新增 JVM fake-repository 状态测试和 API 37 Room 集成测试；
+README 同步记录 Room/KSP 与两端严格未知字段决定。
+
+已实际通过：使用本机保留 API 37 SDK（platform `android-37.0`）执行
+`./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest`（104 个
+任务，成功）、`./gradlew lintDebug`（成功）、`./gradlew assembleDebugAndroidTest`（56 个任务，
+成功）、三项文档／布局验证及 `git diff --check`。Room schema 已生成于
+`Android/app/schemas/com.qingke.schedule.persistence.ScheduleDatabase/1.json`。
+
+`connectedDebugAndroidTest` **未通过也未执行**：本次启动已登记 API 37 ARM64 AVD 后，受当前
+宿主限制，Emulator 报 `hvf is not enabled on this aarch64 host` 和重复
+`qemu_mprotect__osdep: mprotect failed: Permission denied`，ADB 一直是 `offline`；已停止本次
+失败实例，未保留运行中的课表 Emulator。故 API 37 Room 集成测试仅完成 APK 编译，尚缺真实
+设备运行证据，不能标为已测试通过或审查通过。完成提交与推送后须独立审查，审查重点包括实际
+diff、事务回滚／损坏边界、重复 ID 与顺序、StateFlow 无二次读取，以及上述设备限制；不得自动
+进入 P2-02、P3 或宣称 P2／完整 App／用户验收完成。
+
 ## P2-01 分析完成与执行边界（最新，2026-09-08）
 
 分析审查窗口已基于实际 Android 与 iOS 源码完成 P2-01“持久化基础与状态边界”范围分析，

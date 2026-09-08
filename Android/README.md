@@ -15,6 +15,7 @@
 | Android SDK Platform / Build Tools | android-37.0 / 36.0.0 | AGP 9.4 官方兼容组合 |
 | Compose BOM | 2024.12.01 | 已固定 |
 | Kotlin serialization JSON | 1.7.3 | 已固定 |
+| Room / KSP | 2.8.4 / 2.3.11 | P2-01 持久化基础 |
 
 AGP 9 默认启用 built-in Kotlin，因此工程不再应用
 `org.jetbrains.kotlin.android`。Compose compiler 与 serialization 编译插件保留，
@@ -51,7 +52,7 @@ Debug/Release APK 位于 `app/build/outputs/apk/`；JVM 报告位于
 `app/build/reports/tests/`，XML 结果位于 `app/build/test-results/`，lint 报告位于
 `app/build/reports/lint-results-debug.html`。
 
-`ScheduleDataDecoderTest` 从 `../ios/Shared/fixtures/manifest.json` 读取全部有效和无效 fixture，并覆盖显式 `semester: null`、严格版本/字段/业务校验与 5 MiB 输入上限。未知字段当前按严格 schema 拒绝，而 Swift 实际宽容接受；该兼容策略仍未由产品决定。
+`ScheduleDataDecoderTest` 从 `../ios/Shared/fixtures/manifest.json` 读取全部有效和无效 fixture，并覆盖显式 `semester: null`、严格版本/字段/业务校验与 5 MiB 输入上限。版本 1 未知字段在 Android 与 iOS 均严格拒绝，已是确认的兼容策略。
 
 ## API 37 工具链依据
 
