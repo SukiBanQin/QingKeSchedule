@@ -4,6 +4,9 @@
 复审对象为提交 `7d34c78b77462178ce2119c2fb21952ce187d18b`，提交范围
 `7d34c78^..7d34c78`；开始基准 `ec236b9`、授权提交 `274f3b9` 均是其祖先。
 
+最新状态以文末 P1-03-R1 独立复审为准：R1 设备失败记录有效，但 Android 17 依赖层
+边界表述需修正，API 37 设备门槛仍未满足；下一步为 P1-03-R2。
+
 ## 结论
 
 工具链改动和主机侧验证通过专项复审，没有发现构建配置或业务回归缺陷：API 37.0、
@@ -102,3 +105,62 @@ Activity／进程检查和清空后无崩溃 logcat。历史 API 35 证据没有
 4. 只维护 P1-03 设备证据、README、验证／交接／审查文档及对应文档测试；不修改应用
    Kotlin 源码，不进入 P2，不扩展 D01／D03／D04。验证通过后创建独立提交并推送
    `Android`，再申请 P1-03-R1 复审。
+
+## 2026-09-08 P1-03-R1 独立复审
+
+复审范围为 `3ab9d4d^..3ab9d4d`，基准为
+`9f60df0d723fc0e5282906901f434018f6bbcd5a`。实际只修改任务报告所列的 5 个 README、
+验证／交接／证据和文档测试文件；没有修改应用 Kotlin 源码、构建配置、依赖、Wrapper、
+iOS、Web、共享 schema／fixtures 或 P2 内容。提交在 `Android` 分支，复审开始时本地
+HEAD 与 `origin/Android` 均为
+`3ab9d4dc3e26fedd9f3aaec08e282549921864da`，工作区干净。
+
+### 结论
+
+R1 对设备失败的记录通过复审：它明确区分“ADB 短暂进入 device 并能读取 API／ABI”与
+“系统完成开机”，没有把空的 `sys.boot_completed`、未安装 APK 或未运行冷启动写成通过，
+也没有据此声称应用存在缺陷。复审环境再次启动同一 API 37 ARM64 AVD，仍出现
+`hvf is not enabled` 和反复的 `qemu_mprotect__osdep: mprotect failed: Permission denied`；
+30 秒内 ADB 持续 `offline`，所以本轮同样不能补做设备验收。
+
+Android 17 表格覆盖了官方“全部应用”和“target 37”页面当前列出的行为变化，且多数
+功能级“未使用／后续复核”判断与 manifest 及项目源码一致。不过有两处表述会过度缩小
+当前运行时范围，故行为适用性记录尚不能通过，需 P1-03-R2 修正文档并继续补设备证据：
+
+1. `p1-03-validation.md` 写“当前源码范围仅为 MainActivity”，但仓库还包含已构建进 APK
+   的领域、校验和 JSON 解码源码。它们没有调用相关 Android 平台能力，但不能从源码范围
+   中删除；应改为“当前 Android 平台界面入口／平台能力实现仅有 MainActivity”，并说明
+   领域与解码代码已检查、未使用这些平台 API。
+2. README 写当前骨架“没有 JNI／动态代码”，表格又把 `MessageQueue` 风险推迟到“第三方
+   SDK 引入时”。实际 APK 已含 Compose／AndroidX 等依赖，并打包
+   `lib/*/libandroidx.graphics.path.so`；第三方库已经存在。没有项目自编写的 JNI、
+   `System.load()` 或 `MessageQueue` 私有反射可以成立，但不能据此排除依赖层的
+   MessageQueue、static final 反射或原生库运行风险。官方迁移说明也要求在 Android 17
+   设备上测试现有库与 SDK。应把这些项标为“项目源码未发现高风险用法，依赖层仍待 API 37
+   安装启动与 logcat 验证”，并删除“大屏是唯一直接相关变化”的绝对说法。
+
+以上是文档准确性和证据边界问题，没有发现需要修改应用代码的缺陷。API 37 设备仍未
+完成 `sys.boot_completed=1`、APK 安装、两次冷启动、Activity／进程、截图及无崩溃
+logcat，因此 P1-03-R1、P1-03、P1 和用户验收均未通过，不进入 P2。
+
+### 独立验证
+
+| 检查 | 结果 |
+| --- | --- |
+| `git show 3ab9d4d^..3ab9d4d` 与受保护路径 diff | 5 个获准文件；应用源码／构建配置／iOS／Web／共享协议无差异 |
+| `./gradlew assembleDebug --rerun-tasks --no-daemon --console=plain` | 通过；38 个任务执行；只有既有 `libandroidx.graphics.path.so` 无法 strip 提示 |
+| `bash Android/scripts/p1-02-apk-check.sh` | 通过；`com.qingke.schedule`、minSdk 26、targetSdk 37 |
+| Android 17 官方页面逐项复核 | 行为标题覆盖完整；发现依赖层范围表述过窄，不接受为最终适用性结论 |
+| API 37 ARM64 AVD | 复审环境仍受 HVF／QEMU 权限限制，ADB 持续 offline；设备检查未运行 |
+| 文档、布局及空白检查 | `android-documentation.test.py` 19 项、两个 shell 测试和各项 `git diff --check` 均通过 |
+
+### P1-03-R2 修正要求
+
+1. 只修正 `Android/README.md` 和 `docs/Android/p1-03-validation.md` 中上述源码／依赖边界；
+   保持行为变化清单、设备失败事实和“未运行”结论，不修改应用代码或构建配置。
+2. 在可正常启动的 API 37 ARM64 模拟器或等效 API 37 设备继续补齐原设备门槛。必须取得
+   `sys.boot_completed=1`，再安装当前 Debug APK，清空应用相关 logcat，并完成两次
+   `force-stop` 后显式启动；保存 MainActivity resumed／可见、`pidof`、截图和无应用崩溃
+   证据。若仍无可用设备，如实记录新的环境结果，不宣称 P1-03 通过。
+3. 更新交接和对应文档测试，只提交本任务文件并推送 `Android`。完成后再次申请专项复审；
+   不进入 P2，不扩展 D01／D03／D04，不修改未知字段、重复 ID 或节次顺序。

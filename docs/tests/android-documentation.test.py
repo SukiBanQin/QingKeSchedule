@@ -364,6 +364,34 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("API 37 设备", handoff)
         self.assertIn("P1-03 和 P1 均未完成", plan)
 
+    def test_p1_03_r1_review_preserves_dependency_and_device_gates(self):
+        review = (DOCS / "p1-03-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        latest = review.split("## 2026-09-08 P1-03-R1 独立复审", 1)[1]
+        for marker in (
+            "3ab9d4d^..3ab9d4d", "5 个", "设备失败的记录通过复审",
+            "当前源码范围仅为 MainActivity", "Compose／AndroidX",
+            "libandroidx.graphics.path.so", "第三方库已经存在",
+            "30 秒内 ADB 持续 `offline`", "P1-03-R2", "不进入 P2",
+        ):
+            self.assertIn(marker, latest)
+        changed = subprocess.check_output(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "3ab9d4d"],
+            cwd=ROOT, text=True,
+        ).splitlines()
+        self.assertEqual(changed, [
+            "Android/README.md",
+            "docs/Android/evidence/p1-03-r1-api37-host-attempt-20260908.txt",
+            "docs/Android/handoff.md",
+            "docs/Android/p1-03-validation.md",
+            "docs/tests/android-documentation.test.py",
+        ])
+        for contents in (handoff, plan):
+            self.assertIn("P1-03-R2", contents)
+            self.assertIn("API 37", contents)
+            self.assertIn("不进入 P2", contents)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
