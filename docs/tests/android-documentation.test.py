@@ -539,7 +539,11 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertFalse(any(path.startswith("Android/app/") for path in changed))
         self.assertFalse(any(path.startswith("ios/") or path.startswith("web/") for path in changed))
         for name in ("handoff.md", "p1-03-validation.md", "p1-03-review.md", "implementation-plan.md"):
-            current = "\n".join((DOCS / name).read_text().splitlines()[:35])
+            contents = (DOCS / name).read_text()
+            if name == "handoff.md":
+                current = contents.split("## P1-03-R4 最新专项复审状态", 1)[1].split("\n## ", 1)[0]
+            else:
+                current = "\n".join(contents.splitlines()[:35])
             self.assertIn("独立专项复审", current)
             self.assertIn("P1-03 授权范围完成", current)
             self.assertIn("不进入 P2", current)
@@ -571,7 +575,9 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(field, task)
 
         current = "\n".join(handoff.splitlines()[:25])
-        self.assertIn("P1-04 已获实施授权", current)
+        self.assertIn("P1-04 已从基准", current)
+        self.assertIn("实施完成", current)
+        self.assertIn("待独立复审", current)
         self.assertIn("两端严格拒绝", handoff)
         for contents in (plan, baseline, design):
             self.assertIn("P1-04", contents)
@@ -584,6 +590,31 @@ class AndroidDocumentationTests(unittest.TestCase):
         schema = (ROOT / "ios/Shared/schedule-data.schema.json").read_text()
         self.assertIn("ignoreUnknownKeys = false", decoder)
         self.assertGreaterEqual(schema.count('"additionalProperties": false'), 5)
+
+    def test_p1_04_execution_records_cross_platform_evidence_and_review_gate(self):
+        task = (DOCS / "p1-04-unknown-fields.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        transfer = (ROOT / "ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift").read_text()
+        tests = (ROOT / "ios/QingKeScheduleTests/ScheduleDataTransferTests.swift").read_text()
+        probe = (ROOT / "docs/tests/android-contract-review-probe.py").read_text()
+        for marker in (
+            "70 个任务实际执行", "19 例", "93 项通过", "失败/跳过均为 0",
+            "待独立复审", "不授权进入 P2",
+        ):
+            self.assertIn(marker, task + handoff)
+        self.assertLess(
+            transfer.index("version == ScheduleDataDTO.supportedSchemaVersion"),
+            transfer.index("hasOnlyVersion1Fields"),
+        )
+        for name in (
+            "rejectsUnknownTopLevelField", "rejectsUnknownSemesterField",
+            "rejectsUnknownPeriodField", "rejectsUnknownCourseField",
+            "rejectsUnknownCourseScheduleField", "acceptsNullSemesterAndCompleteInput",
+            "unsupportedVersionKeepsErrorPriority",
+        ):
+            self.assertIn(name, tests)
+        for case in ("period-unknown", "course-unknown", "course-schedule-unknown"):
+            self.assertIn(case, probe)
 
 
 if __name__ == "__main__":

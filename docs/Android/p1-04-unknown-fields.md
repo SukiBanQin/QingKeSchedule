@@ -44,5 +44,26 @@ schema 中各对象的 `additionalProperties: false` 一致。
    和其他协议边界没有回归。
 5. 运行文档验证及工作区／暂存区空白检查，只提交本任务文件并推送 `Android`。
 
-P1-04 属于共享协议行为修正，完成后必须由分析审查窗口独立复审。只有 P1-04 通过且
+## 实施与验证记录
+
+2026-09-08 从基准 `cb7323fb6b4726d58896242d0c7ed6faedac4ac7` 实施。iOS
+`previewImport` 保持先读取并验证 `schemaVersion`，只有确认版本 1 后才递归检查顶层、
+semester、period、course 和 course schedule 对象键；任一未知字段映射为
+`ScheduleDataTransferError.malformedFile`。DTO、导出字段、共享 schema/fixtures、Android
+decoder、重复 ID 和节次顺序均未修改。
+
+`ScheduleDataTransferTests` 新增 7 项独立用例：五层未知字段分别拒绝、`semester:null`
+与完整有效输入继续接受、不支持版本与未知字段并存时仍返回
+`unsupportedSchemaVersion(2)`。`bash ios/scripts/ios-test.sh` 使用 iPhone 17 Pro、iOS 26.5
+Simulator 完整通过：93 项通过，失败/跳过均为 0；xcresult 位于
+`ios/.build/ios/Logs/Test/Test-QingKeSchedule-2026.09.08_18-02-46-+0800.xcresult`。
+
+API 37/JDK 17 下 Android `assembleDebug test --rerun-tasks` 通过，70 个任务实际执行；
+Debug/Release JVM 各 20 项通过，失败/错误/跳过均为 0。跨端探针扩展至 19 例并实际逐项核对：
+`unknown-field`、`nested-unknown`、`period-unknown`、`course-unknown`、
+`course-schedule-unknown` 均被 Android 与 Swift 拒绝；合法完整输入、合法整数指数、重复 ID
+和反序节次现状保持接受，其他既有非法案例保持拒绝。探针中的 Swift 结果来自 macOS
+`swiftc`，只作为跨端导入边界补充；iOS App 测试证据来自上述 Simulator 测试。
+
+P1-04 属于共享协议行为修正，实施完成后必须由分析审查窗口独立复审。只有 P1-04 通过且
 P1 全部门槛再次核对通过，才能记录 P1 关闭；这不等于用户验收，也不授权进入 P2。

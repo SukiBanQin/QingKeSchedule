@@ -29,6 +29,9 @@ def main():
     case("decimal-version", lambda d: d.update(schemaVersion=1.0))
     case("unknown-field", lambda d: d.update(extra=True))
     case("nested-unknown", lambda d: d["semester"].update(extra=True))
+    case("period-unknown", lambda d: d["semester"]["periods"][0].update(extra=True))
+    case("course-unknown", lambda d: d["courses"][0].update(extra=True))
+    case("course-schedule-unknown", lambda d: d["courses"][0]["schedules"][0].update(extra=True))
     case("duplicate-course-id", lambda d: d["courses"].append(copy.deepcopy(d["courses"][0])))
     case("reverse-period-numbers", lambda d: [
         p.update(number=len(d["semester"]["periods"]) - i)
