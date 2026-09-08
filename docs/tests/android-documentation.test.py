@@ -632,7 +632,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         )[1].split("\n## ", 1)[0]
         normalized_current = re.sub(r"\s+", " ", current)
         for marker in (
-            "6f5258c15cb7df3b4b31b4eb818161bdd98036fc",
+            "d4f7f6478c2e007dea5e3d60774a5e3e2525c535",
             "81ae16f7f4ddc9acd51c67ffb8f66482c6d3d587",
             "当前分支 `Android`",
             "P1 已完成独立审查并获用户确认",
@@ -648,7 +648,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, normalized_current)
         self.assertIn("不提前实施页面、导入导出、通知或发布能力", normalized_current)
         subprocess.run(
-            ["git", "cat-file", "-e", "6f5258c^{commit}"],
+            ["git", "cat-file", "-e", "d4f7f64^{commit}"],
             cwd=ROOT,
             check=True,
             capture_output=True,
