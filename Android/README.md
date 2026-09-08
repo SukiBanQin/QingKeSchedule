@@ -7,14 +7,20 @@
 | 组件 | 当前版本 | 状态 |
 | --- | --- | --- |
 | JDK / Kotlin JVM target | 17 | 已用于构建 |
-| Gradle Wrapper | 8.10.2 | 已固定 |
-| Android Gradle Plugin | 8.8.2 | 已固定 |
-| Kotlin / Compose compiler plugin | 2.0.21 | 已固定 |
-| compileSdk / targetSdk | 35 | 当前实现，非 D02 最新稳定性结论 |
+| Gradle Wrapper | 9.6.0 | 已固定 |
+| Android Gradle Plugin | 9.4.0 | 已固定 |
+| built-in Kotlin / Compose / serialization plugin | 2.2.10 | 与 AGP 运行时 KGP 对齐 |
+| compileSdk / targetSdk | 37（API 37.0） | P1-03 已授权目标 |
 | minSdk | 26 | 用户已确认 |
-| Android SDK Platform / Build Tools | android-35 revision 2 / 35.0.0 | 已在临时 SDK 中验证 |
+| Android SDK Platform / Build Tools | android-37.0 / 36.0.0 | AGP 9.4 官方兼容组合 |
 | Compose BOM | 2024.12.01 | 已固定 |
 | Kotlin serialization JSON | 1.7.3 | 已固定 |
+
+AGP 9 默认启用 built-in Kotlin，因此工程不再应用
+`org.jetbrains.kotlin.android`。Compose compiler 与 serialization 编译插件保留，
+并使用 AGP 9.4 运行时所带 KGP 的 2.2.10 版本。为继续执行 Debug／Release
+双变体 JVM 测试，`gradle.properties` 显式关闭
+`android.onlyEnableUnitTestForTheTestedBuildType` 默认限制。
 
 ## 通用环境配置
 
@@ -25,7 +31,7 @@ export JAVA_HOME="/absolute/path/to/jdk-17"
 export ANDROID_HOME="/absolute/path/to/android-sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-  "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+  "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
 ```
 
 macOS 也可以使用 `export JAVA_HOME="$(/usr/libexec/java_home -v 17)"`。Windows 使用等价环境变量和 `gradlew.bat`。
@@ -35,15 +41,19 @@ macOS 也可以使用 `export JAVA_HOME="$(/usr/libexec/java_home -v 17)"`。Win
 在 `Android/` 目录执行：
 
 ```bash
-./gradlew assembleDebug
-./gradlew test
+./gradlew --version
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest
+./gradlew lintDebug
+./gradlew --offline clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest
 ```
 
-Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`；JVM 报告位于 `app/build/reports/tests/`，XML 结果位于 `app/build/test-results/`。
+Debug/Release APK 位于 `app/build/outputs/apk/`；JVM 报告位于
+`app/build/reports/tests/`，XML 结果位于 `app/build/test-results/`，lint 报告位于
+`app/build/reports/lint-results-debug.html`。
 
 `ScheduleDataDecoderTest` 从 `../ios/Shared/fixtures/manifest.json` 读取全部有效和无效 fixture，并覆盖显式 `semester: null`、严格版本/字段/业务校验与 5 MiB 输入上限。未知字段当前按严格 schema 拒绝，而 Swift 实际宽容接受；该兼容策略仍未由产品决定。
 
-## SDK 稳定渠道核查（2026-09-07）
+## API 37 工具链依据
 
 实际查询命令：
 
@@ -51,16 +61,21 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`；JVM 报告位于 
 "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --list
 ```
 
-稳定渠道清单显示已安装 `platforms;android-35`，同时可用稳定平台至少包含 `android-36`、`android-36.1`、`android-37.0`、`android-37.1`（另有 beta 条目）。因此 API 35 只能作为当前可复现组合，不能声称满足 D02“环境可用的最新稳定版本”。
-
-当前 AGP 8.8.2 的官方兼容说明支持 API 35、Gradle 8.10.2 和 JDK 17。若要跟随稳定渠道升级，建议先由 Astra 审查最小组合：目标 API 取查询结果中的最高稳定平台，配套同代稳定 AGP/Gradle、Build Tools 和 Kotlin/Compose 插件；这会影响 `compileSdk`/`targetSdk`、插件迁移、缓存和 CI，故本任务不实施升级。API 36.1/AGP 9 仅是待审查方向，不是已核实结论。
+稳定渠道可安装 `platforms;android-37.0`。Android Developers 的 AGP 9.4
+兼容表明确其最高支持 API 37，要求 Gradle 9.6.0、Build Tools 36.0.0 和
+JDK 17。官方 built-in Kotlin 迁移说明要求 AGP 9 工程移除
+`org.jetbrains.kotlin.android`。这组参数已获 P1-03 授权；构建与设备验证结果
+须以本任务交接记录为准，不能由版本声明反推成功。
 
 官方依据：
 
-- [AGP 8.8 release notes](https://developer.android.com/build/releases/agp-8-8-0-release-notes)
-- [Android SDK setup](https://developer.android.com/about/versions/15/setup-sdk)
+- [AGP 9.4 release notes](https://developer.android.com/build/releases/agp-9-4-0-release-notes)
+- [Migrate to built-in Kotlin](https://developer.android.com/build/migrate-to-built-in-kotlin)
+- [Compose compiler plugin](https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler)
 - [SDK command-line tools](https://developer.android.com/tools/sdkmanager)
 
-## P1-02 启动验证限制
+## 设备验证边界
 
-本机为 Apple Silicon（aarch64）。API 35 `google_apis;x86_64` system image 可列出但不能由本机 QEMU2 启动，错误为 `Avd's CPU Architecture 'x86_64' is not supported by the QEMU2 emulator on aarch64 host`。ARM64 image 在当前网络中未完成下载。因此本任务未取得模拟器或真机安装、冷启动、重启、截图和 logcat 崩溃证据；不得将构建通过写成启动通过。详见 `../docs/Android/p1-02-validation.md`。
+仓库不提交 AVD 或设备配置。P1-03 必须使用 API 37 ARM64 模拟器或等效设备
+重新验证安装、两次冷启动、Activity／进程和无崩溃 logcat；历史 API 35
+启动证据不能替代本轮结果。

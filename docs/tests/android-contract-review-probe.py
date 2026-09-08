@@ -35,13 +35,19 @@ def main():
         for i, p in enumerate(d["semester"]["periods"])
     ])
     case("year-zero", lambda d: d["semester"].update(startDate="0000-01-01"))
-    classes = ROOT / "Android/app/build/tmp/kotlin-classes/debug"
-    if not (classes / "com/qingke/schedule/transfer/ScheduleDataDecoder.class").is_file():
+    class_candidates = (
+        ROOT / "Android/app/build/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes",
+        ROOT / "Android/app/build/tmp/kotlin-classes/debug",
+    )
+    classes = next((path for path in class_candidates if (
+        path / "com/qingke/schedule/transfer/ScheduleDataDecoder.class"
+    ).is_file()), None)
+    if classes is None:
         raise RuntimeError("Run Android assembleDebug against the reviewed source first")
     cache = Path(os.environ.get("GRADLE_USER_HOME", str(Path.home() / ".gradle"))) / "caches/modules-2/files-2.1"
     jars = []
     for spec in (
-        "org.jetbrains.kotlin/kotlin-stdlib/2.0.21",
+        "org.jetbrains.kotlin/kotlin-stdlib/2.2.10",
         "org.jetbrains.kotlinx/kotlinx-serialization-core-jvm/1.7.3",
         "org.jetbrains.kotlinx/kotlinx-serialization-json-jvm/1.7.3",
     ):

@@ -1,0 +1,32 @@
+P1-03 API 37 ARM64 模拟器环境错误证据（2026-09-08）
+
+宿主：Mac OS X 26.6.2，aarch64
+Emulator：37.1.11.0（build_id 15917651）
+System image：system-images;android-37.0;google_apis;arm64-v8a revision 6
+AVD：qingke-api37-arm
+
+尝试命令（SDK_ROOT 和 AVD_ROOT 为本轮临时目录）：
+
+SDK_ROOT/emulator/emulator -avd qingke-api37-arm \
+  -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect \
+  -no-snapshot -wipe-data
+
+SDK_ROOT/emulator/emulator -avd qingke-api37-arm \
+  -no-window -no-audio -no-boot-anim -gpu swiftshader \
+  -no-snapshot -wipe-data -accel off -cores 2 -memory 2048
+
+关键输出：
+
+INFO | Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)
+INFO | Found systemPath SDK_ROOT/system-images/android-37.0/google_apis/arm64-v8a/
+WARNING | arm64-v8a emulation may not work without hardware acceleration!
+WARNING | hvf is not enabled on this aarch64 host.
+qemu-system-aarch64-headless: qemu_mprotect__osdep: mprotect failed: Permission denied
+
+第一次尝试随后由 emulator hang detector 报告 QEMU main/CPU thread 超过 15 秒无响应并终止。
+第二次显式关闭加速后，ADB 序列号 emulator-5556 曾从 offline 变为 device，
+但 sys.boot_completed 在等待窗口内始终未返回 1，设备未完成启动，随后人工停止。
+
+结论：本轮没有执行 APK 安装、两次冷启动、Activity/进程检查或应用 logcat
+崩溃检查。历史 API 35 启动证据不能替代本次 API 37 验证。该结果表示当前宿主
+虚拟化环境阻塞，不表示降低目标版本，也不表示 P1-03、P1 或用户验收通过。

@@ -1,13 +1,13 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
     namespace = "com.qingke.schedule"
-    compileSdk = 35
+    compileSdk = 37
+    buildToolsVersion = "36.0.0"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -17,7 +17,7 @@ android {
     defaultConfig {
         applicationId = "com.qingke.schedule"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 

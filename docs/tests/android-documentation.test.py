@@ -287,6 +287,30 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("升级尚未执行", review)
         self.assertIn("不表示候选组合已经成功构建", d02)
 
+    def test_p1_03_execution_record_preserves_review_and_device_gate(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        record = (DOCS / "p1-03-validation.md").read_text()
+        evidence = (DOCS / "evidence/p1-03-api37-emulator-error-20260908.txt").read_text()
+        readme = (ROOT / "Android/README.md").read_text()
+        probe = (ROOT / "docs/tests/android-contract-review-probe.py").read_text()
+        for marker in (
+            "ec236b9", "274f3b9", "AGP 9.4.0", "Gradle 9.6.0",
+            "Build Tools 36.0.0", "built-in Kotlin", "2.2.10",
+            "android.onlyEnableUnitTestForTheTestedBuildType=false",
+            "离线 clean 构建", "各 20 项 JVM 测试", "16 个输入案例",
+            "targetSdk 37", "hvf is not enabled", "mprotect failed",
+            "未执行 APK 安装", "独立专项复审", "不进入 P2",
+        ):
+            self.assertIn(marker, record)
+        self.assertIn("P1-03 验证记录", handoff)
+        self.assertIn("设备验证受环境阻塞", handoff)
+        self.assertIn("system-images;android-37.0;google_apis;arm64-v8a", evidence)
+        self.assertIn("sys.boot_completed", evidence)
+        self.assertEqual(missing_links(DOCS / "p1-03-validation.md", record), [])
+        self.assertIn("AGP 9.4 release notes", readme)
+        self.assertIn("intermediates/built_in_kotlinc", probe)
+        self.assertIn("kotlin-stdlib/2.2.10", probe)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
