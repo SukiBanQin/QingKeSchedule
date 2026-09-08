@@ -421,7 +421,8 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in (
             "2e5b8ec^..2e5b8ec", "R2 的文档修正范围通过专项复审",
             "用户提供的 09:36 桌面截图", "libandroid-emu-tracing.dylib",
-            "连续 8 次", "P1-03 整体仍不通过", "P1-03-R3", "不进入 P2",
+            "连续 8 次", "本轮未重复", "不写成本轮新执行",
+            "P1-03 整体仍不通过", "P1-03-R3", "不进入 P2",
         ):
             self.assertIn(marker, latest)
         for marker in (

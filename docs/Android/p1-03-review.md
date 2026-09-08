@@ -220,6 +220,7 @@ SDK 位置、Emulator 版本或启动进程权限中的哪一项。复审没有�
 | `./gradlew assembleDebug --rerun-tasks --no-daemon --console=plain` | 独立通过；38 个任务执行；仅有既有 native 库无法 strip 提示 |
 | `bash Android/scripts/p1-02-apk-check.sh` | 独立通过；`com.qingke.schedule`、minSdk 26、targetSdk 37 |
 | APK 内容 | 确认 4 个 ABI 均含 `libandroidx.graphics.path.so`，与 R2 说明一致 |
+| 双变体 JVM 测试、离线构建、`lintDebug`、16 例跨端探针 | 本轮未重复；R2 未改应用或构建配置，沿用 `7d34c78` 已完成的独立专项复审证据，不写成本轮新执行 |
 | API 37 ARM64 AVD | 官方启动器、禁快照、无窗口、软件图形后仍连续 8 次 `offline`；设备门槛未完成 |
 | `python3 docs/tests/android-documentation.test.py` | 22 项通过 |
 | 既有文档、布局与空白检查 | `documentation.test.sh`、`repository-layout.test.sh`、工作区与暂存区 `git diff --check` 均通过 |
