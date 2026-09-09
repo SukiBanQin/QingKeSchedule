@@ -10,9 +10,15 @@ struct TodayCourseItem: Equatable, Identifiable {
 }
 
 struct CourseTimingProgress: Equatable {
-    let elapsedMinutes: Int
-    let remainingMinutes: Int
+    let elapsedSeconds: Int
+    let remainingSeconds: Int
     let fraction: Double
+
+    var elapsedMinutes: Int { elapsedSeconds / 60 }
+
+    var remainingClockText: String {
+        String(format: "%d:%02d", remainingSeconds / 60, remainingSeconds % 60)
+    }
 }
 
 struct TodaySchedulePresentation: Equatable {
@@ -131,14 +137,31 @@ struct TodaySchedulePresentation: Equatable {
             return nil
         }
 
-        let time = calendar.dateComponents([.hour, .minute], from: now)
-        guard let hour = time.hour, let minute = time.minute else { return nil }
-        let currentMinutes = hour * 60 + minute
-        let duration = max(endMinutes - startMinutes, 1)
-        let elapsed = min(max(currentMinutes - startMinutes, 0), duration)
+        let startOfDay = calendar.startOfDay(for: now)
+        guard let startDate = calendar.date(
+            byAdding: .second,
+            value: startMinutes * 60,
+            to: startOfDay
+        ), var endDate = calendar.date(
+            byAdding: .second,
+            value: endMinutes * 60,
+            to: startOfDay
+        ) else {
+            return nil
+        }
+        if endDate <= startDate {
+            guard let followingDayEnd = calendar.date(byAdding: .day, value: 1, to: endDate) else {
+                return nil
+            }
+            endDate = followingDayEnd
+        }
+
+        let duration = max(endDate.timeIntervalSince(startDate), 1)
+        let elapsed = min(max(now.timeIntervalSince(startDate), 0), duration)
+        let remaining = max(endDate.timeIntervalSince(now), 0)
         return CourseTimingProgress(
-            elapsedMinutes: elapsed,
-            remainingMinutes: max(endMinutes - currentMinutes, 0),
+            elapsedSeconds: Int(elapsed.rounded(.down)),
+            remainingSeconds: Int(remaining.rounded(.up)),
             fraction: Double(elapsed) / Double(duration)
         )
     }

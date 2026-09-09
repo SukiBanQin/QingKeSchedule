@@ -48,6 +48,15 @@ struct AppRootView: View {
                 state.appBecameActive()
             }
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            state.refreshCurrentTime()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                state.refreshCurrentTime()
+            }
+        }
     }
 
     private func prepareUITestImportIfRequested() {
@@ -74,6 +83,8 @@ private struct MainTabView: View {
     @State private var editorRoute: CourseEditorRoute?
     @State private var selectedTab = MainTab.today
     @State private var courseOperationSuccess: CourseOperationSuccess?
+    @State private var isRefreshing = false
+    @State private var refreshIdentifier: UUID?
 
     var body: some View {
         Group {
@@ -86,6 +97,8 @@ private struct MainTabView: View {
                         now: state.now,
                         academicCalendarSettings: state.academicCalendarSettings,
                         calendar: state.calendar,
+                        isRefreshing: isRefreshing,
+                        onRefresh: refreshCurrentTime,
                         onAddCourse: presentCourseCreation,
                         onSelectCourse: {
                             editorRoute = CourseEditorRoute.editor(course: $0)
@@ -100,6 +113,8 @@ private struct MainTabView: View {
                         now: state.now,
                         academicCalendarSettings: state.academicCalendarSettings,
                         calendar: state.calendar,
+                        isRefreshing: isRefreshing,
+                        onRefresh: refreshCurrentTime,
                         onAddCourse: presentCourseCreation,
                         onSelectCourse: {
                             editorRoute = CourseEditorRoute.editor(course: $0)
@@ -110,8 +125,9 @@ private struct MainTabView: View {
                 SemesterFormView(
                     semester: state.semester,
                     isOnboarding: false,
-                    now: state.now,
                     dataTransferState: state,
+                    isRefreshing: isRefreshing,
+                    onRefresh: refreshCurrentTime,
                     onSave: state.saveSemester
                 )
             }
@@ -167,6 +183,30 @@ private struct MainTabView: View {
 
     private func presentCourseCreation() {
         editorRoute = state.courses.isEmpty ? .editor(course: nil) : .chooser()
+    }
+
+    private func refreshCurrentTime() async {
+        guard !isRefreshing else { return }
+        let identifier = UUID()
+        isRefreshing = true
+        refreshIdentifier = identifier
+        state.refreshCurrentTime()
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .nanoseconds(Int(refreshFeedbackDuration))
+        ) {
+            guard self.refreshIdentifier == identifier else { return }
+            self.isRefreshing = false
+            self.refreshIdentifier = nil
+        }
+    }
+
+    private var refreshFeedbackDuration: UInt64 {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-refresh-feedback") {
+            return 6_000_000_000
+        }
+        #endif
+        return 600_000_000
     }
 
     private func saveCourse(_ course: CourseDTO) -> Bool {

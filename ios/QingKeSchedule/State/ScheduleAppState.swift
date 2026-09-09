@@ -75,6 +75,7 @@ final class ScheduleAppState {
     private(set) var importFailure: String?
     private(set) var importStatusMessage: String?
     private(set) var appearanceMode: AppearanceMode
+    private(set) var currentTime: Date
 
     @ObservationIgnored private let repository: any ScheduleRepository
     @ObservationIgnored private let nowProvider: () -> Date
@@ -107,6 +108,7 @@ final class ScheduleAppState {
         self.repository = repository
         self.calendar = calendar
         self.nowProvider = now
+        self.currentTime = now()
         self.reminderSettingsStore = resolvedReminderSettingsStore
         self.reminderSettings = resolvedReminderSettingsStore.load()
         self.academicCalendarSettingsStore = resolvedAcademicCalendarSettingsStore
@@ -119,7 +121,7 @@ final class ScheduleAppState {
     var semester: SemesterDTO? { data.semester }
     var courses: [CourseDTO] { data.courses }
     var needsOnboarding: Bool { isLoaded && semester == nil }
-    var now: Date { nowProvider() }
+    var now: Date { currentTime }
 
     var reminderStatusMessage: String {
         if let notificationDiagnostic {
@@ -313,7 +315,14 @@ final class ScheduleAppState {
 
     func appBecameActive() {
         guard isLoaded else { return }
+        refreshCurrentTime()
         scheduleNotificationReconciliation()
+    }
+
+    /// Updates only the in-memory clock used by time-sensitive presentations.
+    /// Notification reconciliation and persistence remain explicit operations.
+    func refreshCurrentTime() {
+        currentTime = nowProvider()
     }
 
     func waitForNotificationWork() async {

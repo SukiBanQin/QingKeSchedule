@@ -30,11 +30,30 @@ struct SchedulePresentationTests {
         #expect(presentation.items.filter(\.isNext).map(\.id) == ["schedule-alpha"])
         let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
         #expect(current.timingProgress == CourseTimingProgress(
-            elapsedMinutes: 46,
-            remainingMinutes: 64,
+            elapsedSeconds: 46 * 60,
+            remainingSeconds: 64 * 60,
             fraction: 46.0 / 110.0
         ))
         #expect(presentation.items.first?.timingProgress == nil)
+    }
+
+    @Test("进行中课程使用真实秒数计算倒计时")
+    func timingProgressUsesSecondPrecision() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let presentation = TodaySchedulePresentation(
+            semester: semester,
+            courses: data.courses,
+            now: try date(2026, 8, 31, hour: 9, minute: 41, second: 52),
+            calendar: calendar
+        )
+
+        let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
+        let progress = try #require(current.timingProgress)
+        #expect(progress.elapsedSeconds == 46 * 60 + 52)
+        #expect(progress.remainingSeconds == 63 * 60 + 8)
+        #expect(progress.remainingClockText == "63:08")
+        #expect(progress.fraction == Double(46 * 60 + 52) / Double(110 * 60))
     }
 
     @Test("学期外与学期内无课有不同空状态")
@@ -257,7 +276,8 @@ struct SchedulePresentationTests {
         _ month: Int,
         _ day: Int,
         hour: Int = 0,
-        minute: Int = 0
+        minute: Int = 0,
+        second: Int = 0
     ) throws -> Date {
         try #require(calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,
@@ -265,7 +285,8 @@ struct SchedulePresentationTests {
             month: month,
             day: day,
             hour: hour,
-            minute: minute
+            minute: minute,
+            second: second
         )))
     }
 }

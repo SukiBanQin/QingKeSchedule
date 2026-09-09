@@ -6,6 +6,8 @@ struct TodayScheduleView: View {
     let now: Date
     let academicCalendarSettings: AcademicCalendarSettings
     let calendar: Calendar
+    let isRefreshing: Bool
+    let onRefresh: () async -> Void
     let onAddCourse: () -> Void
     let onSelectCourse: (CourseDTO) -> Void
 
@@ -36,6 +38,9 @@ struct TodayScheduleView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18) {
+                        if isRefreshing {
+                            TerminalRefreshFeedback(accessibilityIdentifier: "today-refresh-status")
+                        }
                         dateHero
 
                         if presentation.items.isEmpty {
@@ -52,6 +57,8 @@ struct TodayScheduleView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 100)
                 }
+                .scrollBounceBehavior(.always)
+                .refreshable { await onRefresh() }
             }
 
             VStack {
@@ -216,8 +223,9 @@ struct TodayScheduleView: View {
                         HStack {
                             Label("已进行 \(progress.elapsedMinutes) 分钟", systemImage: "clock")
                             Spacer()
-                            Text("剩余 \(progress.remainingMinutes) MIN")
+                            Text("剩余 \(progress.remainingClockText)")
                                 .fontWeight(.bold)
+                                .monospacedDigit()
                         }
                         .font(.terminal(10, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(QingKeTheme.textOnInverse)

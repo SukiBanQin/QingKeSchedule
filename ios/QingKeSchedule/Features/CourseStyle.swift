@@ -230,6 +230,33 @@ struct TerminalBackdrop: View {
     }
 }
 
+struct TerminalRefreshFeedback: View {
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+                .tint(QingKeTheme.cyan)
+            Text("刷新中")
+                .font(.terminal(10, weight: .black, relativeTo: .caption))
+                .tracking(1)
+            Spacer()
+            Text("SYNC / LOCAL")
+                .font(.terminal(8, weight: .bold, relativeTo: .caption2))
+                .tracking(0.8)
+                .foregroundStyle(QingKeTheme.textSecondary)
+        }
+        .foregroundStyle(QingKeTheme.textPrimary)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 36)
+        .terminalPanel(accent: QingKeTheme.cyan)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("刷新中")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 struct TerminalBrandHeader: View {
     let code: String
 

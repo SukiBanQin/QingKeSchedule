@@ -6,6 +6,8 @@ struct WeekScheduleView: View {
     let now: Date
     let academicCalendarSettings: AcademicCalendarSettings
     let calendar: Calendar
+    let isRefreshing: Bool
+    let onRefresh: () async -> Void
     let onAddCourse: () -> Void
     let onSelectCourse: (CourseDTO) -> Void
 
@@ -18,6 +20,8 @@ struct WeekScheduleView: View {
         now: Date,
         academicCalendarSettings: AcademicCalendarSettings,
         calendar: Calendar,
+        isRefreshing: Bool = false,
+        onRefresh: @escaping () async -> Void = {},
         onAddCourse: @escaping () -> Void,
         onSelectCourse: @escaping (CourseDTO) -> Void
     ) {
@@ -26,6 +30,8 @@ struct WeekScheduleView: View {
         self.now = now
         self.academicCalendarSettings = academicCalendarSettings
         self.calendar = calendar
+        self.isRefreshing = isRefreshing
+        self.onRefresh = onRefresh
         self.onAddCourse = onAddCourse
         self.onSelectCourse = onSelectCourse
         _selectedWeek = State(initialValue: WeekSchedulePresentation.initialWeek(
@@ -75,6 +81,9 @@ struct WeekScheduleView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
+                        if isRefreshing {
+                            TerminalRefreshFeedback(accessibilityIdentifier: "week-refresh-status")
+                        }
                         screenTitle
                         weekControls
                         weekdayStrip
@@ -87,6 +96,8 @@ struct WeekScheduleView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("week-schedule")
                 }
+                .scrollBounceBehavior(.always)
+                .refreshable { await onRefresh() }
             }
 
             VStack {
