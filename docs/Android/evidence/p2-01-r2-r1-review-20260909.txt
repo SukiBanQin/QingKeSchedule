@@ -1,0 +1,90 @@
+P2-01-R2-R1 最终独立复审证据
+日期：2026-09-09
+分支：Android
+实施基准：1bdfa77d01ba19f1dd3a2d1b289757012a452012
+实施提交：886bca62061081a71144e7dcb4cccddf967554d7
+
+一、Git 与范围
+
+复审开始时工作区干净。重新 fetch 后，HEAD、refs/heads/Android、origin/Android 和
+远程 refs/heads/Android 均为 886bca62061081a71144e7dcb4cccddf967554d7；origin/IOS 为
+81ae16f7f4ddc9acd51c67ffb8f66482c6d3d587。
+
+1bdfa77..886bca 只有三个文件：
+- Android/app/src/androidTest/java/com/qingke/schedule/persistence/RoomScheduleRepositoryTest.kt
+- docs/Android/handoff.md
+- docs/Android/evidence/p2-01-r2-r1-connected-debug-android-test-20260909.txt
+
+git diff --check 1bdfa77..886bca 通过。本次实施提交没有修改生产代码、iOS、Web、共享
+schema／fixtures 或未授权功能。
+
+二、R2-R1 修正核对
+
+三个表达式测试已改为普通块体 Unit 方法，块体内部调用 runBlocking。独立 clean 编译后
+javap 显示四个 @Test 均为 JVM void：
+
+public final void emptyRoundTripOrderDuplicatesAndReopen();
+public final void invalidWriteAndInjectedFailureRollBack();
+public final void deleteFirstDuplicateAndKeepsClockContract();
+public final void cancellationPropagatesFromReadAndRollsBackWrite();
+
+事务故障注入已从会绑定最后一个参数 beforeRead 的尾随 lambda，改为显式
+beforeCommit = { error("injected") }。RoomScheduleRepository.replace 在 withTransaction 内先 write，
+再调用 beforeCommit；测试仍断言 IllegalStateException，关闭连接后重开同一数据库并比对
+旧快照。没有删除、跳过或放宽断言。
+
+结论：P2-01-R2-R1 这个聚焦修正本身通过复审。
+
+三、独立设备和构建复验
+
+指定：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+ANDROID_SERIAL=emulator-5588
+
+启动 qingke-api37-r3-arm 后，adb devices -l 只有 emulator-5588；实测 get-state=device、
+sys.boot_completed=1、ro.build.version.sdk=37、ro.product.cpu.abi=arm64-v8a。
+
+从 clean 开始独立执行：
+./gradlew clean assembleDebugAndroidTest testDebugUnitTest testReleaseUnitTest \
+  connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 19s；109 actionable tasks：106 executed，3 up-to-date。
+- Debug JVM：28 tests，0 failures，0 errors，0 skipped。
+- Release JVM：28 tests，0 failures，0 errors，0 skipped。
+- API 37 Room：4 tests，0 failures，0 errors，0 skipped。
+- Android XML 的 device 属性为 emulator-5588，四个用例名均存在。
+
+取证后已用 adb -s emulator-5588 emu kill 关闭模拟器，adb 不再列出该设备。
+
+文档验证：
+- python3 docs/tests/android-documentation.test.py：33 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+
+四、P2-01 整体验收差距
+
+实际 Android Room 测试类只有上述 4 个方法。对照 p2-01-persistence-state.md 的 API 37 Room
+集成测试契约，尚未有自动化证据覆盖：
+- 同一课程的多安排顺序与重复安排 ID 往返。
+- saveSemester／saveCourse 的新建、更新、追加与首个重复 ID 语义，以及删除不存在项
+  不更新时间。
+- 安排随课程删除的数据库外键级联本身；当前从仓库读回快照不能观察不可达的孤儿行。
+- 学期变更使现有课程无效、无学期保存课程等所有写入前拒绝与旧数据保留。
+- 手工写入缺失元数据、非法重复规则或其他可构造损坏记录后，load 返回损坏错误且不清库。
+- 已导出版本 1 schema 且没有 destructive migration 的自动化检查。
+
+状态 JVM 测试也只对 replace 证明成功返回快照和写失败回滚，并只通过并发用例间接
+执行 saveCourse；尚未按契约对 saveSemester、saveCourse、deleteCourse、replace 逐一证明
+成功发布仓库返回快照且不二次读取，以及每种写失败都保留内存快照。
+
+此外存在一个可确定的生产语义差异：RoomScheduleRepository.read 重建 ScheduleData 后调用
+validate；validate 在聚合无效时抛出 ScheduleRepositoryException.InvalidData，随后 read 的
+catch (ScheduleRepositoryException) 原样重抛。因此从存储读取到可映射但违反领域校验的记录时，
+当前错误类型是 InvalidData，而契约要求识别为 InconsistentStore。
+
+结论：R2-R1 聚焦修正通过，但 P2-01 整体的最终独立复审不通过。须先修正上述错误分类并
+补齐契约要求的状态 JVM 和 API 37 Room 集成测试；不得进入 P2-02、P3，不得宣称
+P2-01、A09、P2 或完整 App 已完成或用户已验收。

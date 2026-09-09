@@ -1,5 +1,52 @@
 # P2-01 独立复审记录
 
+## P2-01-R2-R1 修正通过，P2-01 最终复审仍未通过（最新，2026-09-09）
+
+最终复审基准为 `1bdfa77d01ba19f1dd3a2d1b289757012a452012`，实施提交为
+`886bca62061081a71144e7dcb4cccddf967554d7`。重新 fetch 后 HEAD、`refs/heads/Android`、
+`origin/Android` 和远程 `refs/heads/Android` 均为该提交，`origin/IOS` 为 `81ae16f`，复审
+开始工作区干净。`1bdfa77..886bca` 只修改回传的测试源码、交接和设备证据三个文件；
+没有生产代码、iOS、Web 或共享协议改动。
+
+### R2-R1 聚焦修正结论
+
+三个测试已改为块体 Unit 方法，独立 clean 编译后 `javap` 确认四个 `@Test` 均为 JVM
+`void`。原来会因 R1 新增 `beforeRead` 而绑定错位的尾随 lambda，已显式改为
+`beforeCommit = { error("injected") }`；该回调位于 `withTransaction` 内写入之后、提交之前，
+测试仍检查 `IllegalStateException` 与重开数据库后的旧快照。断言没有被删除、跳过或放宽。
+
+本窗口在唯一在线的 `emulator-5588` 上独立从 clean 开始执行双变体 JVM 与设备测试：
+`BUILD SUCCESSFUL in 19s`，109 个任务中 106 executed、3 up-to-date；Debug／Release JVM 各 28 项，
+API 37 ARM64 Room 测试 4 项，失败、错误、跳过均为 0。XML 指定设备 `emulator-5588`
+并列出全部四个用例。取证后已正常关闭模拟器。
+
+因此 **P2-01-R2-R1 的测试入口与故障注入修正通过独立复审**。完整独立证据见
+[R2-R1 复审证据](evidence/p2-01-r2-r1-review-20260909.txt)。
+
+### 阻止 P2-01 关闭的发现
+
+1. [P1] 现有 API 37 Room 类实际只有 4 个测试方法，并未覆盖
+   [P2-01 契约](p2-01-persistence-state.md)明确要求的多安排顺序与重复安排 ID、完整仓库 CRUD、
+   删除不存在项、外键级联的可观察证明、完整无效写入组合、人工损坏存储后不清库，以及
+   schema／destructive migration 检查。当前 4/4 只证明这四个已实现用例通过，不能替代
+   契约中尚未存在的用例。状态 JVM 测试也没有按契约对四种写方法逐一证明成功无二次
+   读取和失败回滚。
+2. [P1] `RoomScheduleRepository.read` 在重建聚合后调用与写入共用的 `validate`。当存储行能够
+   映射但违反领域校验时，`validate` 抛出 `InvalidData`，随后 `catch (ScheduleRepositoryException)`
+   原样重抛；这与契约要求的存储损坏 `InconsistentStore` 分类不符。需区分“待写入数据无效”
+   和“已存储数据无效”，并用手工损坏的 Room 记录证明错误类型和数据保留。
+
+上述第二项是可确定的生产语义缺陷，第一项是原验收契约的证据缺口。先前复审将外键、损坏
+数据等写成“用例未运行”不够准确；本轮核对实际测试源码后确认这些用例尚未实现，以本节结论为准。
+
+### 最终结论
+
+R2-R1 聚焦修正通过，但 **P2-01 整体最终独立复审仍未通过**。下一项仅能是
+P2-01-R3：修正读取损坏数据的错误分类，补齐原契约已要求的状态 JVM 与 API 37 Room 测试。
+未完成该项并重新独立复审前，不得进入 P2-02、P3，不得宣称 P2-01、A09、P2 或完整 App
+已完成，也不得写成用户已验收。本轮文档验证 33 项、既有文档和布局测试及
+`git diff --check` 均通过。
+
 ## P2-01-R2 设备环境已恢复，测试入口缺陷待修正（最新，2026-09-09）
 
 用户授权复用本机已验证的 API 37 ARM64 模拟器后，本窗口以

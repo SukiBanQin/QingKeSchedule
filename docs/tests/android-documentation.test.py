@@ -713,6 +713,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "P2-01 已分析、待执行" in plan
             or "P2-01 已实施但独立复审未通过" in plan
             or "P2-01 R1 代码复审通过，设备验证未通过" in plan
+            or "P2-01 R2-R1 通过，整体复审未通过" in plan
         )
         self.assertIn("p2-01-persistence-state.md", plan)
         self.assertIn("p2-01-persistence-state.md", design)
@@ -823,8 +824,67 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
-        self.assertIn("P2-01 R1 代码复审通过，设备验证未通过", plan)
-        self.assertIn("三个非 `void` 的 `@Test`", plan)
+        self.assertIn("P2-01-R1 代码复审通过", handoff)
+        self.assertIn("三个表达式 `@Test`", handoff)
+
+    def test_p2_01_r2_r1_review_accepts_fix_but_keeps_contract_gate(self):
+        review = (DOCS / "p2-01-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        evidence_path = DOCS / "evidence/p2-01-r2-r1-review-20260909.txt"
+        evidence = evidence_path.read_text()
+
+        latest_review = review.split(
+            "## P2-01-R2-R1 修正通过，P2-01 最终复审仍未通过（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_review = re.sub(r"\s+", " ", latest_review)
+        for marker in (
+            "886bca62061081a71144e7dcb4cccddf967554d7",
+            "P2-01-R2-R1 的测试入口与故障注入修正通过独立复审",
+            "BUILD SUCCESSFUL in 19s",
+            "106 executed",
+            "Debug／Release JVM 各 28 项",
+            "API 37 ARM64 Room 测试 4 项",
+            "现有 API 37 Room 类实际只有 4 个测试方法",
+            "InvalidData",
+            "InconsistentStore",
+            "P2-01 整体最终独立复审仍未通过",
+            "P2-01-R3",
+            "不得进入 P2-02、P3",
+            "文档验证 33 项",
+        ):
+            self.assertIn(marker, normalized_review)
+
+        latest_handoff = handoff.split(
+            "## P2-01-R2-R1 复审通过，P2-01-R3 待修正（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest_handoff)
+        for marker in (
+            "没有超出 R2-R1 授权",
+            "四个 `@Test` 的 JVM 签名均为 `void`",
+            "Room 设备测试 4 项",
+            "P2-01-R2-R1 聚焦修正通过独立复审",
+            "P2-01 整体最终复审未通过",
+            "不得宣称 P2-01、A09、P2 或完整 App",
+            "没有修改应用代码",
+            "没有启动子 Agent",
+            "文档验证 33 项",
+        ):
+            self.assertIn(marker, normalized_handoff)
+
+        for marker in (
+            "109 actionable tasks：106 executed，3 up-to-date",
+            "API 37 Room：4 tests，0 failures，0 errors，0 skipped",
+            "多安排顺序与重复安排 ID",
+            "外键级联本身",
+            "当前错误类型是 InvalidData",
+            "契约要求识别为 InconsistentStore",
+            "android-documentation.test.py：33 项通过",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+        self.assertIn("P2-01 R2-R1 通过，整体复审未通过", plan)
+        self.assertIn("存储损坏错误分类", plan)
 
 
 if __name__ == "__main__":
