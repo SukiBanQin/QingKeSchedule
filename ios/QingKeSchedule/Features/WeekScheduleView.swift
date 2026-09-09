@@ -13,11 +13,7 @@ struct WeekScheduleSelection: Equatable {
             calendar: calendar
         )
         selectedDay = Self.dayOfWeek(for: now, calendar: calendar)
-        followsCurrentWeek = Self.currentTeachingWeek(
-            semester: semester,
-            now: now,
-            calendar: calendar
-        ) != nil
+        followsCurrentWeek = true
         followsCurrentDay = true
     }
 
@@ -27,11 +23,12 @@ struct WeekScheduleSelection: Equatable {
                semester: semester,
                now: now,
                calendar: calendar
-           ) {
+           ), selectedWeek != currentWeek {
             selectedWeek = currentWeek
         }
-        if followsCurrentDay {
-            selectedDay = Self.dayOfWeek(for: now, calendar: calendar)
+        let currentDay = Self.dayOfWeek(for: now, calendar: calendar)
+        if followsCurrentDay, selectedDay != currentDay {
+            selectedDay = currentDay
         }
     }
 
@@ -153,6 +150,10 @@ struct WeekScheduleView: View {
             ?? presentation.days[0]
     }
 
+    private var currentDateKey: Date {
+        calendar.startOfDay(for: now)
+    }
+
     var body: some View {
         ZStack {
             TerminalBackdrop()
@@ -198,9 +199,9 @@ struct WeekScheduleView: View {
             }
         }
         .navigationBarHidden(true)
-        .onChange(of: now) { _, updatedNow in
+        .onChange(of: currentDateKey) { _, _ in
             selection.refresh(
-                for: updatedNow,
+                for: now,
                 semester: semester,
                 calendar: calendar
             )

@@ -228,6 +228,36 @@ struct SchedulePresentationTests {
         ) == 18)
     }
 
+    @Test("学期开始前初始化的周课表会继续跟随教学周")
+    func weekSelectionInitializedBeforeSemesterFollowsIntoLaterWeeks() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 8, 30, hour: 12),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect((1...semester.totalWeeks).contains(selection.selectedWeek))
+
+        selection.refresh(
+            for: try date(2026, 8, 31, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 1)
+
+        selection.refresh(
+            for: try date(2026, 9, 7, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 2)
+        #expect((1...semester.totalWeeks).contains(selection.selectedWeek))
+    }
+
     @Test("周课表跟随当天跨午夜更新星期")
     func weekSelectionFollowsDayAcrossMidnight() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
