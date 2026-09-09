@@ -715,6 +715,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             or "P2-01 R1 代码复审通过，设备验证未通过" in plan
             or "P2-01 R2-R1 通过，整体复审未通过" in plan
             or "P2-01 独立复审通过" in plan
+            or "P2-01 已审查通过" in plan
         )
         self.assertIn("p2-01-persistence-state.md", plan)
         self.assertIn("p2-01-persistence-state.md", design)
@@ -887,10 +888,13 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertTrue(
             "P2-01 R2-R1 通过，整体复审未通过" in plan
             or "P2-01 独立复审通过" in plan
+            or "P2-01 已审查通过" in plan
         )
         self.assertTrue(
             "存储损坏错误分类" in plan
             or "P2-01 Room 与最小状态边界已完成" in plan
+            or "损坏回退" in plan
+            or "P2-01 已审查通过" in plan
         )
 
     def test_p2_01_r3_review_closes_gate_without_claiming_user_acceptance(self):
@@ -916,7 +920,43 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, normalized)
         self.assertIn("P2-01-R3 独立复审通过（最新，2026-09-09）", handoff)
         self.assertIn("P2-01 独立复审通过", handoff)
-        self.assertIn("P2-01 独立复审通过", plan)
+        self.assertTrue(
+            "P2-01 独立复审通过" in plan
+            or "P2-01 已审查通过" in plan
+        )
+
+    def test_p2_02_authorization_defines_datastore_only_boundary(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        latest = handoff.split(
+            "## P2-02 偏好设置持久化已获授权，待执行（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "P2-02",
+            "DataStore",
+            "默认值／未知值回退",
+            "不连接 Compose 页面",
+            "通知调度",
+            "不决定 D03",
+            "不扩展版本 1 JSON 或 iOS 协议",
+            "跨存储原子事务",
+            "Terra／中",
+            "独立复审",
+        ):
+            self.assertIn(marker, normalized)
+        self.assertIn("P2-02 已授权待执行", plan)
+        for marker in (
+            "P2-02 采用",
+            "DataStore",
+            "AppearanceMode",
+            "教学日历",
+            "未知枚举值时回退",
+            "关闭并重建 DataStore",
+            "不接页面和通知调度",
+        ):
+            self.assertIn(marker, design)
 
 
 if __name__ == "__main__":
