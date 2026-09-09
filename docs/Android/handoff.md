@@ -1,5 +1,27 @@
 # 安卓项目当前交接状态
 
+## P2-01-R2-R1 已实施，等待最终独立复审（最新，2026-09-09）
+
+执行窗口以 `1bdfa77d01ba19f1dd3a2d1b289757012a452012` 为基准，仅修改
+`RoomScheduleRepositoryTest.kt`。三个原本表达式形式的 AndroidJUnit4 测试改为普通块体方法，
+内部调用 `runBlocking`，避免末尾 `File.delete()` 的 `Boolean` 成为 JVM 方法返回值；同时将既有
+事务故障注入调用显式绑定为 `beforeCommit`。后者是 R1 新增 `beforeRead` 参数后尾随 lambda 的
+绑定目标变化所致，修正后保持原来的“提交前抛出 `IllegalStateException`”断言，不弱化任何测试。
+未修改生产代码、iOS、Web、共享 schema／fixtures、MainActivity、页面、DataStore、通知或导入导出，
+也未进入 P2-02、P3 或完整 App。
+
+`javap` 已确认四个 `@Test` 方法均为 JVM `void`。使用指定 SDK、指定 AVD 目录和
+`ANDROID_SERIAL=emulator-5588` 启动 `qingke-api37-r3-arm`：ADB 为 `device`、
+`sys.boot_completed=1`、SDK 为 37、ABI 为 `arm64-v8a`。`connectedDebugAndroidTest` 实际在该唯一
+API 37 ARM64 设备运行并通过；XML／HTML 报告为 4 tests、0 failures、0 errors、0 skipped，四个
+Room 用例均进入测试体。双变体 JVM 测试各 28 项，均为 0 failures／0 errors／0 skipped。
+完整设备、`javap` 和报告证据见
+[P2-01-R2-R1 connected 测试证据](evidence/p2-01-r2-r1-connected-debug-android-test-20260909.txt)。
+
+本次启动的 `emulator-5588` 已在取证后正常关闭，`adb devices -l` 已确认无连接设备。P2-01-R1 协程取消代码复审此前已通过；
+本轮取得的是此前缺失的真实 Room 设备测试证据和测试入口修正，仍须由分析审查窗口最终复审
+P2-01。不得自行标记 P2-01、A09、P2 或完整 App 已完成／用户验收。
+
 ## P2-01-R2 模拟器已可用，Android 测试入口待修正（最新，2026-09-09）
 
 用户授权按已验证方案复用本机 API 37 ARM64 模拟器。本窗口以

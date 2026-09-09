@@ -21,29 +21,33 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RoomScheduleRepositoryTest {
-    @Test fun emptyRoundTripOrderDuplicatesAndReopen() = runBlocking {
-        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-test-${System.nanoTime()}.db")
-        val repository = repository(file)
-        assertEquals(ScheduleData(1, null, emptyList(), RoomScheduleRepository.EMPTY_UPDATED_AT), repository.load())
-        val fixture = data()
-        assertEquals(fixture, repository.replace(fixture))
-        repository.database.close()
-        val reopened = repository(file)
-        assertEquals(fixture, reopened.load())
-        reopened.database.close(); file.delete()
+    @Test fun emptyRoundTripOrderDuplicatesAndReopen() {
+        runBlocking {
+            val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-test-${System.nanoTime()}.db")
+            val repository = repository(file)
+            assertEquals(ScheduleData(1, null, emptyList(), RoomScheduleRepository.EMPTY_UPDATED_AT), repository.load())
+            val fixture = data()
+            assertEquals(fixture, repository.replace(fixture))
+            repository.database.close()
+            val reopened = repository(file)
+            assertEquals(fixture, reopened.load())
+            reopened.database.close(); file.delete()
+        }
     }
 
-    @Test fun invalidWriteAndInjectedFailureRollBack() = runBlocking {
-        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-rollback-${System.nanoTime()}.db")
-        val stable = data(); val repository = repository(file)
-        repository.replace(stable)
-        assertThrows(ScheduleRepositoryException::class.java) { runBlocking { repository.replace(stable.copy(semester = null)) } }
-        assertEquals(stable, repository.load())
-        val failing = repository(file) { error("injected") }
-        assertThrows(IllegalStateException::class.java) { runBlocking { failing.replace(data().copy(updatedAt = "2026-01-02T00:00:00Z")) } }
-        repository.database.close(); failing.database.close()
-        val reopened = repository(file)
-        assertEquals(stable, reopened.load()); reopened.database.close(); file.delete()
+    @Test fun invalidWriteAndInjectedFailureRollBack() {
+        runBlocking {
+            val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-rollback-${System.nanoTime()}.db")
+            val stable = data(); val repository = repository(file)
+            repository.replace(stable)
+            assertThrows(ScheduleRepositoryException::class.java) { runBlocking { repository.replace(stable.copy(semester = null)) } }
+            assertEquals(stable, repository.load())
+            val failing = repository(file, beforeCommit = { error("injected") })
+            assertThrows(IllegalStateException::class.java) { runBlocking { failing.replace(data().copy(updatedAt = "2026-01-02T00:00:00Z")) } }
+            repository.database.close(); failing.database.close()
+            val reopened = repository(file)
+            assertEquals(stable, reopened.load()); reopened.database.close(); file.delete()
+        }
     }
 
     @Test fun deleteFirstDuplicateAndKeepsClockContract() = runBlocking {
@@ -54,21 +58,23 @@ class RoomScheduleRepositoryTest {
         assertEquals("2026-01-03T00:00:00Z", result.updatedAt)
     }
 
-    @Test fun cancellationPropagatesFromReadAndRollsBackWrite() = runBlocking {
-        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-cancellation-${System.nanoTime()}.db")
-        val stable = data()
-        val repository = repository(file)
-        repository.replace(stable)
+    @Test fun cancellationPropagatesFromReadAndRollsBackWrite() {
+        runBlocking {
+            val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-cancellation-${System.nanoTime()}.db")
+            val stable = data()
+            val repository = repository(file)
+            repository.replace(stable)
 
-        val readCancelled = repository(file, beforeRead = { throw CancellationException("read cancelled") })
-        assertThrows(CancellationException::class.java) { runBlocking { readCancelled.load() } }
+            val readCancelled = repository(file, beforeRead = { throw CancellationException("read cancelled") })
+            assertThrows(CancellationException::class.java) { runBlocking { readCancelled.load() } }
 
-        val writeCancelled = repository(file, beforeCommit = { throw CancellationException("write cancelled") })
-        assertThrows(CancellationException::class.java) { runBlocking { writeCancelled.replace(stable.copy(updatedAt = "2026-01-02T00:00:00Z")) } }
-        repository.database.close(); readCancelled.database.close(); writeCancelled.database.close()
-        val reopened = repository(file)
-        assertEquals(stable, reopened.load())
-        reopened.database.close(); file.delete()
+            val writeCancelled = repository(file, beforeCommit = { throw CancellationException("write cancelled") })
+            assertThrows(CancellationException::class.java) { runBlocking { writeCancelled.replace(stable.copy(updatedAt = "2026-01-02T00:00:00Z")) } }
+            repository.database.close(); readCancelled.database.close(); writeCancelled.database.close()
+            val reopened = repository(file)
+            assertEquals(stable, reopened.load())
+            reopened.database.close(); file.delete()
+        }
     }
 
     private fun repository(
