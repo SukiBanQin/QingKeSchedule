@@ -1,5 +1,32 @@
 # 安卓项目当前交接状态
 
+## P2-01-R2 模拟器已可用，Android 测试入口待修正（最新，2026-09-09）
+
+用户授权按已验证方案复用本机 API 37 ARM64 模拟器。本窗口以
+`08aaab1b2e4550f05fcdaf6180400ffdd61736fc` 为基准，开始时分支 `Android`、本地 HEAD 和
+`origin/Android` 一致，工作区干净。本轮只进行设备执行、分析和文档证据维护，
+没有修改 Android 应用或测试源码，没有修改 iOS、Web、共享 schema／fixtures，也没有启动子 Agent。
+
+使用 `ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd` 启动
+`qingke-api37-r3-arm` 后，`emulator-5588` 已达到 ADB `device`、
+`sys.boot_completed=1`，实测 SDK 37、`arm64-v8a`，启动日志包含 `-enable-hvf`。因此模拟器
+环境门槛已解除，无需实体真机；先前 R1 只是没有启动正确 AVD。默认
+`~/.android/avd` 中的 `target=android-0` 旧登记不得作为后续执行入口。
+
+`connectedDebugAndroidTest` 已两次进入该模拟器，不再报 `No connected devices`；但
+AndroidJUnit4 在测试体之前因 `InvalidTestClassError` 失败。报告为 1 个
+`initializationError`（failures 1，errors 0，skipped 0），四个 Room 测试均未执行。根因是
+`RoomScheduleRepositoryTest.kt` 三个表达式 `@Test` 以 `File.delete()` 的 `Boolean` 作为
+`runBlocking` 结果，`javap` 确认它们被编译为 `boolean` 而非 JUnit 4 要求的 `void`。
+
+下一步仅修正这三个测试方法的返回类型，不修改生产代码，不删除或弱化断言；然后在
+正确 AVD 上重跑全部 `connectedDebugAndroidTest`。详细分析见
+[P2-01 复审记录](p2-01-review.md)，现场证据见
+[P2-01-R2 connected 测试证据](evidence/p2-01-r2-connected-debug-android-test-20260909.txt)。模拟器已在取证后
+正常关闭。**P2-01 整体仍未验证、未审查通过**；不得进入 P2-02、P3，也不得
+宣称 A09、P2 或完整 App 完成。本轮文档验证 32 项、既有文档与布局测试及
+`git diff --check` 均通过；文档提交和推送结果以最终交付消息为准。
+
 ## P2-01-R1 代码复审通过，设备门槛仍开放（最新，2026-09-09）
 
 分析审查窗口已重新独立复审 `c96658a3a5c8943a820893ff8c46d1079185a0ea`，修正基准为

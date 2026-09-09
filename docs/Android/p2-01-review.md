@@ -1,5 +1,39 @@
 # P2-01 独立复审记录
 
+## P2-01-R2 设备环境已恢复，测试入口缺陷待修正（最新，2026-09-09）
+
+用户授权复用本机已验证的 API 37 ARM64 模拟器后，本窗口以
+`08aaab1b2e4550f05fcdaf6180400ffdd61736fc` 为基准完成设备执行。开始时分支为
+`Android`，本地 HEAD、`refs/heads/Android` 和 `origin/Android` 一致，工作区干净；没有
+其他连接设备、Emulator／qemu 或项目构建进程。本窗口没有修改应用或 Android 测试
+源码，也没有启动子 Agent。
+
+已指定成功 AVD 所在的
+`ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd`，启动
+`qingke-api37-r3-arm` 到 `emulator-5588`。日志确认 API level 37 和 `-enable-hvf`；ADB 实测
+`device`、`sys.boot_completed=1`、SDK 37 与 `arm64-v8a`。因此先前的设备环境门槛已解除，
+无需实体真机。默认 `~/.android/avd` 中另有 `target=android-0` 的旧登记，本轮没有
+误用它。
+
+在唯一在线设备上两次运行 `connectedDebugAndroidTest`，第二次使用 `set -o pipefail`
+确认 Gradle 退出码为 1；任务已进入 `qingke-api37-r3-arm(AVD) - 17`，不再是
+`No connected devices`。但 AndroidJUnit4 在执行用例前报告 `InvalidTestClassError`：
+`emptyRoundTripOrderDuplicatesAndReopen`、`invalidWriteAndInjectedFailureRollBack` 和
+`cancellationPropagatesFromReadAndRollsBackWrite` 均“should be void”。XML 只有 1 个
+`initializationError`（failures 1，errors 0，skipped 0），四个 Room 测试方法均未进入测试体。
+
+源码和 `javap` 交叉核对确认：这三个 `@Test` 是返回 `runBlocking` 结果的表达式函数，
+最后执行的 `File.delete()` 返回 `Boolean`，所以编译后方法确实为 `boolean`，不符合 JUnit 4
+的 `void` 要求。这是测试入口缺陷，不是 Room 断言已失败，也不是新的生产代码结论。
+完整现场证据见 [P2-01-R2 connected 测试证据](evidence/p2-01-r2-connected-debug-android-test-20260909.txt)。
+
+后续仅需修正 `RoomScheduleRepositoryTest.kt` 中这三个测试的 JVM 返回类型，不得删除或
+弱化断言，不需要修改生产代码。修正后必须在上述正确 `ANDROID_AVD_HOME` 和 API 37 模拟器上
+重跑全部 `connectedDebugAndroidTest`，核对实际测试数、失败和跳过数。由于 Room 功能断言尚未
+执行，**P2-01 整体仍未验证、未审查通过**；不得进入 P2-02、P3，也不得宣称
+A09、P2 或完整 App 完成。证据收集后已正常关闭 `emulator-5588`。本轮文档验证
+32 项、既有文档与布局测试及 `git diff --check` 均通过。
+
 ## P2-01-R1 重新独立复审结论（最新，2026-09-09）
 
 重新复审基准为 `932f4b5367c641e3d1abc5a5ba1f7286283b2613`，实施提交为

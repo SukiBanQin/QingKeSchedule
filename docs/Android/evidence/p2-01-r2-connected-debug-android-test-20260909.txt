@@ -1,0 +1,77 @@
+P2-01-R2 API 37 connectedDebugAndroidTest 独立执行证据
+日期：2026-09-09
+分支：Android
+代码与文档基准：08aaab1b2e4550f05fcdaf6180400ffdd61736fc
+
+一、模拟器环境
+
+SDK：/Users/takagisan/Library/Android/sdk-qingke-api37
+Emulator：37.1.11.0（build 15917651）
+ANDROID_AVD_HOME：/Users/takagisan/.android/qingke-api37-r3-avd
+AVD：qingke-api37-r3-arm
+AVD 登记：target=android-37
+镜像：system-images/android-37.0/google_apis/arm64-v8a/
+序列号：emulator-5588
+
+启动参数：
+emulator -avd qingke-api37-r3-arm -no-snapshot -no-window -gpu software \
+  -no-audio -no-boot-anim -port 5588 -verbose
+
+启动结果：
+- 日志识别 API level 37 并包含 -enable-hvf。
+- adb get-state：device。
+- sys.boot_completed：1。
+- ro.build.version.sdk：37。
+- ro.product.cpu.abi：arm64-v8a。
+- ro.build.fingerprint：
+  google/sdk_gphone64_arm64/emu64a:17/CE2A.260420.019/15611780:userdebug/dev-keys
+
+本次证明已验证的 API 37 ARM64 模拟器环境可用，不需要实体真机。默认
+/Users/takagisan/.android/avd 中另有 target=android-0 的旧登记，本轮没有使用它。
+
+二、connectedDebugAndroidTest
+
+环境变量：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+ANDROID_SERIAL=emulator-5588
+
+在 Android/ 下执行：
+./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+首次运行已进入 qingke-api37-r3-arm(AVD) - 17 并执行测试任务；为避免 tee
+遮蔽 Gradle 退出码，随后使用 set -o pipefail 独立重跑。重跑结果：
+- Gradle 退出码：1。
+- BUILD FAILED in 6s。
+- 74 actionable tasks：1 executed，73 up-to-date。
+- 不再是 DeviceException: No connected devices!。
+- XML 报告：tests=1，failures=1，errors=0，skipped=0。
+- 唯一结果为 initializationError，四个 Room 功能用例均未进入测试体。
+
+三、失败原因
+
+AndroidJUnit4 在实例化 RoomScheduleRepositoryTest 时拒绝了三个非 void 的 @Test 方法：
+
+Invalid test class 'com.qingke.schedule.persistence.RoomScheduleRepositoryTest':
+  1. Method cancellationPropagatesFromReadAndRollsBackWrite() should be void
+  2. Method invalidWriteAndInjectedFailureRollBack() should be void
+  3. Method emptyRoundTripOrderDuplicatesAndReopen() should be void
+
+源码中这三个用例使用表达式函数返回 runBlocking 结果，而最后一句均为
+File.delete()；因此 Kotlin 编译器生成了 boolean 方法。javap 独立核对为：
+
+public final boolean emptyRoundTripOrderDuplicatesAndReopen();
+public final boolean invalidWriteAndInjectedFailureRollBack();
+public final void deleteFirstDuplicateAndKeepsClockContract();
+public final boolean cancellationPropagatesFromReadAndRollsBackWrite();
+
+所以本次已解除设备环境门槛，但发现了 Android 测试入口缺陷。Room schema、
+重开数据库、事务回滚、取消传播、外键级联、重复 ID／顺序及损坏数据断言仍没有
+实际运行，不得据此宣称 P2-01 已验证或已审查通过。
+
+四、收尾状态
+
+证据收集后已执行 adb -s emulator-5588 emu kill，ADB 不再列出 emulator-5588。
+本轮没有修改 Android 应用或测试源码，没有修改 iOS、Web、共享 schema／fixtures，
+没有进入 P2-02、P3 或完整 App。

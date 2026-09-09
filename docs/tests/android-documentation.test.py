@@ -712,6 +712,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertTrue(
             "P2-01 已分析、待执行" in plan
             or "P2-01 已实施但独立复审未通过" in plan
+            or "P2-01 R1 代码复审通过，设备验证未通过" in plan
         )
         self.assertIn("p2-01-persistence-state.md", plan)
         self.assertIn("p2-01-persistence-state.md", design)
@@ -768,6 +769,62 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不得进入 P2-02",
         ):
             self.assertIn(marker, normalized_handoff)
+
+    def test_p2_01_r2_records_working_emulator_and_test_entry_failure(self):
+        review = (DOCS / "p2-01-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        evidence_path = DOCS / "evidence/p2-01-r2-connected-debug-android-test-20260909.txt"
+        evidence = evidence_path.read_text()
+
+        latest_review = review.split(
+            "## P2-01-R2 设备环境已恢复，测试入口缺陷待修正（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_review = re.sub(r"\s+", " ", latest_review)
+        for marker in (
+            "08aaab1b2e4550f05fcdaf6180400ffdd61736fc",
+            "ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd",
+            "sys.boot_completed=1",
+            "SDK 37",
+            "arm64-v8a",
+            "InvalidTestClassError",
+            "initializationError",
+            "四个 Room 测试方法均未进入测试体",
+            "P2-01 整体仍未验证、未审查通过",
+            "不得进入 P2-02、P3",
+            "文档验证 32 项",
+        ):
+            self.assertIn(marker, normalized_review)
+
+        latest_handoff = handoff.split(
+            "## P2-01-R2 模拟器已可用，Android 测试入口待修正（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest_handoff)
+        for marker in (
+            "无需实体真机",
+            "target=android-0",
+            "四个 Room 测试均未执行",
+            "不修改生产代码",
+            "没有修改 Android 应用或测试源码",
+            "没有启动子 Agent",
+            "文档验证 32 项",
+        ):
+            self.assertIn(marker, normalized_handoff)
+
+        for marker in (
+            "Emulator：37.1.11.0",
+            "adb get-state：device",
+            "ro.build.version.sdk：37",
+            "tests=1，failures=1，errors=0，skipped=0",
+            "should be void",
+            "public final boolean cancellationPropagatesFromReadAndRollsBackWrite();",
+            "四个 Room 功能用例均未进入测试体",
+            "ADB 不再列出 emulator-5588",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+        self.assertIn("P2-01 R1 代码复审通过，设备验证未通过", plan)
+        self.assertIn("三个非 `void` 的 `@Test`", plan)
 
 
 if __name__ == "__main__":
