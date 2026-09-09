@@ -21,7 +21,7 @@ Room 测试补齐多安排／重复 ID／反序节次重开、saveSemester/saveC
 验证结果（最终 XML）：
 
 - `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest`：成功；Debug/Release JVM 各 34 项，均 `failures=0, errors=0, skipped=0`；`ScheduleAppStateTest` 各 14 项。
-- `connectedDebugAndroidTest`：成功；API 37 ARM64 `emulator-5586` 实际进入 11 项 Room 测试，`failures=0, errors=0, skipped=0`。
+- `connectedDebugAndroidTest`：成功；API 37 ARM64 `emulator-5586` 实际进入 11 项 Room 测试，`failures=0, errors=0, skipped=0`。随后最终 `clean ... assembleDebugAndroidTest` 清理了设备 XML 输出目录，数量已在证据文件中固定记录。
 - 设备实测 `state=device`、`sys.boot_completed=1`、SDK 37、ABI `arm64-v8a`；取证后已执行 `adb -s emulator-5586 emu kill`，设备已关闭。
 - `python3 docs/tests/android-documentation.test.py`：33 项通过；`bash docs/tests/documentation.test.sh`、`bash docs/tests/repository-layout.test.sh`、`git diff --check` 均需在提交前再次执行。
 

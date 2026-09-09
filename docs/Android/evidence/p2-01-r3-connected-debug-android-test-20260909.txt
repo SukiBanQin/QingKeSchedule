@@ -62,6 +62,11 @@ Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-
 Android/app/build/reports/lint-results-debug.html
 ```
 
+说明：设备测试 XML 在 `connectedDebugAndroidTest` 成功后已核对并记录上述数量；随后按交付要求
+再次执行全量 `clean ... assembleDebugAndroidTest`，Gradle 清理了 `app/build/outputs/androidTest-results`
+目录，因此当前工作区中不再保留该 XML 原文件。设备数量、零失败／错误／跳过和 11 个测试名称均已在
+本证据与交接记录中固定，不能将后续清理后的目录状态误报为未执行。
+
 `lintDebug` 成功。构建日志有既有 `libandroidx.graphics.path.so` 无法 strip 的打包提示，
 不影响任务成功；Android test 编译有测试辅助函数的 unchecked cast warning，不影响测试
 结果。`git diff --check` 与文档／布局验证在提交前执行。
