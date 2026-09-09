@@ -1,0 +1,84 @@
+# P2-01-R3 执行证据（2026-09-09）
+
+基准：`fc1c7f716df32a528317f13455b2c9c0e2f077e3`，分支 `Android`。
+本证据只覆盖 P2-01-R3，未修改 `p2-01-review.md`。
+
+## 设备
+
+环境变量：
+
+```text
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+ANDROID_SERIAL=emulator-5586
+```
+
+启动：`qingke-api37-r3-arm`，Emulator 37.1.11.0。
+
+```text
+adb get-state: device
+sys.boot_completed: 1
+ro.build.version.sdk: 37
+ro.product.cpu.abi: arm64-v8a
+ro.build.fingerprint: google/sdk_gphone64_arm64/emu64a:17/CE2A.260420.019/15611780:userdebug/dev-keys
+```
+
+## 验证命令与结果
+
+```text
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+BUILD SUCCESSFUL
+```
+
+该命令实际生成的 XML：Debug JVM 34 项，Release JVM 34 项；两变体均
+`failures=0, errors=0, skipped=0`。`ScheduleAppStateTest` 两变体各 14 项，覆盖
+replace、saveSemester、saveCourse、deleteCourse 的成功快照／无二次 load 和失败回滚，
+以及加载、重试、并发串行化和 CancellationException。
+
+```text
+./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+BUILD SUCCESSFUL
+```
+
+API 37 Room XML：11 项，`failures=0, errors=0, skipped=0`，设备为
+`emulator-5586`。11 项均进入测试体，覆盖：
+
+- 多安排顺序、重复课程／安排 ID、反序节次编号、关闭重开；
+- saveSemester 保留课程与固定时钟；saveCourse 首个重复 ID 更新、保持位置和追加；
+- deleteCourse 首个重复项及删除不存在项；
+- 直接查询 `schedule_course_schedules` 观察课程删除后的外键 CASCADE；
+- 无效 replace、非法学期变更、无学期 saveCourse 和 beforeCommit 回滚；
+- 读取缺失元数据、不支持版本、非法 repeatRule、违反领域校验的手工记录均为
+  `ScheduleRepositoryException.InconsistentStore`，且表记录计数不变；
+- Room schema version 1、CASCADE 外键、`courseRowId` 索引和非唯一业务 ID 结构。
+
+报告位置：
+
+```text
+Android/app/build/test-results/testDebugUnitTest/*.xml
+Android/app/build/test-results/testReleaseUnitTest/*.xml
+Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+Android/app/build/reports/lint-results-debug.html
+```
+
+`lintDebug` 成功。构建日志有既有 `libandroidx.graphics.path.so` 无法 strip 的打包提示，
+不影响任务成功；Android test 编译有测试辅助函数的 unchecked cast warning，不影响测试
+结果。`git diff --check` 与文档／布局验证在提交前执行。
+
+## 语义修正
+
+`RoomScheduleRepository.read` 现在将“已从 Room 行映射、但重建聚合未通过
+`ScheduleValidator`”转换为 `InconsistentStore`；写入候选仍使用 `InvalidData`。既有
+`InconsistentStore` 分类保留，`CancellationException` 仍原样传播；未清库、未启用
+destructive migration，事务和状态回滚语义未改变。
+
+## 设备关闭
+
+测试取证后执行：
+
+```text
+adb -s emulator-5586 emu kill
+```
+
+随后 `adb devices -l` 不再列出 `emulator-5586`，本任务启动的模拟器已关闭。

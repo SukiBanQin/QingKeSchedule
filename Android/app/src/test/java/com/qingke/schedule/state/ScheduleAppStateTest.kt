@@ -62,6 +62,33 @@ class ScheduleAppStateTest {
         assertEquals(1, repository.loadCalls.get())
     }
 
+    @Test fun successfulSaveSemesterPublishesReturnedSnapshotWithoutSecondLoad() = runTest {
+        val returned = fixture().copy(semester = semester().copy(name = "returned"))
+        val repository = FakeRepository(data = fixture()).also { it.semesterResult = returned }
+        val state = ScheduleAppState(repository)
+        state.load(); state.saveSemester(semester().copy(name = "requested"))
+        assertEquals(returned, state.state.value.data)
+        assertEquals(1, repository.loadCalls.get())
+    }
+
+    @Test fun successfulSaveCoursePublishesReturnedSnapshotWithoutSecondLoad() = runTest {
+        val returned = fixture().copy(courses = listOf(course("returned")))
+        val repository = FakeRepository(data = fixture()).also { it.courseResult = returned }
+        val state = ScheduleAppState(repository)
+        state.load(); state.saveCourse(course("requested"))
+        assertEquals(returned, state.state.value.data)
+        assertEquals(1, repository.loadCalls.get())
+    }
+
+    @Test fun successfulDeleteCoursePublishesReturnedSnapshotWithoutSecondLoad() = runTest {
+        val returned = fixture().copy(courses = emptyList())
+        val repository = FakeRepository(data = fixture()).also { it.deleteResult = returned }
+        val state = ScheduleAppState(repository)
+        state.load(); state.deleteCourse("first")
+        assertEquals(returned, state.state.value.data)
+        assertEquals(1, repository.loadCalls.get())
+    }
+
     @Test fun failedWriteKeepsSnapshotAndClearsSaving() = runTest {
         val original = fixture()
         val repository = FakeRepository(data = original).also { it.failWrites = true }
@@ -71,6 +98,18 @@ class ScheduleAppStateTest {
         assertFalse(state.state.value.isSaving)
         assertTrue(state.state.value.error!!.isNotBlank())
         state.clearError(); assertNull(state.state.value.error)
+    }
+
+    @Test fun failedSaveSemesterKeepsSnapshotAndClearsSaving() = runTest {
+        assertFailedWrite { saveSemester(semester()) }
+    }
+
+    @Test fun failedSaveCourseKeepsSnapshotAndClearsSaving() = runTest {
+        assertFailedWrite { saveCourse(course("new")) }
+    }
+
+    @Test fun failedDeleteCourseKeepsSnapshotAndClearsSaving() = runTest {
+        assertFailedWrite { deleteCourse("first") }
     }
 
     @Test fun cancelledWritePropagatesWithoutPublishingAnError() = runTest {
@@ -94,6 +133,16 @@ class ScheduleAppStateTest {
         assertEquals(1, repository.maxConcurrentWrites.get())
     }
 
+    private suspend fun assertFailedWrite(operation: suspend ScheduleAppState.() -> Unit) {
+        val original = fixture()
+        val state = ScheduleAppState(FakeRepository(data = original).also { it.failWrites = true })
+        state.load()
+        state.operation()
+        assertEquals(original, state.state.value.data)
+        assertFalse(state.state.value.isSaving)
+        assertTrue(state.state.value.error!!.isNotBlank())
+    }
+
     private class FakeRepository(var data: ScheduleData) : ScheduleRepository {
         var failLoad = false
         var failWrites = false
@@ -101,14 +150,17 @@ class ScheduleAppStateTest {
         var cancelWrites = false
         var delayWrites = false
         var replaceResult: ScheduleData? = null
+        var semesterResult: ScheduleData? = null
+        var courseResult: ScheduleData? = null
+        var deleteResult: ScheduleData? = null
         val loadCalls = AtomicInteger()
         val maxConcurrentWrites = AtomicInteger()
         private val concurrentWrites = AtomicInteger()
         override suspend fun load(): ScheduleData { loadCalls.incrementAndGet(); if (cancelLoad) throw CancellationException("load cancelled"); if (failLoad) error("load failed"); return data }
         override suspend fun replace(data: ScheduleData): ScheduleData = write { replaceResult ?: data }
-        override suspend fun saveSemester(semester: Semester): ScheduleData = write { data.copy(semester = semester) }
-        override suspend fun saveCourse(course: Course): ScheduleData = write { data.copy(courses = data.courses + course) }
-        override suspend fun deleteCourse(id: String): ScheduleData = write { data.copy(courses = data.courses.filterNot { it.id == id }) }
+        override suspend fun saveSemester(semester: Semester): ScheduleData = write { semesterResult ?: data.copy(semester = semester) }
+        override suspend fun saveCourse(course: Course): ScheduleData = write { courseResult ?: data.copy(courses = data.courses + course) }
+        override suspend fun deleteCourse(id: String): ScheduleData = write { deleteResult ?: data.copy(courses = data.courses.filterNot { it.id == id }) }
         private suspend fun write(block: () -> ScheduleData): ScheduleData {
             if (cancelWrites) throw CancellationException("write cancelled")
             if (failWrites) error("write failed")

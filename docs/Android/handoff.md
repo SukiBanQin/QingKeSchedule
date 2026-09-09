@@ -1,5 +1,32 @@
 # 安卓项目当前交接状态
 
+## P2-01-R3 已执行，待最终独立复审（最新，2026-09-09）
+
+执行基准为 `fc1c7f716df32a528317f13455b2c9c0e2f077e3`，分支 `Android`；开始时 HEAD、
+`refs/heads/Android`、`origin/Android` 一致且工作区干净。仅修改了 R3 授权的
+`RoomScheduleRepository.kt`、`ScheduleAppStateTest.kt`、`RoomScheduleRepositoryTest.kt`、
+本证据文件和本交接；未修改 `p2-01-review.md`、iOS、Web、共享 schema/fixtures、页面、
+DataStore、通知或导入导出，未进入 P2-02/P3。
+
+生产修正：读取已能映射但重建聚合未通过 `ScheduleValidator` 的数据库记录时，统一抛出
+`ScheduleRepositoryException.InconsistentStore`；待写入候选仍抛 `InvalidData`。已有损坏分类和
+`CancellationException` 原样传播保持不变，未自动清库、未启用 destructive migration，也未改变
+重复 ID、显式顺序、事务提交或状态回滚语义。
+
+状态 JVM 测试按四种公开写操作分别补齐成功返回快照／不二次 `load`，并分别补齐失败保留旧
+快照、`isSaving=false` 和普通错误；加载、重试、并发串行化、取消测试均保留。
+Room 测试补齐多安排／重复 ID／反序节次重开、saveSemester/saveCourse/deleteCourse 全部 CRUD
+语义、直接外键级联观察、无效写入保留、手工损坏分类与不清库、schema/外键/索引检查。
+
+验证结果（最终 XML）：
+
+- `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest`：成功；Debug/Release JVM 各 34 项，均 `failures=0, errors=0, skipped=0`；`ScheduleAppStateTest` 各 14 项。
+- `connectedDebugAndroidTest`：成功；API 37 ARM64 `emulator-5586` 实际进入 11 项 Room 测试，`failures=0, errors=0, skipped=0`。
+- 设备实测 `state=device`、`sys.boot_completed=1`、SDK 37、ABI `arm64-v8a`；取证后已执行 `adb -s emulator-5586 emu kill`，设备已关闭。
+- `python3 docs/tests/android-documentation.test.py`：33 项通过；`bash docs/tests/documentation.test.sh`、`bash docs/tests/repository-layout.test.sh`、`git diff --check` 均需在提交前再次执行。
+
+完整测试／设备证据见 [P2-01-R3 证据](evidence/p2-01-r3-connected-debug-android-test-20260909.txt)。本轮仍未声明 P2-01、A09、P2、完整 App 或用户验收完成，须交回分析审查窗口复核实际 diff、错误分类、原始记录、事务／外键和测试报告。
+
 ## P2-01-R2-R1 复审通过，P2-01-R3 待修正（最新，2026-09-09）
 
 分析审查窗口最终复审了基准 `1bdfa77d01ba19f1dd3a2d1b289757012a452012` 上的实施提交

@@ -63,6 +63,12 @@ class RoomScheduleRepository(
         ScheduleValidator.validate(data).firstOrNull()?.let { throw ScheduleRepositoryException.InvalidData("${it.path}：${it.message}") }
     }
 
+    private fun validateStored(data: ScheduleData) {
+        ScheduleValidator.validate(data).firstOrNull()?.let {
+            throw ScheduleRepositoryException.InconsistentStore("存储数据无效：${it.path}：${it.message}")
+        }
+    }
+
     private suspend fun read(): ScheduleData {
         try {
             beforeRead()
@@ -78,7 +84,7 @@ class RoomScheduleRepository(
                 Course(course.businessId, course.name, course.teacher, course.color, schedules)
             }
             val data = ScheduleData(meta.schemaVersion, semester, mappedCourses, meta.updatedAt)
-            validate(data); return data
+            validateStored(data); return data
         } catch (error: CancellationException) { throw error
         } catch (error: ScheduleRepositoryException) { throw error
         } catch (error: Throwable) { throw ScheduleRepositoryException.InconsistentStore("读取失败", error) }
