@@ -228,6 +228,97 @@ struct SchedulePresentationTests {
         ) == 18)
     }
 
+    @Test("周课表跟随当天跨午夜更新星期")
+    func weekSelectionFollowsDayAcrossMidnight() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 8, 31, hour: 23, minute: 59, second: 59),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect(selection.followsCurrentDay)
+
+        selection.refresh(
+            for: try date(2026, 9, 1, hour: 0, minute: 0),
+            semester: semester,
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 2)
+    }
+
+    @Test("周课表跟随当前日期跨周日到周一更新教学周")
+    func weekSelectionFollowsSundayIntoNextTeachingWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 9, 6, hour: 23, minute: 59, second: 59),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 7)
+
+        selection.refresh(
+            for: try date(2026, 9, 7, hour: 0, minute: 0),
+            semester: semester,
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 1)
+    }
+
+    @Test("周课表手动浏览保持选择并可恢复跟随当前日期")
+    func weekSelectionPreservesManualBrowsingUntilReturningToCurrentWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let monday = try date(2026, 8, 31, hour: 9)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: monday,
+            calendar: calendar
+        )
+
+        selection.selectNextWeek(totalWeeks: semester.totalWeeks)
+        selection.selectDay(3, now: monday, calendar: calendar)
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 3)
+        #expect(!selection.followsCurrentWeek)
+        #expect(!selection.followsCurrentDay)
+
+        let thirdWeekMonday = try date(2026, 9, 14, hour: 9)
+        selection.refresh(for: thirdWeekMonday, semester: semester, calendar: calendar)
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 3)
+
+        selection.returnToCurrentWeek(
+            semester: semester,
+            now: thirdWeekMonday,
+            calendar: calendar
+        )
+        selection.selectDay(1, now: thirdWeekMonday, calendar: calendar)
+        #expect(selection.selectedWeek == 3)
+        #expect(selection.selectedDay == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect(selection.followsCurrentDay)
+
+        selection.refresh(
+            for: try date(2026, 9, 21, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 4)
+        #expect(selection.selectedDay == 1)
+    }
+
     @Test("周课表摘要和课程紧凑信息使用真实数据")
     func weekMatrixLabels() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
