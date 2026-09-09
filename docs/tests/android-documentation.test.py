@@ -714,6 +714,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             or "P2-01 已实施但独立复审未通过" in plan
             or "P2-01 R1 代码复审通过，设备验证未通过" in plan
             or "P2-01 R2-R1 通过，整体复审未通过" in plan
+            or "P2-01 独立复审通过" in plan
         )
         self.assertIn("p2-01-persistence-state.md", plan)
         self.assertIn("p2-01-persistence-state.md", design)
@@ -883,8 +884,39 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
-        self.assertIn("P2-01 R2-R1 通过，整体复审未通过", plan)
-        self.assertIn("存储损坏错误分类", plan)
+        self.assertTrue(
+            "P2-01 R2-R1 通过，整体复审未通过" in plan
+            or "P2-01 独立复审通过" in plan
+        )
+        self.assertTrue(
+            "存储损坏错误分类" in plan
+            or "P2-01 Room 与最小状态边界已完成" in plan
+        )
+
+    def test_p2_01_r3_review_closes_gate_without_claiming_user_acceptance(self):
+        review = (DOCS / "p2-01-review.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        latest = review.split(
+            "## P2-01-R3 通过，P2-01 独立复审关闭（最新，2026-09-09）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "fc1c7f716df32a528317f13455b2c9c0e2f077e3",
+            "f79ac57",
+            "85098ac8140109eb6782ad129375dfff00e4362c",
+            "实际复审范围为 `fc1c7f7..85098ac`",
+            "P2-01 独立复审通过",
+            "11 项 Room 测试",
+            "145 actionable tasks",
+            "未能再次启动同一 AVD",
+            "不代表 A09、P2、完整 App 或用户验收完成",
+            "不得因本结论自动实施 P2-02 或 P3",
+        ):
+            self.assertIn(marker, normalized)
+        self.assertIn("P2-01-R3 独立复审通过（最新，2026-09-09）", handoff)
+        self.assertIn("P2-01 独立复审通过", handoff)
+        self.assertIn("P2-01 独立复审通过", plan)
 
 
 if __name__ == "__main__":

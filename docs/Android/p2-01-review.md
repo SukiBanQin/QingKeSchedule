@@ -1,5 +1,42 @@
 # P2-01 独立复审记录
 
+## P2-01-R3 通过，P2-01 独立复审关闭（最新，2026-09-09）
+
+复审基准为 `fc1c7f716df32a528317f13455b2c9c0e2f077e3`，实施提交为 `f79ac57`，证据澄清提交为
+`85098ac8140109eb6782ad129375dfff00e4362c`，实际复审范围为 `fc1c7f7..85098ac`。本地 HEAD、
+`refs/heads/Android`、`origin/Android` 和远端 `refs/heads/Android` 均为 `85098ac`，工作区干净。
+实际 diff 仅包含执行窗口回传的 5 个文件：Room 仓库、状态测试、Room 集成测试、交接和 R3 设备证据。
+
+### 代码与测试核对
+
+- `RoomScheduleRepository.read` 对已映射但违反 `ScheduleValidator` 的持久化聚合抛出
+  `ScheduleRepositoryException.InconsistentStore`；待写入候选仍为 `InvalidData`；取消传播、事务提交、
+  不清库和无 destructive migration 语义未变。
+- Room 测试源码实际覆盖多安排／重复课程与安排 ID、反序节次顺序、关闭重开、saveSemester、
+  saveCourse 首个重复项更新和追加、deleteCourse 首个匹配与不存在项、外键 CASCADE、无效写入保留、
+  beforeCommit 事务回滚、缺失元数据／不支持版本／非法 repeatRule／领域无效记录分类，以及 schema、
+  外键和索引结构。
+- 状态测试源码实际覆盖 replace、saveSemester、saveCourse、deleteCourse 四种成功返回快照且不二次
+  `load`，四种失败保留旧快照并结束 `isSaving`，以及加载／重试、并发串行化和取消传播。
+- Debug／Release JVM XML 当前可读取：各 34 项，`failures=0, errors=0, skipped=0`；其中
+  `ScheduleAppStateTest` 各 14 项。主机侧复审重跑 `clean assembleDebug assembleRelease
+  testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest`，`145 actionable tasks`
+  成功。
+
+### API 37 设备证据
+
+执行提交中的固定证据文件记录了 `connectedDebugAndroidTest` 在 API 37 ARM64
+`emulator-5586` 实际进入 11 项 Room 测试，失败／错误／跳过均为 0；设备状态为 `device`，SDK 37，
+ABI `arm64-v8a`，测试后已关闭。该 XML 随后被最终 clean 构建清理，本窗口未能再次启动同一 AVD
+进行复跑，因此这里不声称本轮独立重新执行了设备测试；结论依据为已提交证据文件与测试源码的一致
+性核对。若后续修改 Room 生产代码，必须重新取得设备 XML 或等价运行证据。
+
+### 结论与边界
+
+P2-01-R3 的生产修正、测试补齐、主机验证和已提交 API 37 设备证据均与授权契约一致，**P2-01
+独立复审通过**。这只关闭 P2-01 的实施／审查门槛，不代表 A09、P2、完整 App 或用户验收完成；
+D01、D03 和正式发行范围仍未决定。当前不得因本结论自动实施 P2-02 或 P3，后续仍需用户明确授权。
+
 ## P2-01-R2-R1 修正通过，P2-01 最终复审仍未通过（最新，2026-09-09）
 
 最终复审基准为 `1bdfa77d01ba19f1dd3a2d1b289757012a452012`，实施提交为
