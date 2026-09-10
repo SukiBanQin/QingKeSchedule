@@ -207,6 +207,34 @@ class SchedulePresentationTest {
     }
 
     @Test
+    fun matrixUsesOccurrenceKeyToOrderSameIntervalSources() {
+        val matrixSemester = Semester("semester", "测试", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"),
+        ))
+        fun sameIntervalOccurrence(courseId: String, key: OccurrenceKey): CourseOccurrence {
+            val schedule = CourseSchedule("schedule-${key.courseIndex}-${key.scheduleIndex}", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+            return CourseOccurrence(Course(courseId, courseId, "", "#287B74", listOf(schedule)), schedule, key)
+        }
+        val input = listOf(
+            sameIntervalOccurrence("source-2-1", OccurrenceKey(2, 1)),
+            sameIntervalOccurrence("source-1-9", OccurrenceKey(1, 9)),
+            sameIntervalOccurrence("source-1-3", OccurrenceKey(1, 3)),
+        )
+        val day = WeekDayPresentation(1, LocalDate.parse("2026-08-31"), input.map {
+            WeekCourseItem(it, false, 1)
+        }, false, 1)
+        val matrix = WeekMatrixPresentation.create(matrixSemester, listOf(day))
+
+        assertEquals(
+            listOf(OccurrenceKey(1, 3), OccurrenceKey(1, 9), OccurrenceKey(2, 1)),
+            matrix.items.map { it.occurrence.key },
+        )
+        assertEquals(listOf(0, 1, 2), matrix.items.map { it.lane })
+        assertEquals(listOf(3, 3, 3), matrix.items.map { it.laneCount })
+        assertEquals(3, matrix.items.map { it.id }.toSet().size)
+    }
+
+    @Test
     fun missingPeriodsDegradeStatusAndProgressSafely() {
         val missingStart = CourseSchedule("missing-start", 1, 99, 99, 1, 18, RepeatRule.EVERY, "")
         val missingEnd = CourseSchedule("missing-end", 1, 1, 99, 1, 18, RepeatRule.EVERY, "")

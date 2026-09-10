@@ -1419,6 +1419,40 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
 
+    def test_p3_01_r2_records_same_interval_occurrence_key_regression(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p3-01-r2-jvm-20260911.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P3-01-R2 矩阵稳定来源键测试与证据已实施，等待最终独立复审（最新，2026-09-11）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "4aae401181dd4ef563d087dcaea89eb4d00fe8e3",
+            "`OccurrenceKey(2,1)`、`OccurrenceKey(1,9)`、`OccurrenceKey(1,3)`",
+            "`courseIndex` 与 `scheduleIndex` 两级比较",
+            "lane 为 0／1／2",
+            "laneCount 均为 3",
+            "Debug／Release JVM XML 各 66 tests",
+            "仍需分析审查窗口最终独立复审",
+            "不得自动进入 P3-02 或后续阶段",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "matrixUsesOccurrenceKeyToOrderSameIntervalSources",
+            "startRow=0、endRow=0",
+            "(2,1)、(1,9)、(1,3)",
+            "(1,3)、(1,9)、(2,1)",
+            "courseIndex 和 scheduleIndex 两级排序",
+            "lane 分别为 0／1／2",
+            "Debug JVM XML：tests=66，failures=0，errors=0，skipped=0",
+            "Release JVM XML：tests=66，failures=0，errors=0，skipped=0",
+            "connectedDebugAndroidTest",
+            "P3-01、A02、A03、A07、P3、完整 App 或用户验收完成",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()

@@ -1,5 +1,27 @@
 # 安卓项目当前交接状态
 
+## P3-01-R2 矩阵稳定来源键测试与证据已实施，等待最终独立复审（最新，2026-09-11）
+
+执行基准为 `4aae401181dd4ef563d087dcaea89eb4d00fe8e3`，分支 `Android`。本轮仅修改
+`SchedulePresentationTest.kt`，补充本交接、[P3-01-R2 JVM 证据](evidence/p3-01-r2-jvm-20260911.txt) 和对应文档
+验证；没有修改任何 `src/main` 生产代码、MainActivity、Application、Compose、ViewModel、导航、状态、持久化、
+构建依赖、iOS、Web 或共享 schema／fixtures，未进入 P3-02 或页面实现。
+
+新增 `matrixUsesOccurrenceKeyToOrderSameIntervalSources` 以同一显示日和完全相同 `startRow=0`、`endRow=0` 的三项
+发生项，按逆序输入 `OccurrenceKey(2,1)`、`OccurrenceKey(1,9)`、`OccurrenceKey(1,3)`，明确同时触发
+`courseIndex` 与 `scheduleIndex` 两级比较。矩阵最终严格输出 `(1,3)`、`(1,9)`、`(2,1)`，lane 为 0／1／2，
+三项 laneCount 均为 3，项目 ID 全部唯一；移除来源键比较会保留逆序输入，从而使该断言失败。此前 R1 的所有
+测试与断言均保留，未声称 R1 已覆盖这个此前尚未进入的比较器分支。
+
+指定 API 37 SDK 的最终 clean 构建为 `BUILD SUCCESSFUL in 42s`（145 actionable tasks：142 executed、3 up-to-date）。
+Debug／Release JVM XML 各 66 tests、0 failures、0 errors、0 skipped，`SchedulePresentationTest` 每变体 10 项且新增
+稳定键测试进入两个变体测试体；`lintDebug` 为 0 errors、13 warnings，Debug／Release APK 和 AndroidTest APK 均编译
+成功。文档测试 50 项、文档／布局／差异检查均通过。本轮纯 Kotlin，按授权未启动模拟器或运行
+`connectedDebugAndroidTest`。完整命令、XML 和限制见上述证据。
+
+P3-01-R2 的测试与证据已实施，仍需分析审查窗口最终独立复审；这不代表 P3-01、A02、A03、A07、P3、完整 App
+或用户验收完成，不得自动进入 P3-02 或后续阶段。
+
 ## P3-01-R1 最终复审保留一项稳定键缺口，待 P3-01-R2（最新，2026-09-11）
 
 分析审查窗口已独立核对
