@@ -6,6 +6,14 @@ import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
+data class ScheduleConflict(
+    val candidateCourse: Course,
+    val candidateSchedule: CourseSchedule,
+    val existingCourse: Course,
+    val existingSchedule: CourseSchedule,
+    val weeks: List<Int>,
+)
+
 object ScheduleRules {
     fun teachingWeek(date: LocalDate, semester: Semester): Int {
         val semesterMonday = semester.startDateAsLocalDate()
@@ -23,6 +31,37 @@ object ScheduleRules {
             RepeatRule.ODD -> week % 2 != 0
             RepeatRule.EVEN -> week % 2 == 0
         }
+
+    fun periodRangesOverlap(left: CourseSchedule, right: CourseSchedule): Boolean =
+        left.startPeriod <= right.endPeriod && right.startPeriod <= left.endPeriod
+
+    fun overlappingWeeks(left: CourseSchedule, right: CourseSchedule): List<Int> {
+        val firstWeek = maxOf(left.startWeek, right.startWeek)
+        val lastWeek = minOf(left.endWeek, right.endWeek)
+        return if (firstWeek > lastWeek) emptyList() else (firstWeek..lastWeek).filter {
+            scheduleApplies(left, it) && scheduleApplies(right, it)
+        }
+    }
+
+    fun schedulesConflict(left: CourseSchedule, right: CourseSchedule): Boolean =
+        left.dayOfWeek == right.dayOfWeek &&
+            periodRangesOverlap(left, right) &&
+            overlappingWeeks(left, right).isNotEmpty()
+
+    fun conflicts(candidate: Course, existingCourses: List<Course>): List<ScheduleConflict> = buildList {
+        candidate.schedules.forEach { candidateSchedule ->
+            existingCourses.filter { it.id != candidate.id }.forEach { existingCourse ->
+                existingCourse.schedules.forEach { existingSchedule ->
+                    val weeks = overlappingWeeks(candidateSchedule, existingSchedule)
+                    if (candidateSchedule.dayOfWeek == existingSchedule.dayOfWeek &&
+                        periodRangesOverlap(candidateSchedule, existingSchedule) && weeks.isNotEmpty()
+                    ) {
+                        add(ScheduleConflict(candidate, candidateSchedule, existingCourse, existingSchedule, weeks))
+                    }
+                }
+            }
+        }
+    }
 
     fun parseLocalDate(value: String): LocalDate? =
         runCatching {

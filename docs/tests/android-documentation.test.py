@@ -1030,6 +1030,31 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
 
+    def test_p2_03_execution_records_pure_kotlin_scope_and_jvm_evidence(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence = (DOCS / "evidence/p2-03-form-drafts-jvm-20260910.txt").read_text()
+        latest = handoff.split(
+            "## P2-03 课程／学期表单草稿与保存评估已实施，等待独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "ee2decac5849f7047f40d8b8638586b9d810ef83",
+            "纯 Kotlin",
+            "ScheduleRules",
+            "不代表 A04、A05、A06、P2 或完整 App 完成",
+            "不得自动进入 P3",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "41 tests",
+            "0 failures",
+            "0 errors",
+            "0 skipped",
+            "assembleDebugAndroidTest：成功",
+            "不单独运行 connectedDebugAndroidTest",
+        ):
+            self.assertIn(marker, evidence)
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()

@@ -64,6 +64,26 @@ class ScheduleRulesTest {
         assertFalse(ScheduleRules.isTeachingWeekInSemester(3, leapSemester))
     }
 
+    @Test
+    fun conflictsUseClosedPeriodsWeeksRepeatRulesAndStableInputOrder() {
+        val every = schedule(RepeatRule.EVERY).copy(id = "candidate", startPeriod = 2, endPeriod = 3)
+        val odd = schedule(RepeatRule.ODD).copy(id = "odd", startPeriod = 3, endPeriod = 4, startWeek = 1, endWeek = 5)
+        val even = schedule(RepeatRule.EVEN).copy(id = "even", startPeriod = 3, endPeriod = 4, startWeek = 1, endWeek = 5)
+        assertTrue(ScheduleRules.periodRangesOverlap(every, odd))
+        assertEquals(listOf(1, 3, 5), ScheduleRules.overlappingWeeks(every, odd))
+        assertTrue(ScheduleRules.schedulesConflict(every, odd))
+        assertFalse(ScheduleRules.schedulesConflict(odd, even))
+
+        val candidate = Course("candidate-course", "候选", "", "#287B74", listOf(every, every.copy(id = "candidate-2")))
+        val first = Course("first", "第一门", "", "#287B74", listOf(odd))
+        val second = Course("second", "第二门", "", "#287B74", listOf(odd.copy(id = "second")))
+        assertEquals(
+            listOf("first", "second", "first", "second"),
+            ScheduleRules.conflicts(candidate, listOf(first, second)).map { it.existingCourse.id },
+        )
+        assertTrue(ScheduleRules.conflicts(candidate, listOf(candidate)).isEmpty())
+    }
+
     private fun schedule(repeatRule: RepeatRule) = CourseSchedule(
         id = "schedule",
         dayOfWeek = 1,

@@ -1,5 +1,23 @@
 # 安卓项目当前交接状态
 
+## P2-03 课程／学期表单草稿与保存评估已实施，等待独立复审（最新，2026-09-10）
+
+执行基准为 `ee2decac5849f7047f40d8b8638586b9d810ef83`，分支 `Android`；开始时 HEAD、
+`refs/heads/Android`、`origin/Android` 与远端 `refs/heads/Android` 一致，工作区干净。仅新增纯 Kotlin
+的 `draft` 草稿／评估代码，扩展 `ScheduleRules` 冲突计算，并补充 JVM 测试；未修改 `ScheduleData`、
+`ScheduleValidator`、构建依赖、Room、DataStore、`ScheduleAppState`、MainActivity、Compose、iOS、Web 或
+共享 schema/fixtures，未进入通知、导入导出、P3 或其他 P2 子任务。
+
+`CourseDraft`／`CourseScheduleDraft` 支持可注入日期和 ID，建立、编辑、追加、复制、删除（至少保留一项）、
+规范化转换与 dirty 比较。保存评估严格先校验、再检查新增完全重复安排、最后计算跨课程冲突；历史重复
+未增加仍可编辑，冲突结果稳定保留候选／已有课程及安排和升序共同周。`SemesterDraft`／`PeriodDraft`
+使用 `LocalDate`／`LocalTime`，实现季节名称、18 周、十节默认时间、编辑、连续编号和 10／45 分钟新增规则，
+并复用既有 `ScheduleValidator`。
+
+最终干净构建与双变体 JVM 结果、AndroidTest APK 编译、lint 和文档检查见
+[P2-03 JVM 证据](evidence/p2-03-form-drafts-jvm-20260910.txt)。P2-03 为纯 Kotlin 能力，本轮不运行
+`connectedDebugAndroidTest`；AndroidTest APK 已编译。P2-03 尚未独立审查或用户验收，不代表 A04、A05、A06、P2 或完整 App 完成；下一步只交回分析审查窗口复审，不得自动进入 P3。
+
 ## P2-03 表单草稿与保存评估分析完成，等待实施授权（最新，2026-09-10）
 
 用户授权本分析窗口收口 P2-02-R1 独立复审状态，并为下一项 P2 子任务划定边界。
