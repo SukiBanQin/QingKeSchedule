@@ -1,0 +1,62 @@
+P3-01 今日与周课表展示模型独立复审证据
+日期：2026-09-11
+
+角色与边界：
+- 分析审查窗口，只读复审应用代码；本轮没有修改 Android、iOS、Web 或共享协议应用代码。
+- 复审范围：93e1005263871c25a87cd8d8dae4a8f822dbb52b..37851bd283029b1218de561fa633ccad33b40286。
+- 实际 diff 为 7 个文件，与执行交接一致；git diff --check 通过。
+- HEAD、refs/heads/Android、origin/Android 与远端 refs/heads/Android 在复审开始时均为
+  37851bd283029b1218de561fa633ccad33b40286，工作区干净。
+
+静态复审结论：
+- 生产实现没有发现需要修改应用代码的语义缺陷；纯 Kotlin 范围符合授权。
+- OccurrenceKey 使用 courseIndex／scheduleIndex，不依赖 course.id／schedule.id 唯一性。
+- 教学日历按停课、调课、周末、正常星期解析；调课使用来源星期，周项目保留实际显示列。
+- 今日状态、唯一下一门、进度、周冲突、闭区间矩阵分量和 lane 复用与既定契约一致。
+- iOS 基准、共享 complete-schedule.json 和实际实现已逐项对照。
+
+阻断审查通过的测试／证据缺口：
+1. 现有重复 ID 用例仅构造同一 Course 内两个相同 schedule.id；没有构造两个来源位置不同但
+   course.id 相同的 Course，因此实施证据中“重复 course.id／schedule.id 均已覆盖”的表述超过实际测试。
+2. 调课测试只验证 WeekSchedulePresentation 的周六显示列取周一课程；没有直接调用
+   TodaySchedulePresentation 验证调课日也取 sourceDayOfWeek，因此“停课／调课对今日和周一致”的调课部分
+   尚无真实回归证据。
+3. 今日同节次名称顺序和矩阵稳定顺序的测试输入本身已经处于期望顺序，尚不能证明排序逻辑在逆序输入下
+   生效。还缺少无对应节次时 occurrenceStatus 安全退化且不产生 timingProgress 的直接断言。
+
+P3-01-R1 最小修正边界：
+- 原则上只修改 SchedulePresentationTest.kt、必要时 ScheduleRulesTest.kt，以及 Android 交接和新证据。
+- 新增不同课程来源位置但相同 course.id、相同或重复 schedule.id 的保留／稳定 OccurrenceKey 断言，并按
+  “不同课程业务 ID 才冲突”的既定规则核对不误标。
+- 对同一调课日期分别调用 TodaySchedulePresentation 和 WeekSchedulePresentation，证明二者均按来源星期
+  取课；周模型继续断言实际显示列不变。
+- 用逆序或扰乱输入证明今日／周同节次名称排序和矩阵的稳定键／lane 结果；直接覆盖缺失开始或结束节次时
+  状态安全退化、进度为空。
+- 不放宽既有断言，不修改生产代码；若最小复现失败，停止并回传实际失败，不在 R1 中顺手修改生产代码。
+
+独立验证环境：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+执行：
+cd Android
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：
+- BUILD SUCCESSFUL in 53s。
+- 145 actionable tasks：141 executed、4 up-to-date。
+- Debug JVM：61 tests，0 failures，0 errors，0 skipped。
+- Release JVM：61 tests，0 failures，0 errors，0 skipped。
+- ScheduleRulesTest：每变体 7 tests，均为 0 failures／errors／skipped。
+- SchedulePresentationTest：每变体 5 tests，均为 0 failures／errors／skipped。
+- assembleDebug、assembleRelease、assembleDebugAndroidTest、lintDebug 均成功。
+- 本任务为纯 Kotlin，未运行 connectedDebugAndroidTest；这不构成设备证据缺失。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：复审记录写入前 46 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+
+结论：P3-01 现有生产实现未发现阻断缺陷，但关键回归证据不足，独立复审未通过。P3-01-R1 只补测试与
+证据；不得宣称 P3-01、A02、A03、A07、P3、完整 App 或用户验收完成，不得进入 P3-02 或页面实现。

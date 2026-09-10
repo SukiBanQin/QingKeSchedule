@@ -1,5 +1,34 @@
 # 安卓项目当前交接状态
 
+## P3-01 独立复审未通过，待 P3-01-R1 补齐关键回归（最新，2026-09-11）
+
+分析审查窗口已独立核对实施基准
+`93e1005263871c25a87cd8d8dae4a8f822dbb52b` 至实施提交
+`37851bd283029b1218de561fa633ccad33b40286` 的实际 7 文件 diff、iOS
+`SchedulePresentation.swift`／教学日历基准、共享 fixture、JVM XML 和实施证据。实际范围符合纯 Kotlin
+边界，没有修改 MainActivity、Compose、状态／持久化、iOS、Web、共享 schema／fixtures 或构建依赖；静态
+检查未发现需要修改生产代码的语义缺陷。`OccurrenceKey` 使用课程／安排来源下标保留重复业务 ID，调课按
+来源星期取课且保留实际显示列，冲突只比较当周显示日真实出现且业务课程 ID 不同的项目，闭区间矩阵分量
+和 lane 复用实现也与既定契约一致。
+
+本轮仍不能通过 P3-01 审查，因为实施证据对关键测试覆盖有两项实质性高估，并有一项稳定性门槛未被有效
+锁定：现有重复用例只在同一个课程内复制相同 `schedule.id`，没有构造两个来源课程位置但相同
+`course.id` 的发生项；调课用例只让 `WeekSchedulePresentation` 在周六取周一课程，没有让
+`TodaySchedulePresentation` 在调课日取来源星期课程；今日名称排序和矩阵稳定顺序的断言所用输入本身已经
+处于期望顺序，删除对应排序逻辑仍可能通过。另应补上无对应节次时课程状态／进行中进度安全退化的直接
+断言，避免只由代码阅读代替回归证据。以上是测试与证据缺口，不是已确认的生产缺陷；P3-01-R1 应只修改
+JVM 测试及本交接／证据，不修改生产代码，除非新增的最小复现确实失败且另行回传审查。
+
+分析窗口使用 API 37 SDK 独立执行完整 clean 构建，`BUILD SUCCESSFUL in 53s`，145 actionable tasks
+（141 executed、4 up-to-date）；Debug／Release JVM XML 各 61 tests，0 failures、0 errors、0 skipped，
+`ScheduleRulesTest` 每变体 7 项、`SchedulePresentationTest` 每变体 5 项；lint、Debug／Release APK 和
+AndroidTest APK 均成功。文档测试 46 项、文档／布局／差异检查均通过。P3-01 是纯 Kotlin，本轮不要求
+或运行 `connectedDebugAndroidTest`。完整独立记录见
+[P3-01 复审证据](evidence/p3-01-review-20260911.txt)。
+
+准确状态为：P3-01 已实现并通过现有测试，但尚未独立复审通过，也未获用户验收。不得据此宣称 P3-01、
+A02、A03、A07、P3 或完整 App 完成；P3-01-R1 关闭前不得自动进入 P3-02 或页面实现。
+
 ## P3-01 今日与周课表展示模型已实施，等待独立复审（最新，2026-09-10）
 
 执行基准为 `93e1005263871c25a87cd8d8dae4a8f822dbb52b`，分支 `Android`。本次仅扩展纯 Kotlin

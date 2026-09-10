@@ -1314,6 +1314,42 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
 
+    def test_p3_01_review_records_real_coverage_gaps_without_claiming_completion(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p3-01-review-20260911.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P3-01 独立复审未通过，待 P3-01-R1 补齐关键回归（最新，2026-09-11）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "93e1005263871c25a87cd8d8dae4a8f822dbb52b",
+            "37851bd283029b1218de561fa633ccad33b40286",
+            "没有构造两个来源课程位置但相同 `course.id`",
+            "没有让 `TodaySchedulePresentation` 在调课日取来源星期课程",
+            "输入本身已经 处于期望顺序",
+            "无对应节次",
+            "P3-01-R1 应只修改 JVM 测试",
+            "P3-01 已实现并通过现有测试，但尚未独立复审通过",
+            "不得自动进入 P3-02 或页面实现",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "实际 diff 为 7 个文件",
+            "生产实现没有发现需要修改应用代码的语义缺陷",
+            "重复 course.id／schedule.id 均已覆盖",
+            "TodaySchedulePresentation",
+            "逆序或扰乱输入",
+            "BUILD SUCCESSFUL in 53s",
+            "145 actionable tasks：141 executed、4 up-to-date",
+            "Debug JVM：61 tests",
+            "Release JVM：61 tests",
+            "独立复审未通过",
+            "不得进入 P3-02 或页面实现",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
