@@ -1055,6 +1055,41 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
 
+    def test_p2_03_final_review_and_user_confirmation_keep_product_gates_open(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        analysis = (DOCS / "p2-03-form-drafts.md").read_text()
+        evidence = (DOCS / "evidence/p2-03-final-review-20260910.txt").read_text()
+        latest = handoff.split(
+            "## P2-03 通过最终独立复审并获用户确认（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "ee2decac5849f7047f40d8b8638586b9d810ef83..5c5c08a5772b1c3792406ee2fc5aa6d0eefff9b8",
+            "P2-03 已实现、已测试、已独立复审并获用户确认",
+            "不等于 A04、A05、A06",
+            "不等于 P2 或完整 App 完成",
+            "不得自动进入 P3",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "01b2965151aa8f3bf89748ae3abcdcd88e06374b",
+            "37b53e6d870748cfecf826852133af6143558195",
+            "BUILD SUCCESSFUL in 59s",
+            "48 tests、0 failures、0 errors、0 skipped",
+            "lintDebug 为 0 errors、11 warnings",
+            "用户随后明确确认 P2-03 本子任务结果",
+            "不自动授权 P3",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertIn("P2-03 已审查并获用户确认", plan)
+        self.assertIn("P2 未整体验收", plan)
+        self.assertIn("已实现、测试、通过最终独立复审并获用户确认", baseline)
+        self.assertIn("P2-03 表单草稿与保存评估已通过最终独立复审并获用户确认", design)
+        self.assertIn("最终独立复审通过，用户已确认 P2-03 本子任务结果", analysis)
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
@@ -1129,9 +1164,18 @@ class AndroidDocumentationTests(unittest.TestCase):
         for contents in (handoff, plan, baseline, design):
             self.assertIn("P2-03", contents)
         self.assertIn("P2-03 表单草稿与保存评估分析完成，等待实施授权", handoff)
-        self.assertIn("P2-03 已分析待授权", plan)
-        self.assertIn("尚待实施授权", baseline)
-        self.assertIn("P2-03 表单草稿与保存评估已完成分析、等待实施授权", design)
+        self.assertTrue(
+            "P2-03 已分析待授权" in plan
+            or "P2-03 已审查并获用户确认" in plan
+        )
+        self.assertTrue(
+            "尚待实施授权" in baseline
+            or "已实现、测试、通过最终独立复审并获用户确认" in baseline
+        )
+        self.assertTrue(
+            "P2-03 表单草稿与保存评估已完成分析、等待实施授权" in design
+            or "P2-03 表单草稿与保存评估已通过最终独立复审并获用户确认" in design
+        )
         self.assertIn("Terra／高", handoff)
 
 
