@@ -84,6 +84,44 @@ class ScheduleRulesTest {
         assertTrue(ScheduleRules.conflicts(candidate, listOf(candidate)).isEmpty())
     }
 
+    @Test
+    fun conflictMatrixKeepsReferencesWeeksAndInputOrder() {
+        val candidateSchedule = schedule(RepeatRule.EVERY).copy(
+            id = "candidate-schedule", dayOfWeek = 1, startPeriod = 2, endPeriod = 3, startWeek = 2, endWeek = 6,
+        )
+        val differentDay = candidateSchedule.copy(id = "different-day", dayOfWeek = 2)
+        val touchingEndpoint = candidateSchedule.copy(id = "touching", startPeriod = 3, endPeriod = 4)
+        val separatePeriods = candidateSchedule.copy(id = "separate-periods", startPeriod = 4, endPeriod = 5)
+        val separateWeeks = candidateSchedule.copy(id = "separate-weeks", startWeek = 7, endWeek = 8)
+        val odd = candidateSchedule.copy(id = "odd", repeatRule = RepeatRule.ODD, startWeek = 1, endWeek = 6)
+        val even = candidateSchedule.copy(id = "even", repeatRule = RepeatRule.EVEN, startWeek = 1, endWeek = 6)
+
+        assertFalse(ScheduleRules.schedulesConflict(candidateSchedule, differentDay))
+        assertTrue(ScheduleRules.schedulesConflict(candidateSchedule, touchingEndpoint))
+        assertFalse(ScheduleRules.schedulesConflict(candidateSchedule, separatePeriods))
+        assertFalse(ScheduleRules.schedulesConflict(candidateSchedule, separateWeeks))
+        assertEquals(listOf(3, 5), ScheduleRules.overlappingWeeks(candidateSchedule, odd))
+        assertEquals(listOf(2, 4, 6), ScheduleRules.overlappingWeeks(candidateSchedule, even))
+        assertFalse(ScheduleRules.schedulesConflict(odd, even))
+
+        val candidate = Course("candidate", "候选", "", "#287B74", listOf(candidateSchedule, candidateSchedule.copy(id = "candidate-second")))
+        val first = Course("first", "第一门", "", "#287B74", listOf(odd, even))
+        val second = Course("second", "第二门", "", "#287B74", listOf(touchingEndpoint))
+        val conflicts = ScheduleRules.conflicts(candidate, listOf(first, second, candidate))
+
+        assertEquals(
+            listOf("odd", "even", "touching", "odd", "even", "touching"),
+            conflicts.map { it.existingSchedule.id },
+        )
+        assertEquals(listOf("first", "first", "second", "first", "first", "second"), conflicts.map { it.existingCourse.id })
+        assertEquals(candidate, conflicts.first().candidateCourse)
+        assertEquals(candidateSchedule, conflicts.first().candidateSchedule)
+        assertEquals(first, conflicts.first().existingCourse)
+        assertEquals(odd, conflicts.first().existingSchedule)
+        assertEquals(listOf(3, 5), conflicts.first().weeks)
+        assertEquals(listOf(2, 4, 6), conflicts[1].weeks)
+    }
+
     private fun schedule(repeatRule: RepeatRule) = CourseSchedule(
         id = "schedule",
         dayOfWeek = 1,

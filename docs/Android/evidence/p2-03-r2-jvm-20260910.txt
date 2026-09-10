@@ -1,0 +1,58 @@
+P2-03-R2 JVM 测试与证据补强
+日期：2026-09-10
+
+代码基准：01b2965151aa8f3bf89748ae3abcdcd88e06374b
+分支：Android
+实际修改文件：
+- Android/app/src/test/java/com/qingke/schedule/draft/DraftTest.kt
+- Android/app/src/test/java/com/qingke/schedule/domain/ScheduleRulesTest.kt
+- docs/Android/handoff.md
+- docs/Android/evidence/p2-03-r2-jvm-20260910.txt
+
+范围：只补纯 Kotlin 的课程／学期草稿和冲突规则测试；没有修改生产代码、Android API 测试、构建配置、Room、
+DataStore、ScheduleAppState、页面、iOS、Web 或共享 schema/fixtures，未进入 P3。
+
+使用的 SDK：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+最终完整构建命令（Android/）：
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+最终结果：BUILD SUCCESSFUL in 55s
+actionable tasks：145（143 executed，2 up-to-date）
+assembleDebug：成功
+assembleRelease：成功
+assembleDebugAndroidTest：成功（仅 APK 编译）
+
+JVM XML（app/build/test-results/）：
+- testDebugUnitTest：tests=47，failures=0，errors=0，skipped=0
+- testReleaseUnitTest：tests=47，failures=0，errors=0，skipped=0
+- DraftTest：每变体 11 项，0 failures，0 errors，0 skipped
+- ScheduleRulesTest：每变体 6 项，0 failures，0 errors，0 skipped
+
+DraftTest 本轮覆盖摘要：
+- 新课程完整默认资料、课程／安排 ID、当天星期、首节、1 至总周、EVERY、空教室与颜色；编辑保留课程／安排
+  ID、字段及顺序；仅名称／教师／教室外围空白不 dirty；追加安排的新 ID 与默认字段。
+- 新建、为已有课程追加、编辑第二项为完全重复的三种重复拒绝；历史重复未增加可保存、增加后拒绝；重复规则或
+  规范化后教室不同可保存；错误路径为 courses.0.schedules 且消息为“该上课安排已存在，请勿重复添加”。
+- 基础校验 Invalid 优先于重复和跨课程冲突；R1 的重复 ID 只删除首个、缺失 ID 与最后一项保护仍覆盖。
+- 6 月 30 日春季／7 月 1 日秋季、18 周和完整十节时间；编辑保留 ID、日期、周数和节次时间；名称去除空白、
+  删除连续编号、最少一节、空列表与常规新增，以及超过 20 节、倒序和相邻重叠的校验错误。
+
+ScheduleRulesTest 本轮覆盖摘要：
+- 星期不同、闭区间节次端点相交、节次／周次无交集、EVERY 对 ODD／EVEN、ODD 对 EVEN。
+- 共同周升序，多候选安排／多已有课程／多已有安排的稳定输入顺序，同课程 ID 排除，以及冲突的候选和已有课程／
+  安排引用和共同周完整性。
+
+lintDebug：errors=0，warnings=13；均为既有依赖较新版本、未使用资源和 application icon 提示，本轮未修改这些文件。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：40 tests 通过
+- bash docs/tests/documentation.test.sh：通过
+- bash docs/tests/repository-layout.test.sh：通过
+- git diff --check：通过
+
+未运行 connectedDebugAndroidTest：本轮只修改 JVM 纯 Kotlin 测试，且授权明确仅要求 AndroidTest APK 继续编译；
+未启动模拟器或设备测试。此结果不代表 P2-03、A04、A05、A06、P2 或完整 App 完成，也不代表用户验收；
+后续必须由分析审查窗口独立复审。

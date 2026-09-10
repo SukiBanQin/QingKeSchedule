@@ -1,5 +1,29 @@
 # 安卓项目当前交接状态
 
+## P2-03-R2 JVM 测试与证据补强已实施，等待最终独立复审（最新，2026-09-10）
+
+执行基准为 `01b2965151aa8f3bf89748ae3abcdcd88e06374b`，分支 `Android`。本次只修改
+`DraftTest.kt`、`ScheduleRulesTest.kt`、本交接和
+[P2-03-R2 JVM 证据](evidence/p2-03-r2-jvm-20260910.txt)，没有修改任何生产代码、构建依赖、Room、
+DataStore、`ScheduleAppState`、MainActivity、Compose、iOS、Web 或共享 schema/fixtures，也没有进入 P3。
+
+课程草稿测试补齐了完整新建默认字段与注入 ID、编辑保留 ID／顺序／字段、仅外围空白不 dirty、追加默认
+安排、重复安排的新建／追加／编辑三种入口、历史重复计数、规范化教室／重复规则区别，以及基础校验优先于
+重复和跨课程冲突。保留 R1 的重复 ID 只删除首项、缺失 ID 和最后一项保护。冲突测试补齐星期、闭区间
+节次端点、无相交节次／周次、EVERY 与 ODD／EVEN、ODD 与 EVEN、共同周升序、稳定输入顺序、自身排除及
+完整引用。学期草稿测试逐项覆盖 6 月 30 日／7 月 1 日边界、十节完整时间、编辑、去除名称空白、编号、
+最少一节、空列表与常规新增，以及超 20 节、倒序和相邻重叠的 `ScheduleValidator` 错误。
+
+使用指定 API 37 SDK 的最终 `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug
+assembleDebugAndroidTest` 为 `BUILD SUCCESSFUL in 55s`（145 actionable tasks：143 executed、2 up-to-date）。
+最终 Debug／Release JVM XML 均为 47 tests、0 failures、0 errors、0 skipped；其中 `DraftTest` 为 11 项，
+`ScheduleRulesTest` 为 6 项。`lintDebug` 为 0 errors、13 warnings（既有依赖版本、未用资源和 application icon
+提示）；`assembleDebugAndroidTest` 成功。文档测试 40 项、`documentation.test.sh`、`repository-layout.test.sh`
+和 `git diff --check` 均通过。本轮纯 Kotlin 测试补强，按授权未启动模拟器、未运行 `connectedDebugAndroidTest`。
+
+本记录仅表示 P2-03-R2 已实施和测试通过，仍须交回分析审查窗口最终独立复审；不代表 P2-03、A04、A05、
+A06、P2、完整 App 或用户验收完成，且不得自动进入 P3。
+
 ## P2-03-R1 重复安排 ID 删除修正已实施，等待独立复审（最新，2026-09-10）
 
 基准 `25ef0b38ba72570ba56bba169c7289528a548665`。`CourseDraft.removeSchedule` 现在仅删除稳定的首个匹配项；
