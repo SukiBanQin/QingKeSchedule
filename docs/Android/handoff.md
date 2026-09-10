@@ -1,5 +1,28 @@
 # 安卓项目当前交接状态
 
+## P3-01 今日与周课表展示模型已实施，等待独立复审（最新，2026-09-10）
+
+执行基准为 `93e1005263871c25a87cd8d8dae4a8f822dbb52b`，分支 `Android`。本次仅扩展纯 Kotlin
+`ScheduleRules`、新增 `presentation/SchedulePresentation.kt` 及对应 JVM 测试，并维护本交接、证据和文档
+验证；未修改 MainActivity、Application／依赖装配、Compose、ViewModel、导航、主题、`ScheduleAppState`、
+Room、DataStore、草稿、校验器、通知、导入导出、iOS、Web、共享 schema/fixtures 或构建依赖，未进入 P3-02。
+
+`CourseOccurrence` 使用课程和安排的稳定来源位置作为 `OccurrenceKey`，不假设业务 ID 唯一。`ScheduleRules`
+新增指定教学周日期、指定周发生项、HH:mm 分钟解析和开始／结束分钟均为 `ONGOING` 的课程状态。展示层以
+显式 `LocalDateTime` 计算今日、周和矩阵模型：停课→调课→周末→正常星期优先，调课保持显示列但按来源星期
+取课；今日排序／下一门／进行中进度、周冲突、跨节矩阵 lane、午休间隔与文字辅助均为可测试纯 Kotlin 规则。
+
+使用指定 API 37 SDK 的最终 `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug
+assembleDebugAndroidTest` 为 `BUILD SUCCESSFUL in 53s`（145 actionable tasks：142 executed、3 up-to-date）。
+最终 Debug／Release JVM XML 均为 61 tests、0 failures、0 errors、0 skipped，其中
+`ScheduleRulesTest` 为 7 项、`SchedulePresentationTest` 为 5 项。`lintDebug` 为 0 errors、11 warnings；
+`assembleDebugAndroidTest` 成功。文档测试 46 项及文档／布局／差异检查均通过。P3-01 是纯 Kotlin，按授权未运行
+`connectedDebugAndroidTest`、未启动模拟器。
+
+完整结果见 [P3-01 JVM 证据](evidence/p3-01-schedule-presentation-jvm-20260910.txt)。本次仅表示 P3-01 已实施
+和测试通过，仍须分析审查窗口独立复审实际 diff、共享 fixture 用例和 XML；不代表 P3-01、A02、A03、A07、
+P3、完整 App 或用户验收完成，也不得自动进入 P3-02。
+
 ## 用户确认 P2，P3-01 展示模型分析完成待 Terra 实施（最新，2026-09-10）
 
 用户已明确接受 P2-04 当前分析角色同窗口复审及其组织性独立限制，并确认 P2 阶段结果。准确状态为：

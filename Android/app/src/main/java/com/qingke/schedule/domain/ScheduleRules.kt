@@ -2,6 +2,7 @@ package com.qingke.schedule.domain
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
@@ -14,6 +15,23 @@ data class ScheduleConflict(
     val weeks: List<Int>,
 )
 
+data class OccurrenceKey(
+    val courseIndex: Int,
+    val scheduleIndex: Int,
+)
+
+data class CourseOccurrence(
+    val course: Course,
+    val schedule: CourseSchedule,
+    val key: OccurrenceKey,
+)
+
+enum class CourseStatus {
+    FINISHED,
+    ONGOING,
+    UPCOMING,
+}
+
 object ScheduleRules {
     fun teachingWeek(date: LocalDate, semester: Semester): Int {
         val semesterMonday = semester.startDateAsLocalDate()
@@ -25,12 +43,48 @@ object ScheduleRules {
     fun isTeachingWeekInSemester(week: Int, semester: Semester): Boolean =
         week in 1..semester.totalWeeks
 
+    fun dateForTeachingWeek(week: Int, dayOfWeek: Int, semester: Semester): LocalDate? {
+        if (dayOfWeek !in 1..7) return null
+        val semesterMonday = semester.startDateAsLocalDate()
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        return semesterMonday.plusDays(((week - 1) * 7L) + dayOfWeek - 1)
+    }
+
     fun scheduleApplies(schedule: CourseSchedule, week: Int): Boolean =
         week in schedule.startWeek..schedule.endWeek && when (schedule.repeatRule) {
             RepeatRule.EVERY -> true
             RepeatRule.ODD -> week % 2 != 0
             RepeatRule.EVEN -> week % 2 == 0
         }
+
+    fun occurrencesForWeek(week: Int, courses: List<Course>): List<CourseOccurrence> = buildList {
+        courses.forEachIndexed { courseIndex, course ->
+            course.schedules.forEachIndexed { scheduleIndex, schedule ->
+                if (scheduleApplies(schedule, week)) {
+                    add(CourseOccurrence(course, schedule, OccurrenceKey(courseIndex, scheduleIndex)))
+                }
+            }
+        }
+    }
+
+    fun minutes(value: String): Int? = parseLocalTime(value)?.let { it.hour * 60 + it.minute }
+
+    fun occurrenceStatus(
+        occurrence: CourseOccurrence,
+        semester: Semester,
+        now: LocalDateTime,
+    ): CourseStatus {
+        val start = semester.periods.firstOrNull { it.number == occurrence.schedule.startPeriod }
+            ?.let { minutes(it.startTime) }
+        val end = semester.periods.firstOrNull { it.number == occurrence.schedule.endPeriod }
+            ?.let { minutes(it.endTime) }
+        val current = now.hour * 60 + now.minute
+        return when {
+            start == null || end == null || current < start -> CourseStatus.UPCOMING
+            current <= end -> CourseStatus.ONGOING
+            else -> CourseStatus.FINISHED
+        }
+    }
 
     fun periodRangesOverlap(left: CourseSchedule, right: CourseSchedule): Boolean =
         left.startPeriod <= right.endPeriod && right.startPeriod <= left.endPeriod

@@ -1283,6 +1283,37 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("P3-01 今日与周课表展示模型", baseline)
         self.assertIn("P3-01", design)
 
+    def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence = (DOCS / "evidence/p3-01-schedule-presentation-jvm-20260910.txt").read_text()
+        latest = handoff.split(
+            "## P3-01 今日与周课表展示模型已实施，等待独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "93e1005263871c25a87cd8d8dae4a8f822dbb52b",
+            "CourseOccurrence",
+            "OccurrenceKey",
+            "停课→调课→周末→正常星期",
+            "P3-02",
+            "61 tests",
+            "不代表 P3-01、A02、A03、A07、 P3、完整 App 或用户验收完成",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "complete-schedule.json",
+            "schedule-every、schedule-odd、schedule-alpha、schedule-beta",
+            "46、64、46.0/110.0",
+            "BUILD SUCCESSFUL in 53s",
+            "145 actionable tasks",
+            "testDebugUnitTest：tests=61",
+            "testReleaseUnitTest：tests=61",
+            "0 errors，11 warnings",
+            "connectedDebugAndroidTest",
+            "P3-01、A02、A03、A07、P3、完整 App 和用户验收均未完成",
+        ):
+            self.assertIn(marker, evidence)
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
