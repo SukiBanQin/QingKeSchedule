@@ -1,5 +1,41 @@
 # 安卓项目当前交接状态
 
+## P2-02 偏好设置持久化已实施，等待独立复审（最新，2026-09-10）
+
+执行基准为 `63b019a24b91021aad83e7528fcadbaa1fcca554`，分支 `Android`；开始时本地 HEAD、
+`refs/heads/Android`、`origin/Android` 与远端 `refs/heads/Android` 均为该基准，工作区干净。
+本次仅新增 Android DataStore 偏好边界和真实 DataStore AndroidTest，并固定
+`androidx.datastore:datastore-preferences:1.2.1`；未修改 iOS、Web、共享 schema/fixtures、
+MainActivity、Compose 页面、Room schema／仓库、课表 JSON、通知调度、导入导出、D01 或 D03，
+也未进入 P2-03、P3 或后续阶段。
+
+实现以可替换的 `SchedulePreferencesRepository` 为边界，在单个版本化 DataStore 文件中集中定义键和
+编码，持久化外观三态、提醒和教学日历。读取时按 iOS 基准处理缺失字段、未知外观、提前量、旧数据
+缺少自定义提前量标记、日期／星期、停课优先和午休规范化；可识别的文件损坏由 DataStore 恢复默认值。
+普通 I/O／写入失败与 `CancellationException` 不捕获、不伪装为默认或成功；写入通过 DataStore 单次
+更新原子执行，但没有也不宣称与 Room 的跨存储原子事务。系统通知授权仍是 Android 系统状态，未被
+持久化，且本任务没有把偏好接入 `ScheduleAppState`、页面或通知。
+
+指定 API 37 ARM64 AVD `qingke-api37-r3-arm` 以唯一 `emulator-5588` 运行，实测 ADB `device`、
+`sys.boot_completed=1`、SDK 37、ABI `arm64-v8a`。`connectedDebugAndroidTest` 的 XML 实际为
+18 tests（Room 11、DataStore 7）、0 failures、0 errors、0 skipped，全部 DataStore 测试进入测试体；
+取证后已正常关闭本次启动的模拟器，`adb devices -l` 无连接设备。随后最终 clean 构建后的三次设备
+重试（`emulator-5588` 一次、推荐端口 `emulator-5584` 两次）均在启动核验后、测试任务识别设备前
+自行退出，`connectedDebugAndroidTest` 如实报 `No connected devices`，未执行任何测试体；该宿主模拟器
+稳定性限制不覆盖已固定的成功 XML 结果。完整成功与失败记录见
+[P2-02 DataStore connected 测试证据](evidence/p2-02-datastore-connected-debug-android-test-20260910.txt)。
+
+最终 `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest`
+成功（45 秒）；Debug／Release JVM 各 34 tests、均为 0 failures／0 errors／0 skipped，`lintDebug` 和
+AndroidTest APK 均已生成。成功 XML 后补强了既有 DataStore 测试中的 0 分钟边界、复杂日历重开及写入
+故障后的重开重试断言；最终 `testDebugUnitTest testReleaseUnitTest assembleDebugAndroidTest` 也成功并编译
+这些 AndroidTest 断言，但受上述模拟器退出限制，未能再次在设备上执行最终补强后的测试体。文档测试
+36 项通过，`documentation.test.sh`、`repository-layout.test.sh` 与 `git diff --check` 通过。
+
+P2-01-R1 协程取消代码复审此前已通过；本次 P2-02 实施尚未独立审查、尚未用户验收，不代表 P2-02、
+A09、P2 或完整 App 完成。下一步仅交回分析审查窗口复审本次实际 diff、DataStore 真实设备证据和失败
+边界；不得据此自动进入 P2-03 或 P3。
+
 ## P2-02 偏好设置持久化已获授权，待执行（最新，2026-09-09）
 
 用户已明确同意在 P2-01 之后实施 P2-02“偏好设置持久化”。本项只建立 Android DataStore

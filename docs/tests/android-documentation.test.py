@@ -552,7 +552,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("独立专项复审", current)
             self.assertIn("P1-03 授权范围完成", current)
             self.assertTrue("不进入 P2" in current or "P2 已获授权" in current)
-            self.assertNotIn("待独立复审", current)
+            self.assertNotIn("P1-03 待独立复审", current)
 
     def test_p1_04_records_strict_unknown_field_decision_and_scope(self):
         task = (DOCS / "p1-04-unknown-fields.md").read_text()
@@ -925,7 +925,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             or "P2-01 已审查通过" in plan
         )
 
-    def test_p2_02_authorization_defines_datastore_only_boundary(self):
+    def test_p2_02_authorization_and_execution_define_datastore_only_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
         design = (DOCS / "technical-design.md").read_text()
@@ -946,17 +946,52 @@ class AndroidDocumentationTests(unittest.TestCase):
             "独立复审",
         ):
             self.assertIn(marker, normalized)
-        self.assertIn("P2-02 已授权待执行", plan)
+        self.assertIn("P2-02 已实施待独立复审", plan)
         for marker in (
-            "P2-02 采用",
+            "P2-02 已采用",
             "DataStore",
             "AppearanceMode",
             "教学日历",
-            "未知枚举值时回退",
+            "未知枚举值时",
             "关闭并重建 DataStore",
-            "不接页面和通知调度",
+            "不接页面、`ScheduleAppState` 或通知调度",
         ):
             self.assertIn(marker, design)
+
+    def test_p2_02_execution_records_real_datastore_device_evidence(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        evidence_path = DOCS / "evidence/p2-02-datastore-connected-debug-android-test-20260910.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P2-02 偏好设置持久化已实施，等待独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "63b019a24b91021aad83e7528fcadbaa1fcca554",
+            "datastore-preferences:1.2.1",
+            "18 tests",
+            "DataStore 7",
+            "SDK 37",
+            "arm64-v8a",
+            "P2-02 实施尚未独立审查",
+            "不得据此自动进入 P2-03 或 P3",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "18 tests",
+            "DataStore 7",
+            "0 failures",
+            "0 errors",
+            "0 skipped",
+            "emulator-5588",
+            "SDK 37",
+            "arm64-v8a",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertIn("P2-02 已实施待独立复审", plan)
+        self.assertIn("DataStore 偏好边界已在 P2-02", design)
 
 
 if __name__ == "__main__":

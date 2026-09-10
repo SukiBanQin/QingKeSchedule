@@ -2,13 +2,13 @@
 
 ## 文档状态
 
-更新日期：2026-09-08。状态：用户已确认方案和 P1 交付结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2 已获授权从 P2-01 开始，但完整应用和用户对全部功能的验收仍未完成。
+更新日期：2026-09-10。状态：用户已确认方案和 P1 交付结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01 已独立复审通过，P2-02 偏好持久化已实施、等待独立复审；完整应用和用户对全部功能的验收仍未完成。
 
 产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)。
 
 ## 建议技术路线
 
-保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；P1-03 已采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 迁移已通过主机侧构建复核；Room/DataStore 尚未接入。
+保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；P1-03 已采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 迁移已通过主机侧构建复核；Room 已在 P2-01 接入，DataStore 偏好边界已在 P2-02 以 `androidx.datastore:datastore-preferences:1.2.1` 接入，P2-02 仍等待独立复审。
 
 以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名 `com.qingke.schedule`、最低 API 26 及首轮个人 debug 验证已确认，正式发布范围待定。
 
@@ -48,17 +48,19 @@ P2-01 固定采用 `androidx.room` 2.8.4 与 KSP 2.3.11，保持现有 AGP 9 bui
 发布该快照，不执行可能产生“磁盘已提交、内存仍旧”的第二次读取。空库返回固定默认聚合；
 部分／非法记录报损坏且不清库。详细失败、并发和测试契约以专项分析为准。
 
-偏好中保存教学日历、提醒提前量和外观；系统通知授权不以偏好布尔值代替。P2-02 采用
+偏好中保存教学日历、提醒提前量和外观；系统通知授权不以偏好布尔值代替。P2-02 已采用
 DataStore 建立可替换的偏好存储接口，覆盖 `AppearanceMode`、提醒开关／提前量／自定义标记、
-以及教学日历的周末停课、停课日期、调课日期和午休设置。读取缺失、损坏或未知枚举值时回退
-到基准默认值；写入后关闭并重建 DataStore 仍应恢复同一设置。偏好自身独立版本化，不能把
-DataStore 与 Room 的两个独立写入误称为跨存储原子事务；P2-02 不接页面和通知调度。
+以及教学日历的周末停课、停课日期、调课日期和午休设置。读取缺失、可识别磁盘损坏或未知枚举值时
+回退到基准默认值；普通 I/O／写入异常和协程取消必须向调用方传播。写入后关闭并重建 DataStore
+应恢复同一规范化设置。偏好自身独立版本化，不能把 DataStore 与 Room 的两个独立写入误称为跨存储
+原子事务；P2-02 不接页面、`ScheduleAppState` 或通知调度。
 
 P2-02 的键名和编码格式须集中定义并保留迁移余地；列表字段必须保持稳定顺序或按基准规则
 规范化，日期继续使用 `yyyy-MM-dd`，时间继续使用 `HH:mm`。实现不得改变 iOS 已有默认值、
 教学日历优先级、提醒提前量 0—180 分钟范围或外观三态语义。
 
-DataStore 和上述偏好不属于 P2-01，须由后续独立授权实现；P2-01 不提前决定跨存储恢复策略。
+DataStore 和上述偏好不属于 P2-01，已由独立授权的 P2-02 实现；该实现不提前决定跨存储恢复策略，
+仍需独立复审后才可作为后续阶段依赖。
 
 通过 Android 系统文件选择／创建文档和分享接口处理 JSON，不导出平台数据库文件。文件取消不显示成功；不可写、无学期、内容无效时给出明确反馈。
 
