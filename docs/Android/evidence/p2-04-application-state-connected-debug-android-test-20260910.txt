@@ -1,0 +1,67 @@
+P2-04 应用状态与生产依赖装配验证证据
+日期：2026-09-10
+
+实施基准：205831819ff1343b5f736ea011e6817f9b7e5b55
+分支：Android
+
+实施范围：
+- ScheduleAppState 联合管理 ScheduleRepository 与 SchedulePreferencesRepository。
+- 课表和偏好在两个读取均成功后一次进入 READY；普通失败不部分发布，取消恢复完整前态并传播。
+- 课表／偏好写操作共用串行状态边界；偏好只发布 DataStore 返回的已提交规范化快照。
+- manifest 注册 QingKeScheduleApplication，懒加载进程内唯一 ScheduleAppDependencies。
+- 默认依赖使用 applicationContext、Room 数据库 schedule.db 和既有
+  schedule_preferences.preferences_pb；测试装配可指定文件并明确关闭重建。
+- 未修改 MainActivity、Compose 页面、ViewModel、通知、导入导出、iOS、Web 或共享协议。
+
+主机最终验证：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 45s；145 actionable tasks，142 executed、3 up-to-date。
+- Debug JVM：55 tests，0 failures，0 errors，0 skipped。
+- Release JVM：55 tests，0 failures，0 errors，0 skipped。
+- ScheduleAppStateTest：每个变体 21 tests，覆盖联合加载两类失败／取消、偏好保存／更新／失败／取消、
+  既有课表写入语义及课表和偏好跨类型并发串行。
+- lintDebug：0 errors、11 warnings。警告类别为既有工具链／依赖新版本、未用资源和缺少 application icon，
+  本任务未修改对应依赖、资源或图标。
+- assembleDebugAndroidTest：成功。
+
+设备最终验证：
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+AVD：qingke-api37-r3-arm
+唯一设备：emulator-5584
+adb state：device
+sys.boot_completed：1
+ro.build.version.sdk：37
+ro.product.cpu.abi：arm64-v8a
+
+执行：
+ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 7s；74 actionable tasks，1 executed、73 up-to-date。
+XML：Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+总计：21 tests，0 failures，0 errors，0 skipped。
+- com.qingke.schedule.ScheduleAppDependenciesTest：2 tests。
+- com.qingke.schedule.persistence.RoomScheduleRepositoryTest：11 tests。
+- com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest：8 tests。
+
+新增两项均进入测试体：
+- manifestApplicationLazilyProvidesOneProductionDependencyContainer：验证 manifest Application、初始化前
+  未创建依赖、首次取得后为同一实例，仓库实际类型为 RoomScheduleRepository 和
+  DataStoreSchedulePreferencesRepository。
+- realRoomAndDataStoreCompositionRestoresJointStateAfterReopen：通过真实 Room 和 DataStore 联合加载空状态，
+  保存学期、课程及需规范化的非默认偏好，关闭两种存储并用相同路径重建，再次联合加载得到相同课表和
+  规范化偏好。
+- javap 确认上述两个 @Test 方法的 JVM 签名均为 public final void。
+
+过程限制与处置：
+- 首次快速编译未设置 ANDROID_HOME／ANDROID_SDK_ROOT，在源码编译前以“SDK location not found”停止；
+  设置项目指定 API 37 SDK 后快速编译和上述最终 clean 验证均成功。
+- 第一次后台启动 emulator-5584 在 ADB 枚举前自行退出，日志只到 systemPath 识别；改为受控前台会话后
+  emulator-5588 完成一次 21/21 预验证，最终 clean 后又在 emulator-5584 完成上述 21/21 最终验证。
+  因此没有把早期退出当成设备测试结果。
+- 取证后已执行 adb -s emulator-5584 emu kill，adb devices -l 为空；本次没有遗留模拟器。
+
+该证据只表示 P2-04 实施窗口完成本轮构建与测试，仍须独立复审；不表示 P2-04、P2、A01—A11、
+完整 App 或用户验收完成，也不自动授权 P3。

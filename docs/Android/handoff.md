@@ -1,5 +1,30 @@
 # 安卓项目当前交接状态
 
+## P2-04 应用状态与生产依赖装配已实施，等待独立复审（最新，2026-09-10）
+
+用户已明确授权当前 Sol／高窗口直接执行 P2-04。实施基准为
+`205831819ff1343b5f736ea011e6817f9b7e5b55`，分支 `Android`。本次扩展
+`ScheduleAppState` 联合管理课表和偏好，两个读取均成功后才一次发布 `READY`；普通失败不部分发布，
+取消恢复完整前态并传播。课表和偏好写操作共用串行边界，偏好只发布 DataStore 返回的已提交快照，
+没有声称 Room／DataStore 跨存储原子。
+
+新增 manifest 注册的 `QingKeScheduleApplication` 和懒加载进程单例 `ScheduleAppDependencies`；默认
+生产实现用 `applicationContext` 创建 `schedule.db`、`RoomScheduleRepository` 及既有
+`schedule_preferences.preferences_pb` 的 DataStore 仓库。测试工厂可指定文件并关闭两种存储，已在
+API 37 ARM64 上证明保存课表和规范化偏好后关闭重建可恢复。
+
+最终 clean 构建成功，Debug／Release JVM 各 55 项且无失败／错误／跳过，`ScheduleAppStateTest`
+各 21 项；`lintDebug` 0 errors、11 个既有类别 warnings，AndroidTest APK 成功。最终
+`emulator-5584` 为 ADB `device`、boot 1、SDK 37、ABI `arm64-v8a`，`connectedDebugAndroidTest`
+实际运行 21 项（装配 2、Room 11、DataStore 8），0 failures、0 errors、0 skipped。过程中的一次
+未设置 SDK 快速编译和一次模拟器提前退出均已如实记录，最终模拟器已关闭、adb 为空。完整证据见
+[P2-04 验证证据](evidence/p2-04-application-state-connected-debug-android-test-20260910.txt)。
+
+实际范围未修改 `MainActivity`、ViewModel、Compose 页面、通知、导入导出、iOS、Web、共享
+schema／fixtures、Room schema 或 DataStore 键，也没有进入 P3。P2-04 尚未独立审查或用户验收；
+不得据此宣称 P2、A01—A11 或完整 App 完成。下一步只交给分析审查窗口核对实际 diff、联合状态语义、
+生产单例及 API 37 XML，不自动实施 P3。
+
 ## P2-04 应用状态与生产依赖装配分析完成，等待实施授权（最新，2026-09-10）
 
 用户授权分析窗口在 P2-03 获确认后检查 P2 收口缺口。分析基准为

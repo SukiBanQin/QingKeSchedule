@@ -1138,9 +1138,67 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不得自动进入 P3",
         ):
             self.assertIn(marker, normalized_handoff)
-        self.assertIn("P2-04 已分析待授权", plan)
+        self.assertTrue(
+            "P2-04 已分析待授权" in plan
+            or "P2-04 已实施待独立复审" in plan
+        )
         self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
         self.assertIn("P2-04 负责把两个已审查仓库连接到一个可观察应用状态", design)
+
+    def test_p2_04_execution_records_joint_state_and_real_device_composition(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        analysis = (DOCS / "p2-04-application-state-composition.md").read_text()
+        evidence_path = DOCS / "evidence/p2-04-application-state-connected-debug-android-test-20260910.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P2-04 应用状态与生产依赖装配已实施，等待独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "205831819ff1343b5f736ea011e6817f9b7e5b55",
+            "两个读取均成功后才一次发布 `READY`",
+            "取消恢复完整前态并传播",
+            "懒加载进程单例 `ScheduleAppDependencies`",
+            "schedule.db",
+            "Debug／Release JVM 各 55 项",
+            "`ScheduleAppStateTest` 各 21 项",
+            "实际运行 21 项（装配 2、Room 11、DataStore 8）",
+            "0 failures、0 errors、0 skipped",
+            "未修改 `MainActivity`",
+            "P2-04 尚未独立审查或用户验收",
+            "不自动实施 P3",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "BUILD SUCCESSFUL in 45s",
+            "145 actionable tasks，142 executed、3 up-to-date",
+            "Debug JVM：55 tests",
+            "Release JVM：55 tests",
+            "lintDebug：0 errors、11 warnings",
+            "emulator-5584",
+            "ro.build.version.sdk：37",
+            "arm64-v8a",
+            "总计：21 tests，0 failures，0 errors，0 skipped",
+            "ScheduleAppDependenciesTest：2 tests",
+            "RoomScheduleRepositoryTest：11 tests",
+            "DataStoreSchedulePreferencesRepositoryTest：8 tests",
+            "manifestApplicationLazilyProvidesOneProductionDependencyContainer",
+            "realRoomAndDataStoreCompositionRestoresJointStateAfterReopen",
+            "两个 @Test 方法的 JVM 签名均为 public final void",
+            "SDK location not found",
+            "adb devices -l 为空",
+            "仍须独立复审",
+            "不自动授权 P3",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+        self.assertIn("P2-04 已实施待独立复审", plan)
+        self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
+        self.assertIn("已实施和测试、等待独立复审", design)
+        self.assertIn("当前实现和测试已经完成，等待独立复审", analysis)
 
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
