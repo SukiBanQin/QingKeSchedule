@@ -43,6 +43,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p1-04-unknown-fields.md",
             "p2-01-persistence-state.md",
             "p2-03-form-drafts.md",
+            "p2-04-application-state-composition.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -1089,6 +1090,57 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("已实现、测试、通过最终独立复审并获用户确认", baseline)
         self.assertIn("P2-03 表单草稿与保存评估已通过最终独立复审并获用户确认", design)
         self.assertIn("最终独立复审通过，用户已确认 P2-03 本子任务结果", analysis)
+
+    def test_p2_04_analysis_defines_joint_state_and_production_composition_boundary(self):
+        analysis = (DOCS / "p2-04-application-state-composition.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        normalized = re.sub(r"\s+", " ", analysis)
+        for marker in (
+            "9f7bf013a64c42ddaf7966987542728ce6f91df1",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "时间刷新属于 P3 展示／生命周期范围",
+            "ScheduleRepository",
+            "SchedulePreferencesRepository",
+            "SchedulePreferences.defaults",
+            "一次性发布完整 `READY` 快照",
+            "不得先发布另一个仓库的新值",
+            "CancellationException",
+            "恢复操作前的完整状态并原样重新抛出",
+            "savePreferences",
+            "updatePreferences",
+            "不再额外 `load`",
+            "不是 Room 与 DataStore 的跨存储事务",
+            "applicationContext",
+            "Application 级容器",
+            "多次取得容器必须返回同一实例",
+            "Application 本身不 启动加载协程",
+            "Activity 级 ViewModel",
+            "不修改 `MainActivity`",
+            "Room 11 项和 DataStore 8 项",
+            "API 37 ARM64",
+            "P2 整体验收仍需用户确认",
+            "不 自动授权 P3",
+        ):
+            self.assertIn(marker, normalized)
+        latest = handoff.split(
+            "## P2-04 应用状态与生产依赖装配分析完成，等待实施授权（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "P2-04“应用状态与生产依赖装配”",
+            "没有修改任何应用代码",
+            "不修改 `MainActivity`",
+            "Sol／高",
+            "实施尚未获单独授权",
+            "不得自动进入 P3",
+        ):
+            self.assertIn(marker, normalized_handoff)
+        self.assertIn("P2-04 已分析待授权", plan)
+        self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
+        self.assertIn("P2-04 负责把两个已审查仓库连接到一个可观察应用状态", design)
 
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()

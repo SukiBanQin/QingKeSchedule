@@ -1,5 +1,25 @@
 # 安卓项目当前交接状态
 
+## P2-04 应用状态与生产依赖装配分析完成，等待实施授权（最新，2026-09-10）
+
+用户授权分析窗口在 P2-03 获确认后检查 P2 收口缺口。分析基准为
+`9f7bf013a64c42ddaf7966987542728ce6f91df1`，分支 `Android`；开始时本地 HEAD、
+`refs/heads/Android` 与 `origin/Android` 一致，工作区干净。本轮只读取 Android／iOS 实际源码，
+维护 Android 分析、交接文档和文档测试，没有修改任何应用代码，也没有进入 P3。
+重新获取后的 `origin/IOS` 为 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`；其新增当前时间刷新
+不改变本次依赖装配结论，并留在 P3 范围。
+
+核对确认 Android 的 Room、DataStore 和纯 Kotlin 草稿分别存在，但尚无生产 Room 构建入口、
+Application 级唯一依赖容器，也没有把偏好接入 `ScheduleAppState`。`MainActivity` 仍只显示“轻课”。
+因此 P2 还需要一个可独立验证的 P2-04“应用状态与生产依赖装配”，具体联合加载、失败／取消回滚、
+写入串行、生产单例和 API 37 关闭重建要求见
+[P2-04 分析](p2-04-application-state-composition.md)。
+
+P2-04 只连接存储与状态：不修改 `MainActivity`，不实现 ViewModel、Compose 页面、导航、通知、
+导入导出或后续阶段。实施尚未获单独授权；建议执行窗口 Sol／高，因为它同时涉及进程级依赖生命周期、
+两种异步存储和状态取消／部分失败语义。实施后必须独立复审。P2、A01—A11 和完整 App 均未据此完成，
+不得自动进入 P3。
+
 ## P2-03 通过最终独立复审并获用户确认（最新，2026-09-10）
 
 分析审查窗口已完整复审 `ee2decac5849f7047f40d8b8638586b9d810ef83..5c5c08a5772b1c3792406ee2fc5aa6d0eefff9b8`。
