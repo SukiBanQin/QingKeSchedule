@@ -4,6 +4,7 @@ import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.CourseSchedule
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
+import com.qingke.schedule.domain.ScheduleRules
 import com.qingke.schedule.domain.Semester
 import java.time.LocalDate
 import java.time.LocalTime
@@ -139,17 +140,34 @@ class DraftTest {
     fun validationPrecedesDuplicateAndCrossCourseConflict() {
         val draft = CourseDraft.create(semester, LocalDate.of(2026, 8, 31), ids("candidate", "one", "two"))
         draft.name = " "
-        draft.schedules.single().startPeriod = 99
         draft.addSchedule(draft.schedules.single())
         val conflicting = Course("other", "已有", "", "#287B74", listOf(schedule("other", startPeriod = 1)))
+        val candidate = draft.course()
+
+        assertEquals(candidate.schedules.first().copy(id = "same"), candidate.schedules.last().copy(id = "same"))
+        assertTrue(ScheduleRules.conflicts(candidate, listOf(conflicting)).isNotEmpty())
 
         val result = draft.evaluateSave(semester, listOf(conflicting))
 
         assertTrue(result is CourseSaveEvaluation.Invalid)
+        assertFalse(result is CourseSaveEvaluation.Conflicting)
         val issues = (result as CourseSaveEvaluation.Invalid).issues
         assertTrue(issues.any { it.path == "courses.0.name" && it.message == "请填写课程名称" })
-        assertTrue(issues.any { it.path == "courses.0.schedules.0.periods" })
         assertFalse(issues.any { it.message == "该上课安排已存在，请勿重复添加" })
+    }
+
+    @Test
+    fun sameCourseSchedulesDifferingOnlyByRepeatRuleAreReady() {
+        val draft = CourseDraft.create(semester, LocalDate.of(2026, 8, 31), ids("course", "every", "odd"))
+        draft.name = "重复规则不同"
+        draft.schedules.single().classroom = " A101 "
+        draft.addSchedule(draft.schedules.single())
+        draft.schedules.last().repeatRule = RepeatRule.ODD
+
+        assertEquals(listOf("every", "odd"), draft.schedules.map { it.id })
+        assertEquals(RepeatRule.EVERY, draft.schedules.first().repeatRule)
+        assertEquals(RepeatRule.ODD, draft.schedules.last().repeatRule)
+        assertTrue(draft.evaluateSave(semester, emptyList()) is CourseSaveEvaluation.Ready)
     }
 
     @Test
