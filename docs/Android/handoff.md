@@ -1,5 +1,31 @@
 # 安卓项目当前交接状态
 
+## P3-01-R1 最终复审保留一项稳定键缺口，待 P3-01-R2（最新，2026-09-11）
+
+分析审查窗口已独立核对
+`e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7..fd06b752cdcbc6925491e1742474d9c8360cf15f`
+的实际 4 文件 diff、四个新增测试、Debug／Release XML 和 P3-01-R1 证据。提交范围符合测试专项目标，
+没有修改任何 `src/main` 生产代码，也没有进入 P3-02。重复 `course.id`／`schedule.id` 的发生项保留和
+冲突判定、同一调课日期的今日／周来源星期一致性、逆序名称的 `zh_CN` 排序，以及缺失开始／结束节次的
+`UPCOMING`／无进度退化均建立了真实前提，原复审对应缺口已关闭。
+
+P3-01-R1 仍不能关闭 P3-01 独立审查：新增矩阵用例虽然打乱输入，但四项的 `startRow` 分别为 0、1、2、5，
+排序全部由开始行决定，没有任何两项同时具有相同 `startRow` 和 `endRow`，因此没有进入生产比较器最后的
+`OccurrenceKey(courseIndex, scheduleIndex)` 分支。当前断言能证明矩阵会按行排序和稳定计算 lane，但不能支持
+证据中“乱序矩阵项目按稳定键排序”的表述。P3-01-R2 只需增加至少两个相同开始／结束行、来源键逆序输入的
+项目，断言按 `courseIndex`、`scheduleIndex` 分配稳定顺序和 lane；不得修改生产代码。如果这个最小回归失败，
+应停止并回传实际失败，另行决定生产修正。
+
+本轮使用 API 37 SDK 独立 clean 构建，`BUILD SUCCESSFUL in 40s`，145 actionable tasks（141 executed、
+4 up-to-date）；Debug／Release JVM XML 各 65 tests、0 failures、0 errors、0 skipped，
+`SchedulePresentationTest` 每变体 9 项且四个 R1 用例均进入测试体；lint 为 0 errors、13 warnings，
+Debug／Release APK 和 AndroidTest APK 均成功。文档测试 48 项及文档／布局／差异检查通过。任务仍为纯
+Kotlin，不需要或运行 `connectedDebugAndroidTest`。完整记录见
+[P3-01-R1 最终复审证据](evidence/p3-01-r1-review-20260911.txt)。
+
+准确状态为：P3-01 生产实现未发现阻断缺陷，P3-01-R1 已关闭三类原证据缺口，但 P3-01 尚未独立复审通过或
+获用户验收。不得宣称 P3-01、A02、A03、A07、P3 或完整 App 完成；P3-01-R2 前不得进入 P3-02 或页面实现。
+
 ## P3-01-R1 测试与证据已补齐，等待最终独立复审（最新，2026-09-11）
 
 执行基准为 `e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7`，分支 `Android`。本轮仅修改

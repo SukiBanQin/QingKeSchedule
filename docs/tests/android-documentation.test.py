@@ -1383,6 +1383,42 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
 
+    def test_p3_01_r1_review_keeps_stable_key_gate_open(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p3-01-r1-review-20260911.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P3-01-R1 最终复审保留一项稳定键缺口，待 P3-01-R2（最新，2026-09-11）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7..fd06b752cdcbc6925491e1742474d9c8360cf15f",
+            "没有任何两项同时具有相同 `startRow` 和 `endRow`",
+            "不能支持 证据中“乱序矩阵项目按稳定键排序”的表述",
+            "P3-01-R2",
+            "不得修改生产代码",
+            "Debug／Release JVM XML 各 65 tests",
+            "P3-01 尚未独立复审通过",
+            "不得进入 P3-02 或页面实现",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "实际只有 4 个文件",
+            "duplicateBusinessIdsKeepEverySourceOccurrenceAndConflictByCourseId",
+            "makeupDateUsesSameSourceScheduleInTodayAndWeek",
+            "zh_CN 名称排序",
+            "missingPeriodsDegradeStatusAndProgressSafely",
+            "没有两项的 startRow 与 endRow 同时相同",
+            "P3-01-R2 最小要求",
+            "BUILD SUCCESSFUL in 40s",
+            "Debug JVM：65 tests",
+            "Release JVM：65 tests",
+            "最终独立复审未通过",
+            "不得进入 P3-02",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()

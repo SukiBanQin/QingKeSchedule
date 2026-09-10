@@ -1,0 +1,61 @@
+P3-01-R1 最终独立复审证据
+日期：2026-09-11
+
+范围与 Git：
+- 复审范围：e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7..fd06b752cdcbc6925491e1742474d9c8360cf15f。
+- 实际只有 4 个文件：SchedulePresentationTest.kt、P3-01-R1 JVM 证据、handoff.md 和 Android 文档测试。
+- 没有 Android src/main、iOS、Web、共享协议／fixtures、构建依赖或其他应用代码变更。
+- 复审开始时 HEAD、refs/heads/Android、origin/Android 和远端 refs/heads/Android 均为 fd06b752；
+  工作区干净，范围 diff --check 通过。
+
+已真实关闭的 R1 缺口：
+1. duplicateBusinessIdsKeepEverySourceOccurrenceAndConflictByCourseId 构造两个来源课程位置、相同 course.id
+   和重复 schedule.id，确认 OccurrenceKey (0,0)／(1,0) 均保留且不误标冲突；再以不同 course.id、相同
+   schedule.id 证明两个项目和内部键均保留并分别标记冲突。
+2. makeupDateUsesSameSourceScheduleInTodayAndWeek 在 2026-09-05 同时调用 TodaySchedulePresentation 和
+   WeekSchedulePresentation；二者只显示来源周一课程，周模型保持周六显示列并排除周六来源课程。
+3. todayWeekAndMatrixSortDisruptedInputsDeterministically 的“张／苹果／阿”输入顺序与期望顺序不同，今日和
+   周模型均实际验证 zh_CN 名称排序。
+4. missingPeriodsDegradeStatusAndProgressSafely 同时覆盖开始节次缺失（该项结束节次也缺失）和仅结束节次
+   缺失；两项均返回 UPCOMING、timingProgress 为 null，且没有异常。
+
+剩余阻断证据：
+- 矩阵乱序输入为 separated(startRow=5)、third(startRow=2)、first(startRow=0)、second(startRow=1)。
+  期望输出 first、second、third、separated 只验证开始行排序；没有两项的 startRow 与 endRow 同时相同，
+  因而不会进入 MatrixDraft 比较器的 OccurrenceKey courseIndex／scheduleIndex 分支。
+- 当前 lane=0／1／0 和 laneCount=2／2／2 的断言真实验证闭区间链式重叠，但不能证明同区间项目以稳定来源键
+  决定先后和 lane。P3-01-R1 证据中“乱序矩阵项目按稳定键排序”的表述因此超过实际测试覆盖。
+
+P3-01-R2 最小要求：
+- 只修改 SchedulePresentationTest.kt、handoff、R2 证据和对应文档测试，不修改生产代码。
+- 构造至少两个 startRow、endRow 完全相同而 OccurrenceKey 逆序输入的矩阵项目；来源键应在
+  courseIndex 或 scheduleIndex 上确有不同。
+- 断言输出按 courseIndex、scheduleIndex 的顺序稳定排列，并断言较小来源键取得 lane 0、另一项取得
+  lane 1、laneCount 一致。保留现有乱序链式重叠和全部其他测试。
+- 如果最小用例失败，停止并回传失败，不在 R2 中自行修改生产实现。
+
+独立验证环境：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+执行：
+cd Android
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：
+- BUILD SUCCESSFUL in 40s。
+- 145 actionable tasks：141 executed、4 up-to-date。
+- Debug JVM：65 tests，0 failures，0 errors，0 skipped。
+- Release JVM：65 tests，0 failures，0 errors，0 skipped。
+- SchedulePresentationTest：Debug／Release 各 9 tests；四个 R1 新用例均在 XML 中出现。
+- lintDebug：0 errors、13 warnings；assembleDebug、assembleRelease、assembleDebugAndroidTest 均成功。
+- 纯 Kotlin 测试任务未运行 connectedDebugAndroidTest；这不构成设备证据缺失。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：复审记录写入前 48 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+
+结论：P3-01-R1 的重复 ID、调课一致性、名称排序和缺失节次回归有效；矩阵稳定来源键分支仍无真实测试，
+最终独立复审未通过。不得宣称 P3-01、A02、A03、A07、P3、完整 App 或用户验收完成，不得进入 P3-02。
