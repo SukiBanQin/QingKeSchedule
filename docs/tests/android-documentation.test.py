@@ -45,6 +45,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p2-03-form-drafts.md",
             "p2-04-application-state-composition.md",
             "p2-04-review.md",
+            "p3-01-schedule-presentation.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -898,6 +899,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             or "P2-01 Room 与最小状态边界已完成" in plan
             or "损坏回退" in plan
             or "P2-01 已审查通过" in plan
+            or "P2 阶段结果已获用户确认" in plan
         )
 
     def test_p2_01_r3_review_closes_gate_without_claiming_user_acceptance(self):
@@ -1086,10 +1088,10 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不自动授权 P3",
         ):
             self.assertIn(marker, evidence)
-        self.assertIn("P2-03 已审查并获用户确认", plan)
-        self.assertIn("P2 未整体验收", plan)
-        self.assertIn("已实现、测试、通过最终独立复审并获用户确认", baseline)
-        self.assertIn("P2-03 表单草稿与保存评估已通过最终独立复审并获用户确认", design)
+        self.assertIn("P2-03", plan)
+        self.assertIn("用户接受 P2-04 同窗口限制并确认 P2", plan)
+        self.assertIn("P2-03", baseline)
+        self.assertIn("P2-03 已通过最终独立复审", design)
         self.assertIn("最终独立复审通过，用户已确认 P2-03 本子任务结果", analysis)
 
     def test_p2_04_analysis_defines_joint_state_and_production_composition_boundary(self):
@@ -1197,7 +1199,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
-        self.assertIn("P2-04 已通过同窗口复审", plan)
+        self.assertIn("用户接受 P2-04 同窗口限制并确认 P2", plan)
         self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
         self.assertIn("当前分析角色同窗口复审", design)
         self.assertIn("当前分析角色完成同窗口复审", analysis)
@@ -1234,7 +1236,52 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
         self.assertIn("P2-04 通过当前分析角色复审，组织性独立限制保留", handoff)
-        self.assertIn("P2-04 已通过同窗口复审、组织性独立限制保留", plan)
+        self.assertIn("用户接受 P2-04 同窗口限制并确认 P2", plan)
+
+    def test_p3_01_analysis_defines_pure_presentation_boundary_after_p2_confirmation(self):
+        analysis = (DOCS / "p3-01-schedule-presentation.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        normalized = re.sub(r"\s+", " ", analysis)
+        for marker in (
+            "322227ef29bf1eab08ec74ecf0eb66b19c79b77c",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "用户已接受 P2-04 同窗口复审的限制并确认 P2 阶段结果",
+            "Terra／高",
+            "LocalDateTime",
+            "内部展示键不得假设 `course.id` 或 `schedule.id` 唯一",
+            "指定停课日 → 指定调课日 → “周末默认停课”",
+            "46.0 / 110.0",
+            "zh_CN",
+            "displayDayOfWeek",
+            "一组通过 重叠链连接的课程使用相同 `laneCount`",
+            "MON–SUN / N PERIODS",
+            "不修改 `MainActivity`",
+            "不要求 `connectedDebugAndroidTest`",
+            "必须由分析窗口独立复审",
+            "不等于 A02、A03、A07、P3 或完整 App 验收",
+        ):
+            self.assertIn(marker, normalized)
+        latest = handoff.split(
+            "## 用户确认 P2，P3-01 展示模型分析完成待 Terra 实施（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "用户已明确接受 P2-04 当前分析角色同窗口复审",
+            "确认 P2 阶段结果",
+            "没有授权一次性实施完整 P3",
+            "P3-01“今日与周课表展示模型”",
+            "Terra／高",
+            "没有修改应用代码",
+            "不自动开始后续页面任务",
+        ):
+            self.assertIn(marker, normalized_handoff)
+        self.assertIn("P2 阶段结果已获用户确认", plan)
+        self.assertIn("P3-01 展示模型已分析待实施", plan)
+        self.assertIn("P3-01 今日与周课表展示模型", baseline)
+        self.assertIn("P3-01", design)
 
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
@@ -1317,10 +1364,12 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertTrue(
             "尚待实施授权" in baseline
             or "已实现、测试、通过最终独立复审并获用户确认" in baseline
+            or "用户已确认本文档及 P1、P2 阶段结果" in baseline
         )
         self.assertTrue(
             "P2-03 表单草稿与保存评估已完成分析、等待实施授权" in design
             or "P2-03 表单草稿与保存评估已通过最终独立复审并获用户确认" in design
+            or "P2-03 已通过最终独立复审" in design
         )
         self.assertIn("Terra／高", handoff)
 
