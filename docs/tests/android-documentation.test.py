@@ -46,6 +46,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p2-04-application-state-composition.md",
             "p2-04-review.md",
             "p3-01-schedule-presentation.md",
+            "p3-02-app-shell-onboarding.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -1279,9 +1280,50 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, normalized_handoff)
         self.assertIn("P2 阶段结果已获用户确认", plan)
-        self.assertIn("P3-01 展示模型已分析待实施", plan)
+        self.assertIn("P3-01 已实现、审查并获用户确认", plan)
         self.assertIn("P3-01 今日与周课表展示模型", baseline)
         self.assertIn("P3-01", design)
+
+    def test_p3_02_app_shell_onboarding_analysis_is_actionable(self):
+        analysis = (DOCS / "p3-02-app-shell-onboarding.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+
+        for marker in [
+            "0e994e01f9f1fb29be1ad167fd4a3f9bf70b876e",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "Terra／高",
+            "ScheduleViewModel",
+            "collectAsStateWithLifecycle",
+            "NOT_LOADED",
+            "LOADING",
+            "FAILED",
+            "READY",
+            "needsOnboarding",
+            "SemesterDraft",
+            "18 周",
+            "默认十节",
+            "1..52",
+            "最多 20",
+            "isSaving",
+            "AppearanceMode",
+            "today-tab",
+            "connectedDebugAndroidTest",
+            "force-stop",
+            "P3-03",
+        ]:
+            self.assertIn(marker, analysis)
+
+        self.assertIn(
+            "## 用户确认 P3-01，P3-02 应用壳与首次设置分析完成待实施（最新，2026-09-11）",
+            handoff,
+        )
+        self.assertIn("P3-01 已实现、测试、审查并获用户确认", handoff)
+        self.assertIn("P3-02 已分析授权待实施", plan)
+        self.assertIn("P3-02", design)
+        self.assertIn("P3-02 应用壳、状态加载与首次学期设置", baseline)
 
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()

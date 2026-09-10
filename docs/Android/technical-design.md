@@ -2,9 +2,9 @@
 
 ## 文档状态
 
-更新日期：2026-09-10。状态：用户已确认方案及 P1、P2 阶段结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01、P2-02-R1 已独立复审；P2-03 已通过最终独立复审。P2-04 的[应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受组织性独立限制并确认 P2。P3-01 [今日与周课表展示模型](p3-01-schedule-presentation.md)已分析待实施；功能页面、P3 和完整应用验收仍未完成。
+更新日期：2026-09-11。状态：用户已确认方案及 P1、P2 阶段结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01、P2-02-R1 已独立复审；P2-03 已通过最终独立复审。P2-04 的[应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受组织性独立限制并确认 P2。P3-01 [今日与周课表展示模型](p3-01-schedule-presentation.md)已实现、测试、通过最终独立复审并获用户确认；P3-02 [应用壳、状态加载与首次学期设置](p3-02-app-shell-onboarding.md)已分析授权待实施。P3、功能页面整体和完整应用验收仍未完成。
 
-产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)，P2-03 的纯 Kotlin 草稿／冲突边界见 [表单草稿分析](p2-03-form-drafts.md)，P2 收口的联合状态与生产入口见 [P2-04 分析](p2-04-application-state-composition.md)；今日／周表纯 Kotlin 展示规则见 [P3-01 分析](p3-01-schedule-presentation.md)。
+产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)，P2-03 的纯 Kotlin 草稿／冲突边界见 [表单草稿分析](p2-03-form-drafts.md)，P2 收口的联合状态与生产入口见 [P2-04 分析](p2-04-application-state-composition.md)；今日／周表纯 Kotlin 展示规则见 [P3-01 分析](p3-01-schedule-presentation.md)，首个 Compose／状态／持久化垂直切片见 [P3-02 分析](p3-02-app-shell-onboarding.md)。
 
 ## 建议技术路线
 
@@ -73,6 +73,13 @@ P2-04 负责把两个已审查仓库连接到一个可观察应用状态：联�
 各自只发布仓库返回的已提交快照，不声称跨存储原子。生产侧由 manifest 注册的 Application 级
 惰性容器提供唯一 Room／DataStore 依赖，状态仍只依赖接口并留给 P3 的 Activity 级 ViewModel 持有。
 P2-04 不修改 `MainActivity`、不主动加载、不新增页面或通知副作用，具体测试和关闭重建门槛以专项分析为准。
+
+P3-02 由 Activity 级 ViewModel 持有唯一 `ScheduleAppState`，在 `viewModelScope` 中只启动一次初始加载，
+Compose 以生命周期感知方式订阅状态。根界面按 `NOT_LOADED／LOADING`、`FAILED`、`READY` 且无学期、
+`READY` 且有学期映射为加载、失败重试、首次设置和主壳；保存错误保留当前主体，不得把它误映射成加载失败。
+首次设置复用 `SemesterDraft`，其可观察界面快照由 Activity 级状态持有以跨越 Activity 重建；成功后只由已
+提交状态驱动进入主壳，失败保留草稿。三标签壳和最小主题不提前接入今日／周表或完整设置，真实 API 37
+验收须覆盖清数据冷启动、保存以及强停后重启恢复。详细依赖、test tag 和排除范围以 P3-02 专项分析为准。
 
 通过 Android 系统文件选择／创建文档和分享接口处理 JSON，不导出平台数据库文件。文件取消不显示成功；不可写、无学期、内容无效时给出明确反馈。
 
