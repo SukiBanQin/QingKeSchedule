@@ -1,5 +1,29 @@
 # 安卓项目当前交接状态
 
+## P3-01-R2 通过，P3-01 独立复审关闭（最新，2026-09-11）
+
+分析审查窗口已独立复审
+`4aae401181dd4ef563d087dcaea89eb4d00fe8e3..8eaf32aed98c814cadae2ea6a78f4c834c3b8268`
+的实际 4 文件 diff，并结合此前对原实施提交 `37851bd283029b1218de561fa633ccad33b40286` 和 R1
+`fd06b752cdcbc6925491e1742474d9c8360cf15f` 的审查完成 P3-01 累计收口。本轮只有 JVM 测试、交接、证据和
+文档验证变更，没有任何 `src/main` 生产代码或越界修改。
+
+`matrixUsesOccurrenceKeyToOrderSameIntervalSources` 的三项均映射为同一显示日的 `startRow=0`、`endRow=0`，
+输入来源键为 `(2,1)`、`(1,9)`、`(1,3)`，输出严格为 `(1,3)`、`(1,9)`、`(2,1)`；该构造真实进入
+`courseIndex` 和 `scheduleIndex` 两级比较。较小来源键依次取得 lane 0／1／2，三项 `laneCount=3` 且矩阵 ID
+唯一；移除来源键比较会保留逆序输入并使断言失败。结合 R1 已验证的重复业务 ID、今日／周调课一致性、
+逆序 `zh_CN` 名称排序和缺失节次退化，P3-01 分析契约中的已知证据缺口均已关闭，未发现生产实现缺陷。
+
+分析窗口使用 API 37 SDK 独立执行完整 clean 构建，`BUILD SUCCESSFUL in 42s`，145 actionable tasks
+（141 executed、4 up-to-date）；Debug／Release JVM XML 各 66 tests、0 failures、0 errors、0 skipped，
+`SchedulePresentationTest` 每变体 10 项且 R2 新用例在两个 XML 中出现；lint 为 0 errors、13 warnings，
+Debug／Release APK 和 AndroidTest APK 均成功。文档测试 50 项及文档／布局／差异检查通过。本任务为纯
+Kotlin，不要求或运行 `connectedDebugAndroidTest`。完整结果见
+[P3-01 最终独立复审证据](evidence/p3-01-final-review-20260911.txt)。
+
+准确状态为：P3-01 已实现、测试并通过独立复审，但尚未获用户验收；这不等于 A02、A03、A07、P3 或完整
+App 完成。用户没有授权 P3-02 或页面实现，本次复审不得自动进入后续任务。
+
 ## P3-01-R2 矩阵稳定来源键测试与证据已实施，等待最终独立复审（最新，2026-09-11）
 
 执行基准为 `4aae401181dd4ef563d087dcaea89eb4d00fe8e3`，分支 `Android`。本轮仅修改

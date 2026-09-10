@@ -1,0 +1,57 @@
+P3-01-R2 与 P3-01 最终独立复审证据
+日期：2026-09-11
+
+Git 与范围：
+- P3-01 原实施基准／提交：93e1005263871c25a87cd8d8dae4a8f822dbb52b..37851bd283029b1218de561fa633ccad33b40286。
+- R1：e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7..fd06b752cdcbc6925491e1742474d9c8360cf15f。
+- R2 聚焦范围：4aae401181dd4ef563d087dcaea89eb4d00fe8e3..8eaf32aed98c814cadae2ea6a78f4c834c3b8268。
+- R2 实际只有 SchedulePresentationTest.kt、P3-01-R2 JVM 证据、handoff.md 和 Android 文档测试 4 个文件。
+- 没有任何 Android src/main 生产代码、ScheduleRulesTest、UI、状态、持久化、构建依赖、iOS、Web 或共享
+  schema／fixtures 变更，没有进入 P3-02。
+- 复审开始时 HEAD、refs/heads/Android、origin/Android 和远端 refs/heads/Android 均为 8eaf32a，工作区干净；
+  R2 范围 git diff --check 通过。
+
+R2 测试前提核对：
+- matrixUsesOccurrenceKeyToOrderSameIntervalSources 的三项在同一显示日，使用只有第 1 节的学期，三项安排
+  都是第 1 节，因此均为 startRow=0、endRow=0；开始行和结束行无法决定其顺序。
+- 输入键明确为 OccurrenceKey(2,1)、OccurrenceKey(1,9)、OccurrenceKey(1,3)，期望输出为
+  OccurrenceKey(1,3)、OccurrenceKey(1,9)、OccurrenceKey(2,1)。前两项共同验证 scheduleIndex，后一项与
+  前两项共同验证 courseIndex。
+- layoutComponent 按上述来源键顺序放置完全重叠项目，断言 lane=0／1／2、laneCount 均为 3；最终矩阵按 lane
+  排序，因此删除 MatrixDraft 的来源键比较会保留逆序输入、分配逆序 lane，并使键顺序断言失败。
+- 三个矩阵 ID 由显示列和完整 OccurrenceKey 组成，测试断言 set 大小为 3，真实验证 ID 唯一。
+- R1 及此前全部测试与断言保留。本轮未发现生产实现缺陷或不实边界表述。
+
+累计 P3-01 结论：
+- 原实现的发生项身份、教学日历、今日／周展示、冲突、矩阵 lane、午休与显示文字符合既定纯 Kotlin 契约。
+- R1 已真实补齐重复 course.id／schedule.id、今日和周调课来源一致性、逆序 zh_CN 名称排序、缺失节次安全
+  退化；R2 已补齐同区间矩阵项目的 courseIndex／scheduleIndex 稳定来源键排序。
+- 已知生产语义和测试证据缺口全部关闭，P3-01 独立复审通过。
+
+独立验证环境：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+执行：
+cd Android
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：
+- BUILD SUCCESSFUL in 42s。
+- 145 actionable tasks：141 executed、4 up-to-date。
+- Debug JVM：66 tests，0 failures，0 errors，0 skipped。
+- Release JVM：66 tests，0 failures，0 errors，0 skipped。
+- SchedulePresentationTest：Debug／Release 各 10 tests；matrixUsesOccurrenceKeyToOrderSameIntervalSources 在两个
+  XML 中均出现并通过。
+- lintDebug：0 errors、13 warnings。
+- assembleDebug、assembleRelease、assembleDebugAndroidTest 均成功。
+- P3-01 为纯 Kotlin 展示模型，未运行 connectedDebugAndroidTest；这不构成设备验证缺口。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：最终复审记录写入前 50 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+
+最终结论：P3-01 已实现、测试并通过独立复审，但尚未获用户验收。不代表 A02、A03、A07、P3 或完整 App
+完成；用户未授权 P3-02 或页面实现，不自动进入任何后续任务。

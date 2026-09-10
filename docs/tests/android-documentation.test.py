@@ -1453,6 +1453,40 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
 
+    def test_p3_01_final_review_closes_evidence_gate_without_user_acceptance(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p3-01-final-review-20260911.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P3-01-R2 通过，P3-01 独立复审关闭（最新，2026-09-11）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "4aae401181dd4ef563d087dcaea89eb4d00fe8e3..8eaf32aed98c814cadae2ea6a78f4c834c3b8268",
+            "`courseIndex` 和 `scheduleIndex` 两级比较",
+            "lane 0／1／2",
+            "P3-01 分析契约中的已知证据缺口均已关闭",
+            "Debug／Release JVM XML 各 66 tests",
+            "P3-01 已实现、测试并通过独立复审，但尚未获用户验收",
+            "不得自动进入后续任务",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "R2 实际只有",
+            "startRow=0、endRow=0",
+            "OccurrenceKey(2,1)、OccurrenceKey(1,9)、OccurrenceKey(1,3)",
+            "lane=0／1／2",
+            "P3-01 独立复审通过",
+            "BUILD SUCCESSFUL in 42s",
+            "Debug JVM：66 tests，0 failures，0 errors，0 skipped",
+            "Release JVM：66 tests，0 failures，0 errors，0 skipped",
+            "未运行 connectedDebugAndroidTest",
+            "尚未获用户验收",
+            "不自动进入任何后续任务",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
