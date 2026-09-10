@@ -1,5 +1,29 @@
 # 安卓项目当前交接状态
 
+## P2-04 通过当前分析角色复审，组织性独立限制保留（最新，2026-09-10）
+
+用户指定由当前分析审查角色复审实施基准
+`205831819ff1343b5f736ea011e6817f9b7e5b55` 至实施提交
+`e6a3513d720fe39f3b3f10aca1acc55208d9d820`。本轮没有修改应用代码。实际 13 文件 diff 符合
+[P2-04 契约](p2-04-application-state-composition.md)：联合加载没有部分发布，普通失败可区分来源并恢复
+旧快照，两个读取点的取消均恢复完整前态并传播；课表和偏好写入共用串行边界，成功只发布各仓库返回的
+已提交快照，没有声称 Room／DataStore 跨存储原子。
+
+manifest、自定义 Application、懒加载单例依赖容器、固定 `schedule.db` 与既有 DataStore 路径均符合
+生产装配要求；未修改 `MainActivity`、ViewModel、Compose、通知、导入导出、iOS、Web、共享协议、
+Room schema 或 DataStore 键，未进入 P3。复审没有发现阻断问题，完整代码结论见
+[P2-04 复审](p2-04-review.md)。
+
+本轮从干净构建重跑成功，Debug／Release JVM 各 55 项，0 failures／errors／skipped；API 37 ARM64
+唯一 `emulator-5584` 上实际运行 21 项（装配 2、Room 11、DataStore 8），0 failures／errors／skipped，
+新增装配测试均进入测试体且 JVM 签名为 `void`。复审 lint 为 0 errors、13 个既有类别 warnings；设备已
+正常关闭、adb 为空。完整记录见
+[同窗口复审证据](evidence/p2-04-same-window-review-20260910.txt)。
+
+由于 P2-04 的实施和本轮复审由同一 Codex 任务完成，本结论准确称为“当前分析角色同窗口复审通过”，
+不能冒充另一窗口或另一审查者完成的组织性独立审查。P2-04 和 P2 整体尚未获用户验收；是否接受本轮
+作为 P2-04 审查门槛由用户决定。不得据此宣称 A01—A11、P2、P3 或完整 App 完成，也不自动进入 P3。
+
 ## P2-04 应用状态与生产依赖装配已实施，等待独立复审（最新，2026-09-10）
 
 用户已明确授权当前 Sol／高窗口直接执行 P2-04。实施基准为

@@ -44,6 +44,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p2-01-persistence-state.md",
             "p2-03-form-drafts.md",
             "p2-04-application-state-composition.md",
+            "p2-04-review.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -1141,6 +1142,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertTrue(
             "P2-04 已分析待授权" in plan
             or "P2-04 已实施待独立复审" in plan
+            or "P2-04 已通过同窗口复审" in plan
         )
         self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
         self.assertIn("P2-04 负责把两个已审查仓库连接到一个可观察应用状态", design)
@@ -1195,10 +1197,44 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
-        self.assertIn("P2-04 已实施待独立复审", plan)
+        self.assertIn("P2-04 已通过同窗口复审", plan)
         self.assertIn("P2-04 应用状态与生产依赖装配", baseline)
-        self.assertIn("已实施和测试、等待独立复审", design)
-        self.assertIn("当前实现和测试已经完成，等待独立复审", analysis)
+        self.assertIn("当前分析角色同窗口复审", design)
+        self.assertIn("当前分析角色完成同窗口复审", analysis)
+
+    def test_p2_04_same_window_review_records_findings_evidence_and_limit(self):
+        review = (DOCS / "p2-04-review.md").read_text()
+        evidence = (DOCS / "evidence/p2-04-same-window-review-20260910.txt").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        for marker in (
+            "205831819ff1343b5f736ea011e6817f9b7e5b55",
+            "e6a3513d720fe39f3b3f10aca1acc55208d9d820",
+            "同窗口复审",
+            "没有发现阻断问题",
+            "另一窗口或另一审查者",
+            "Debug／Release JVM 各 55 项",
+            "21 tests、0 failures、0 errors、0 skipped",
+            "ScheduleAppDependenciesTest",
+            "public final void",
+            "P2 整体的验收",
+            "不自动授权 P3",
+        ):
+            self.assertIn(marker, review)
+        for marker in (
+            "BUILD SUCCESSFUL in 42s",
+            "145 actionable tasks，141 executed、4 up-to-date",
+            "lintDebug：0 errors、13 warnings",
+            "emulator-5584",
+            "ro.build.version.sdk：37",
+            "ro.product.cpu.abi：arm64-v8a",
+            "总计：21 tests，0 failures，0 errors，0 skipped",
+            "adb devices -l：为空",
+            "组织性独立审查限制保留",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertIn("P2-04 通过当前分析角色复审，组织性独立限制保留", handoff)
+        self.assertIn("P2-04 已通过同窗口复审、组织性独立限制保留", plan)
 
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
