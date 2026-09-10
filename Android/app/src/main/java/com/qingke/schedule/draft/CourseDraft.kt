@@ -78,7 +78,10 @@ class CourseDraft private constructor(
     }
 
     fun removeSchedule(id: String) {
-        if (schedules.size > 1) schedules.removeAll { it.id == id }
+        if (schedules.size > 1) {
+            val index = schedules.indexOfFirst { it.id == id }
+            if (index >= 0) schedules.removeAt(index)
+        }
     }
 
     private fun hasNewDuplicateSchedule(candidate: Course): Boolean {

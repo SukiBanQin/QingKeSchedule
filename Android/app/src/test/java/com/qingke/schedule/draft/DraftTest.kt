@@ -56,6 +56,19 @@ class DraftTest {
     }
 
     @Test
+    fun removingDuplicateScheduleIdsRemovesOnlyFirstAndProtectsLast() {
+        val course = Course("course", "名称", "教师", "#287B74", listOf(schedule("same"), schedule("same")))
+        val draft = CourseDraft.edit(course, semester, LocalDate.of(2026, 9, 1), idFactory = ids("unused"))
+        draft.removeSchedule("missing")
+        assertEquals(2, draft.schedules.size)
+        draft.removeSchedule("same")
+        assertEquals(1, draft.schedules.size)
+        assertEquals("same", draft.schedules.single().id)
+        draft.removeSchedule("same")
+        assertEquals(1, draft.schedules.size)
+    }
+
+    @Test
     fun duplicateEvaluationAllowsHistoricalDuplicatesButBlocksNewAndPrioritizesValidation() {
         val legacy = Course("legacy", "旧课", "", "#287B74", listOf(schedule("one"), schedule("two")))
         val editing = CourseDraft.edit(legacy, semester, LocalDate.of(2026, 9, 1), idFactory = ids("new"))
@@ -134,6 +147,7 @@ class DraftTest {
         val result = draft.evaluateSave(semester, emptyList())
         assertTrue(result is CourseSaveEvaluation.Invalid)
         assertEquals("courses.0.schedules", (result as CourseSaveEvaluation.Invalid).issues.single().path)
+        assertEquals("该上课安排已存在，请勿重复添加", result.issues.single().message)
     }
 
     private fun schedule(

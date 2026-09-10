@@ -1,0 +1,5 @@
+P2-03-R1 JVM 证据，2026-09-10。
+基准：25ef0b38ba72570ba56bba169c7289528a548665。
+修正：CourseDraft.removeSchedule 对重复 ID 只删除首个；缺失 ID、单项及删除后最后一项不改变列表。
+测试：testDebugUnitTest 与 testReleaseUnitTest 均 BUILD SUCCESSFUL；新增 removingDuplicateScheduleIdsRemovesOnlyFirstAndProtectsLast 通过。
+本轮仍为纯 Kotlin，不运行 connectedDebugAndroidTest；须独立复审，不代表 P2-03 或阶段完成。
