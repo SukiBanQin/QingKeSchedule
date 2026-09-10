@@ -1,5 +1,28 @@
 # 安卓项目当前交接状态
 
+## P3-01-R1 测试与证据已补齐，等待最终独立复审（最新，2026-09-11）
+
+执行基准为 `e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7`，分支 `Android`。本轮仅修改
+`SchedulePresentationTest.kt`，补充交接与 [P3-01-R1 JVM 证据](evidence/p3-01-r1-jvm-20260911.txt)；没有修改
+任何 `src/main` 生产代码、MainActivity、Application、Compose、ViewModel、导航、主题、ScheduleAppState、Room、
+DataStore、草稿、校验器、构建依赖、iOS、Web 或共享 schema／fixtures，未进入 P3-02 或页面实现。
+
+新增 JVM 回归直接构造两个不同来源位置但相同 `course.id`／重复 `schedule.id` 的课程，确认两个发生项及各自
+`OccurrenceKey` 均保留且同业务课程 ID 不误标冲突；另以不同 `course.id` 与相同 `schedule.id` 的重叠项确认
+发生项不丢失、两个内部键均标记冲突。相同真实调课日期 `2026-09-05` 同时调用今日和周模型，二者均按来源周一
+取课，周模型仍显示周六列且不显示周六来源课程。逆序课程和乱序矩阵输入锁定 `zh_CN` 名称排序、稳定来源键顺序、
+闭区间 lane／laneCount 与分离分量 lane 复用；缺失开始或结束节次均安全退化为 `UPCOMING` 且没有
+`timingProgress`，不抛异常。
+
+指定 API 37 SDK 的最终 clean 构建为 `BUILD SUCCESSFUL in 53s`（145 actionable tasks：142 executed、3 up-to-date）。
+Debug／Release JVM XML 各 65 tests、0 failures、0 errors、0 skipped，`SchedulePresentationTest` 每变体 9 项，新增
+四项均进入测试体；`lintDebug` 为 0 errors、13 warnings，Debug／Release APK 和 AndroidTest APK 均编译成功。
+文档测试 48 项、文档／布局／差异检查均通过。本轮是纯 Kotlin 测试补强，按授权未启动模拟器或运行
+`connectedDebugAndroidTest`。完整命令、XML 和限制见上述证据。
+
+P3-01-R1 的测试与证据已实施，仍需分析审查窗口最终独立复审；这不代表 P3-01、A02、A03、A07、P3、完整 App
+或用户验收完成，不得自动进入 P3-02 或后续阶段。
+
 ## P3-01 独立复审未通过，待 P3-01-R1 补齐关键回归（最新，2026-09-11）
 
 分析审查窗口已独立核对实施基准

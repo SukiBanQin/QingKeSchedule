@@ -3,6 +3,7 @@ package com.qingke.schedule.presentation
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.CourseOccurrence
 import com.qingke.schedule.domain.CourseSchedule
+import com.qingke.schedule.domain.CourseStatus
 import com.qingke.schedule.domain.OccurrenceKey
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
@@ -111,6 +112,116 @@ class SchedulePresentationTest {
         assertEquals(2, duplicateWeek.days.first().items.size)
         assertEquals(listOf(OccurrenceKey(0, 0), OccurrenceKey(0, 1)), duplicateWeek.days.first().items.map { it.occurrence.key })
         assertTrue(duplicateWeek.days.first().items.none { it.isConflicting })
+    }
+
+    @Test
+    fun duplicateBusinessIdsKeepEverySourceOccurrenceAndConflictByCourseId() {
+        val sharedSchedule = CourseSchedule("same-schedule", 1, 1, 2, 1, 18, RepeatRule.EVERY, "")
+        val sameBusinessIdWeek = WeekSchedulePresentation.create(
+            1,
+            semester(),
+            listOf(
+                Course("same-course", "甲课程", "", "#287B74", listOf(sharedSchedule)),
+                Course("same-course", "乙课程", "", "#287B74", listOf(sharedSchedule.copy())),
+            ),
+            LocalDateTime.parse("2026-08-31T09:00"),
+        )
+        val sameBusinessIdItems = sameBusinessIdWeek.days.first().items
+        assertEquals(2, sameBusinessIdItems.size)
+        assertEquals(setOf(OccurrenceKey(0, 0), OccurrenceKey(1, 0)), sameBusinessIdItems.map { it.occurrence.key }.toSet())
+        assertTrue(sameBusinessIdItems.none { it.isConflicting })
+
+        val sameScheduleIdWeek = WeekSchedulePresentation.create(
+            1,
+            semester(),
+            listOf(
+                Course("first-course", "第一门", "", "#287B74", listOf(sharedSchedule)),
+                Course("second-course", "第二门", "", "#287B74", listOf(sharedSchedule.copy())),
+            ),
+            LocalDateTime.parse("2026-08-31T09:00"),
+        )
+        val sameScheduleIdItems = sameScheduleIdWeek.days.first().items
+        assertEquals(2, sameScheduleIdItems.size)
+        assertEquals(setOf(OccurrenceKey(0, 0), OccurrenceKey(1, 0)), sameScheduleIdItems.map { it.occurrence.key }.toSet())
+        assertTrue(sameScheduleIdItems.all { it.isConflicting })
+        val matrix = WeekMatrixPresentation.create(semester(), sameScheduleIdWeek.days)
+        assertEquals(setOf(OccurrenceKey(0, 0), OccurrenceKey(1, 0)), matrix.items.map { it.occurrence.key }.toSet())
+    }
+
+    @Test
+    fun makeupDateUsesSameSourceScheduleInTodayAndWeek() {
+        val mondaySchedule = CourseSchedule("monday", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        val saturdaySchedule = CourseSchedule("saturday", 6, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        val courses = listOf(
+            Course("monday-course", "周一课程", "", "#287B74", listOf(mondaySchedule)),
+            Course("saturday-course", "周六课程", "", "#287B74", listOf(saturdaySchedule)),
+        )
+        val calendar = AcademicCalendarPreferences(
+            weekendsAreNonTeachingDays = true,
+            makeupTeachingDays = listOf(MakeupTeachingDay("2026-09-05", 1)),
+        )
+        val now = LocalDateTime.parse("2026-09-05T09:00")
+        val today = TodaySchedulePresentation.create(semester(), courses, now, calendar)
+        val saturday = WeekSchedulePresentation.create(1, semester(), courses, now, calendar).days[5]
+
+        assertFalse(today.isNonTeachingDay)
+        assertEquals(listOf("monday-course"), today.items.map { it.occurrence.course.id })
+        assertFalse(today.items.any { it.occurrence.course.id == "saturday-course" })
+        assertEquals(1, saturday.scheduleSourceDayOfWeek)
+        assertEquals(6, saturday.dayOfWeek)
+        assertEquals(listOf("monday-course"), saturday.items.map { it.occurrence.course.id })
+        assertTrue(saturday.items.all { it.displayDayOfWeek == 6 })
+        assertFalse(saturday.items.any { it.occurrence.course.id == "saturday-course" })
+    }
+
+    @Test
+    fun todayWeekAndMatrixSortDisruptedInputsDeterministically() {
+        val sameTimeSchedule = CourseSchedule("same-time", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        val shuffledCourses = listOf(
+            Course("z", "张课程", "", "#287B74", listOf(sameTimeSchedule)),
+            Course("p", "苹果课程", "", "#287B74", listOf(sameTimeSchedule.copy())),
+            Course("a", "阿课程", "", "#287B74", listOf(sameTimeSchedule.copy())),
+        )
+        val now = LocalDateTime.parse("2026-08-31T09:00")
+        val expectedNames = listOf("阿课程", "苹果课程", "张课程")
+        assertEquals(expectedNames, TodaySchedulePresentation.create(semester(), shuffledCourses, now).items.map { it.occurrence.course.name })
+        assertEquals(expectedNames, WeekSchedulePresentation.create(1, semester(), shuffledCourses, now).days.first().items.map { it.occurrence.course.name })
+
+        val matrixSemester = Semester("semester", "测试", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+            Period(4, "10:55", "11:40"), Period(5, "14:00", "14:45"), Period(6, "14:55", "15:40"),
+        ))
+        val first = occurrence("first", "a", 1, 2, 4)
+        val second = occurrence("second", "b", 2, 3, 1)
+        val third = occurrence("third", "c", 3, 4, 3)
+        val separated = occurrence("separated", "d", 6, 6, 0)
+        val shuffledDay = WeekDayPresentation(1, LocalDate.parse("2026-08-31"), listOf(
+            WeekCourseItem(separated, false, 1), WeekCourseItem(third, false, 1),
+            WeekCourseItem(first, false, 1), WeekCourseItem(second, false, 1),
+        ), false, 1)
+        val matrix = WeekMatrixPresentation.create(matrixSemester, listOf(shuffledDay))
+
+        assertEquals(listOf(first.key, second.key, third.key, separated.key), matrix.items.map { it.occurrence.key })
+        assertEquals(listOf(0, 1, 0, 0), matrix.items.map { it.lane })
+        assertEquals(listOf(2, 2, 2, 1), matrix.items.map { it.laneCount })
+    }
+
+    @Test
+    fun missingPeriodsDegradeStatusAndProgressSafely() {
+        val missingStart = CourseSchedule("missing-start", 1, 99, 99, 1, 18, RepeatRule.EVERY, "")
+        val missingEnd = CourseSchedule("missing-end", 1, 1, 99, 1, 18, RepeatRule.EVERY, "")
+        val presentation = TodaySchedulePresentation.create(
+            semester(),
+            listOf(
+                Course("missing-start-course", "缺失开始节次", "", "#287B74", listOf(missingStart)),
+                Course("missing-end-course", "缺失结束节次", "", "#287B74", listOf(missingEnd)),
+            ),
+            LocalDateTime.parse("2026-08-31T09:00"),
+        )
+
+        assertEquals(2, presentation.items.size)
+        assertTrue(presentation.items.all { it.status == CourseStatus.UPCOMING })
+        assertTrue(presentation.items.all { it.timingProgress == null })
     }
 
     @Test

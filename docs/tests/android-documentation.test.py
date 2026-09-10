@@ -1350,6 +1350,39 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
         self.assertEqual(missing_links(evidence_path, evidence), [])
 
+    def test_p3_01_r1_records_real_regressions_without_claiming_completion(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p3-01-r1-jvm-20260911.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P3-01-R1 测试与证据已补齐，等待最终独立复审（最新，2026-09-11）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7",
+            "相同 `course.id`／重复 `schedule.id`",
+            "2026-09-05",
+            "zh_CN",
+            "UPCOMING",
+            "Debug／Release JVM XML 各 65 tests",
+            "0 failures、0 errors、0 skipped",
+            "仍需分析审查窗口最终独立复审",
+            "不得自动进入 P3-02 或后续阶段",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "duplicateBusinessIdsKeepEverySourceOccurrenceAndConflictByCourseId",
+            "makeupDateUsesSameSourceScheduleInTodayAndWeek",
+            "todayWeekAndMatrixSortDisruptedInputsDeterministically",
+            "missingPeriodsDegradeStatusAndProgressSafely",
+            "Debug JVM XML：tests=65，failures=0，errors=0，skipped=0",
+            "Release JVM XML：tests=65，failures=0，errors=0，skipped=0",
+            "connectedDebugAndroidTest",
+            "P3-01、A02、A03、A07、P3、完整 App 或用户验收完成",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertEqual(missing_links(evidence_path, evidence), [])
+
     def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
         handoff = (DOCS / "handoff.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
