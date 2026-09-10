@@ -55,6 +55,41 @@ class DataStoreSchedulePreferencesRepositoryTest {
         }
     }
 
+    @Test fun publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen() {
+        runBlocking {
+            val file = file("invalid-reminder-lead")
+            val repository = DataStoreSchedulePreferencesRepository.create(file)
+            val original = SchedulePreferences(
+                appearanceMode = AppearanceMode.DARK,
+                reminder = ReminderPreferences(true, 15, true),
+                academicCalendar = AcademicCalendarPreferences(
+                    weekendsAreNonTeachingDays = true,
+                    nonTeachingDates = listOf("2026-10-01"),
+                ),
+            )
+            val expected = original.copy(reminder = ReminderPreferences(true, 10, false))
+            assertEquals(original, repository.save(original))
+
+            assertEquals(
+                expected,
+                repository.save(original.copy(reminder = ReminderPreferences(true, -1, true))),
+            )
+            assertEquals(expected, repository.load())
+            assertEquals(
+                expected,
+                repository.update {
+                    it.copy(reminder = it.reminder.copy(reminderLeadMinutes = 181, usesCustomLeadTime = true))
+                },
+            )
+            assertEquals(expected, repository.load())
+            repository.close()
+
+            val reopened = DataStoreSchedulePreferencesRepository.create(file)
+            assertEquals(expected, reopened.load())
+            reopened.close()
+        }
+    }
+
     @Test fun calendarRoundTripNormalizesDatesMakeupAndLunchBreak() {
         runBlocking {
             val file = file("calendar")

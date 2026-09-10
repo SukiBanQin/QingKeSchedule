@@ -993,6 +993,36 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("P2-02 已实施待独立复审", plan)
         self.assertIn("DataStore 偏好边界已在 P2-02", design)
 
+    def test_p2_02_r1_records_reminder_semantics_and_final_device_execution(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence_path = DOCS / "evidence/p2-02-r1-connected-debug-android-test-20260910.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P2-02-R1 提醒规范化修正已实施，等待独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "8ae63295ca16cb22f5e233ef27f5e17d943991f3",
+            "remindersEnabled",
+            "0—180",
+            "P2-02-R1 实施，尚未独立审查",
+            "不得自动进入 P2-03 或 P3",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "19 tests",
+            "RoomScheduleRepositoryTest：11 tests",
+            "DataStoreSchedulePreferencesRepositoryTest：8 tests",
+            "0 failures",
+            "0 errors",
+            "0 skipped",
+            "emulator-5584",
+            "ro.build.version.sdk：37",
+            "arm64-v8a",
+            "publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen",
+        ):
+            self.assertIn(marker, evidence)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

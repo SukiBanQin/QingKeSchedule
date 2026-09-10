@@ -28,7 +28,12 @@ data class ReminderPreferences(
     val usesCustomLeadTime: Boolean = false,
 ) {
     fun normalized(): ReminderPreferences {
-        if (reminderLeadMinutes !in VALID_LEAD_MINUTES) return defaults
+        if (reminderLeadMinutes !in VALID_LEAD_MINUTES) {
+            return copy(
+                reminderLeadMinutes = DEFAULT_LEAD_MINUTES,
+                usesCustomLeadTime = false,
+            )
+        }
         return copy()
     }
 

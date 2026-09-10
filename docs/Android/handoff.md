@@ -1,5 +1,31 @@
 # 安卓项目当前交接状态
 
+## P2-02-R1 提醒规范化修正已实施，等待独立复审（最新，2026-09-10）
+
+执行基准为 `8ae63295ca16cb22f5e233ef27f5e17d943991f3`，分支 `Android`；开始时 HEAD、
+`refs/heads/Android`、`origin/Android` 与远端 `refs/heads/Android` 均为该基准，工作区干净。
+本次仅修改 `ReminderPreferences.normalized()`：提前量不在 0—180 时保留既有
+`remindersEnabled`，仅将提前量回退为 10、`usesCustomLeadTime` 回退为 `false`。这与 iOS
+`UserDefaultsReminderSettingsStore.load` 和 Android 原始 DataStore 读取路径一致；外观、教学日历、
+DataStore 版本、键、仓库、状态层和页面均未改变。
+
+新增真实 DataStore AndroidTest 通过公开 `save` 覆盖 `-1`、通过公开 `update` 覆盖 `181`，每步均断言
+返回值、`load` 和关闭重建结果一致，并证明外观和教学日历未改变；既有原始无效值读取、0／180 边界、
+取消传播、写入失败、损坏恢复、并发更新和复杂日历测试均保留。未修改 iOS、Web、共享 schema/fixtures、
+Room、课表 JSON、MainActivity、Compose、通知调度、导入导出、D01 或 D03，且未进入 P2-03、P3 或完整 App。
+
+最终干净构建 `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug
+assembleDebugAndroidTest` 成功（40 秒）；Debug／Release JVM 各 34 tests、均为 0 failures／0 errors／
+0 skipped。使用指定 SDK 与 AVD 在唯一 API 37 ARM64 `emulator-5584` 上确认 ADB `device`、
+`sys.boot_completed=1`、SDK 37、ABI `arm64-v8a` 后，`connectedDebugAndroidTest` 成功；最终 XML 为
+19 tests（Room 11、DataStore 8）、0 failures、0 errors、0 skipped，新增
+`publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen` 已进入设备测试体。完整证据见
+[P2-02-R1 connected 测试证据](evidence/p2-02-r1-connected-debug-android-test-20260910.txt)。取证后已正常关闭
+本次模拟器，`adb devices -l` 无连接设备。
+
+本次修正仅为 P2-02-R1 实施，尚未独立审查、尚未用户验收，不代表 P2-02、A09、P2 或完整 App 完成。
+下一步只交回分析审查窗口复审实际 diff、跨端提醒语义和 API 37 XML；不得自动进入 P2-03 或 P3。
+
 ## P2-02 偏好设置持久化已实施，等待独立复审（最新，2026-09-10）
 
 执行基准为 `63b019a24b91021aad83e7528fcadbaa1fcca554`，分支 `Android`；开始时本地 HEAD、
