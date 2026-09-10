@@ -2,13 +2,13 @@
 
 ## 文档状态
 
-更新日期：2026-09-10。状态：用户已确认方案和 P1 交付结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01 已独立复审通过，P2-02 偏好持久化已实施、等待独立复审；完整应用和用户对全部功能的验收仍未完成。
+更新日期：2026-09-10。状态：用户已确认方案和 P1 交付结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01 已独立复审，P2-02-R1 聚焦修正已独立复审；P2-03 表单草稿与保存评估已完成分析、等待实施授权。完整应用和用户对全部功能的验收仍未完成。
 
-产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)。
+产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)，P2-03 的纯 Kotlin 草稿／冲突边界见 [表单草稿分析](p2-03-form-drafts.md)。
 
 ## 建议技术路线
 
-保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；P1-03 已采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 迁移已通过主机侧构建复核；Room 已在 P2-01 接入，DataStore 偏好边界已在 P2-02 以 `androidx.datastore:datastore-preferences:1.2.1` 接入，P2-02 仍等待独立复审。
+保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；P1-03 已采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 迁移已通过主机侧构建复核；Room 已在 P2-01 接入，DataStore 偏好边界已在 P2-02 以 `androidx.datastore:datastore-preferences:1.2.1` 接入，其 P2-02-R1 聚焦修正已通过独立复审。
 
 以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名 `com.qingke.schedule`、最低 API 26 及首轮个人 debug 验证已确认，正式发布范围待定。
 
@@ -60,7 +60,13 @@ P2-02 的键名和编码格式须集中定义并保留迁移余地；列表字�
 教学日历优先级、提醒提前量 0—180 分钟范围或外观三态语义。
 
 DataStore 和上述偏好不属于 P2-01，已由独立授权的 P2-02 实现；该实现不提前决定跨存储恢复策略，
-仍需独立复审后才可作为后续阶段依赖。
+其 P2-02-R1 聚焦修正已通过独立复审。这不表示 P2-02 已用户验收或 P2 完成。
+
+P2-03 将表单草稿定义为纯 Kotlin 转换／评估层：课程草稿负责默认安排、字段规范化、
+dirty 判断、多安排和新增完全重复阻止；学期草稿负责季节名称、默认十节、增删和连续编号。
+基础合法性复用 `ScheduleValidator`。`ScheduleRules` 补足同星期、闭区间节次相交和共同单双周的
+冲突计算；冲突只返回给后续页面决定是否仍然保存，草稿层不调用仓库。日期和 ID 生成可注入，
+不让 JVM 测试依赖当前时间、时区或随机 UUID。详细历史重复兼容、不包含项和测试矩阵以专项分析为准。
 
 通过 Android 系统文件选择／创建文档和分享接口处理 JSON，不导出平台数据库文件。文件取消不显示成功；不可写、无学期、内容无效时给出明确反馈。
 

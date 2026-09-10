@@ -1,5 +1,40 @@
 # 安卓项目当前交接状态
 
+## P2-03 表单草稿与保存评估分析完成，等待实施授权（最新，2026-09-10）
+
+用户授权本分析窗口收口 P2-02-R1 独立复审状态，并为下一项 P2 子任务划定边界。
+当前分支 `Android`，分析基准、HEAD、`refs/heads/Android` 和 `origin/Android` 均为
+`2ba11ec8ec2fe95b9e34a210e4597f52ee05805a`，开始工作区干净。本轮只修改 Android
+分析／交接文档和文档测试，没有修改应用代码、iOS、Web 或共享协议／fixtures。
+
+下一项建议为 P2-03“课程／学期表单草稿与保存评估”，详见
+[P2-03 分析](p2-03-form-drafts.md)。实施只建立纯 Kotlin 草稿、可注入日期／ID、复用现有校验器，
+并补足星期／节次／周次／单双周的冲突评估。同课程新增完全重复安排必须阻止，历史
+重复未增加时仍可保存。学期草稿保持 iOS 的季节名称、18 周、默认十节、增删节次和
+连续编号行为。
+
+P2-03 不实现 Compose 页面、冲突／放弃／删除确认对话框，不调用仓库、不持久化草稿、
+不改 Room／DataStore／`ScheduleAppState`，不进入 P3、通知或导入导出。实施尚未获用户授权；
+授权后建议执行窗口 Terra／高，因范围清晰但重复兼容和冲突组合需要较多推理。实施后必须
+由分析窗口独立复审。
+
+## P2-02-R1 聚焦修正通过独立复审（最新，2026-09-10）
+
+分析审查窗口已复审 `8ae63295ca16cb22f5e233ef27f5e17d943991f3..2ba11ec8ec2fe95b9e34a210e4597f52ee05805a`，
+实际 diff 仅为 `SchedulePreferences.kt`、DataStore AndroidTest、执行交接／证据和文档测试五个文件。
+无效提前量现在保留 `remindersEnabled`，只回退提前量与自定义标记，与 iOS 及 Android 原始
+DataStore 读取路径一致。公开 `save(-1)`、`update(181)`、`load` 和关闭重建测试证明外观、
+教学日历和提醒开关不被意外改变，未发现新的阻断问题。
+
+本窗口独立使用指定 API 37 SDK 完成 clean 双变体构建、JVM 测试、lint 和 AndroidTest APK
+编译：145 个任务成功，Debug／Release JVM 各 34 项且无失败，`lintDebug` 0 errors。
+独立启动 API 37 ARM64 `emulator-5584` 后，最终提交状态的 `connectedDebugAndroidTest`
+实际运行 19 项（Room 11、DataStore 8），0 failures、0 errors、0 skipped，新用例进入测试体。
+设备已正常关闭，adb 为空。完整结果见 [P2-02-R1 复审证据](evidence/p2-02-r1-review-20260910.txt)。
+
+**结论：P2-02-R1 聚焦修正通过独立复审，P2-02 已知实施阻断项关闭。** 这不等于
+P2-02 用户验收、A09、P2 或完整 App 完成；也不自动授权 P2-03 或 P3。
+
 ## P2-02-R1 提醒规范化修正已实施，等待独立复审（最新，2026-09-10）
 
 执行基准为 `8ae63295ca16cb22f5e233ef27f5e17d943991f3`，分支 `Android`；开始时 HEAD、

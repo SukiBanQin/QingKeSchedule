@@ -42,6 +42,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p1-03-review.md",
             "p1-04-unknown-fields.md",
             "p2-01-persistence-state.md",
+            "p2-03-form-drafts.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -946,7 +947,10 @@ class AndroidDocumentationTests(unittest.TestCase):
             "独立复审",
         ):
             self.assertIn(marker, normalized)
-        self.assertIn("P2-02 已实施待独立复审", plan)
+        self.assertTrue(
+            "P2-02 已实施待独立复审" in plan
+            or "P2-02-R1 已审查" in plan
+        )
         for marker in (
             "P2-02 已采用",
             "DataStore",
@@ -990,7 +994,10 @@ class AndroidDocumentationTests(unittest.TestCase):
             "arm64-v8a",
         ):
             self.assertIn(marker, evidence)
-        self.assertIn("P2-02 已实施待独立复审", plan)
+        self.assertTrue(
+            "P2-02 已实施待独立复审" in plan
+            or "P2-02-R1 已审查" in plan
+        )
         self.assertIn("DataStore 偏好边界已在 P2-02", design)
 
     def test_p2_02_r1_records_reminder_semantics_and_final_device_execution(self):
@@ -1022,6 +1029,85 @@ class AndroidDocumentationTests(unittest.TestCase):
             "publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen",
         ):
             self.assertIn(marker, evidence)
+
+    def test_p2_02_r1_review_closes_known_blocker_without_claiming_acceptance(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        evidence_path = DOCS / "evidence/p2-02-r1-review-20260910.txt"
+        evidence = evidence_path.read_text()
+        latest = handoff.split(
+            "## P2-02-R1 聚焦修正通过独立复审（最新，2026-09-10）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "8ae63295ca16cb22f5e233ef27f5e17d943991f3",
+            "2ba11ec8ec2fe95b9e34a210e4597f52ee05805a",
+            "P2-02-R1 聚焦修正通过独立复审",
+            "Debug／Release JVM 各 34",
+            "API 37 ARM64",
+            "实际运行 19 项",
+            "Room 11、DataStore 8",
+            "不等于 P2-02 用户验收、A09、P2 或完整 App 完成",
+        ):
+            self.assertIn(marker, normalized)
+        for marker in (
+            "BUILD SUCCESSFUL in 44s",
+            "145 actionable tasks",
+            "emulator-5584",
+            "19 tests",
+            "Room 11 tests",
+            "DataStore 8 tests",
+            "0 failures",
+            "0 errors",
+            "0 skipped",
+            "publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen",
+            "不自动授权 P2-03 或 P3",
+        ):
+            self.assertIn(marker, evidence)
+        self.assertIn("P2-02-R1 已审查", plan)
+
+    def test_p2_03_analysis_defines_pure_kotlin_drafts_and_save_evaluation(self):
+        analysis = (DOCS / "p2-03-form-drafts.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        normalized = re.sub(r"\s+", " ", analysis)
+        for marker in (
+            "2ba11ec8ec2fe95b9e34a210e4597f52ee05805a",
+            "CourseDraft",
+            "CourseScheduleDraft",
+            "SemesterDraft",
+            "PeriodDraft",
+            "#287B74",
+            "LocalDate",
+            "LocalTime",
+            "ID 生成器",
+            "Invalid(issues)",
+            "Conflicting(conflicts)",
+            "Ready",
+            "courses.0.schedules",
+            "该上课安排已存在，请勿重复添加",
+            "历史重复安排在数量没有增加时仍可编辑保存",
+            "闭区间节次范围相交",
+            "08:00–08:45",
+            "19:55–20:40",
+            "至少保留一节",
+            "不修改 `MainActivity`",
+            "不修改 Room schema",
+            "不修改 iOS、Web、共享 schema／fixtures",
+            "P2-03 实施仍需用户单独授权",
+            "P2-03 实施完成后 必须独立复审",
+        ):
+            self.assertIn(marker, normalized)
+        self.assertRegex(analysis, r"至少一个共同\s+生效的教学周")
+        for contents in (handoff, plan, baseline, design):
+            self.assertIn("P2-03", contents)
+        self.assertIn("P2-03 表单草稿与保存评估分析完成，等待实施授权", handoff)
+        self.assertIn("P2-03 已分析待授权", plan)
+        self.assertIn("尚待实施授权", baseline)
+        self.assertIn("P2-03 表单草稿与保存评估已完成分析、等待实施授权", design)
+        self.assertIn("Terra／高", handoff)
 
 
 if __name__ == "__main__":
