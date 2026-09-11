@@ -3,20 +3,17 @@ package com.qingke.schedule
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.activity.viewModels
+import com.qingke.schedule.ui.QingKeApp
+import com.qingke.schedule.viewmodel.ScheduleViewModel
 
-/** Minimal Compose entry point; schedule screens are delivered in later phases. */
 class MainActivity : ComponentActivity() {
+    private val viewModel: ScheduleViewModel by viewModels {
+        ScheduleViewModel.Factory((application as QingKeScheduleApplication).dependencies)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme {
-                Surface {
-                    Text("轻课")
-                }
-            }
-        }
+        setContent { QingKeApp(viewModel) }
     }
 }

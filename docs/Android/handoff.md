@@ -1,5 +1,19 @@
 # 安卓项目当前交接状态
 
+## P3-02 应用壳与首次设置已实施，等待独立复审（最新，2026-09-11）
+
+执行基准为 `7c6b38bfb6a80eb7ee49a7472b6276b62265b920`。本轮在 P3-02 授权范围内新增 Activity 级
+`ScheduleViewModel`、Compose 根路由、首次学期表单、三标签壳及最小主题；没有接入真实今日／周内容、课程编辑、
+完整设置、通知、导入导出或 P3-03。`espresso-core` 测试专用依赖固定为 3.7.0：此前 3.5.0 与 3.6.1 在 API 37
+反射调用已移除的 `InputManager.getInstance()` 失败，3.7.0 改用系统服务后最终设备测试通过。
+
+最终 clean 构建为 `BUILD SUCCESSFUL in 53s`，API 37 ARM64 `emulator-5584` 的 connectedDebugAndroidTest XML 为
+22 tests、0 failures、0 errors、0 skipped（装配 2、Room 11、DataStore 8、Compose 1）。清数据冷启动显示首次设置默认
+18 周，保存后显示主壳；force-stop 冷启动仍显示主壳，证明 Application、ScheduleAppState 与 Room 路径连通。完整记录见
+[P3-02 API 37 证据](evidence/p3-02-app-shell-api37-20260911.txt)。
+
+P3-02 仍须独立复审，不能据此宣称 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成，不得自动进入 P3-03。
+
 ## 用户确认 P3-01，P3-02 应用壳与首次设置分析完成待实施（最新，2026-09-11）
 
 用户已确认 P3-01 的实现、测试和最终独立复审结果。准确状态为：P3-01 已实现、测试、审查并获用户确认，
