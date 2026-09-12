@@ -1,0 +1,34 @@
+P3-02-R2 设备测试补强证据
+===========================
+
+基准与范围
+----------
+
+- 分支：Android；实施基准：11d9d9520528f9fb74ce252ed696c29a8b8cf5e0。
+- 修改范围仅为 androidTest UI 测试（QingKeAppTest.kt、新增 P3R2ActivityRecreationTest.kt）、handoff.md 与本文件。
+- 未修改任何 src/main 生产代码、ScheduleViewModel、ScheduleAppState、SemesterDraft、Room、DataStore、协议、领域规则、iOS、Web 或共享 schema/fixtures；未进入 P3-03。
+
+新增真实设备覆盖
+----------------
+
+- `systemDateAndTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues`：点击 semester-start-date 后实际查询 Android DatePicker，设置并确认 2026-08-02；第二次设置后取消不改变值。展开后以真实 TimePicker 设置首节开始 07:20、结束 08:10，并确认取消结束时间 08:30 不改变 08:10；每种确认回调恰好一次。
+- `addAndDeleteUseCallbacksRenumberAndExposeNumberedDeleteSemantics`：从十节表单实际点击 add-period 生成第 11 节，再点击第 5 节删除；断言 p5 消失、p6 成为第 5 节、编号删除语义存在，并复核一节无删除、二十节添加禁用。
+- `touchTargetsAndTabSemanticsMeetTheContract`：直接读取 Compose bounds，semester-save-toolbar、semester-save、semester-start-date、daily-periods-toggle、p1 开始／结束／删除以及今日／课表／设置三标签均宽高至少 48dp；三个标签有正确 content description，选中语义可随点击更新。
+- `activityRecreationKeepsActivityViewModelDraftAndSelectedTab`：使用 Activity 的 ViewModelStore 与可控假仓库，先改名称、展开、改首节时间并 `ActivityScenario.recreate()`；再保存、选设置标签并第二次重建。工厂创建次数始终为 1，验证不是重建后重新注入同值。
+
+最终验证
+----------
+
+- clean 命令：`ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37 ./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain`
+- 结果：BUILD SUCCESSFUL；Debug／Release JVM XML 各 76 tests、0 failures、0 errors、0 skipped；lintDebug 0 errors、15 warnings；Debug／Release APK 和 AndroidTest APK 成功。
+- 设备：AVD qingke-api37-r3-arm，序列号 emulator-5584，ADB device，sys.boot_completed=1，SDK=37，ABI=arm64-v8a。
+- 设备命令：`ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain`。
+- 最终 XML：30 tests、0 failures、0 errors、0 skipped。ScheduleAppDependenciesTest 2、RoomScheduleRepositoryTest 11、DataStoreSchedulePreferencesRepositoryTest 8、QingKeAppTest 8、P3R2ActivityRecreationTest 1；Compose 合计 9。
+- 执行 `python3 docs/tests/android-documentation.test.py`、`bash docs/tests/documentation.test.sh`、`bash docs/tests/repository-layout.test.sh`、`git diff --check` 与提交前 `git diff --cached --check`。
+
+限制与后续
+----------
+
+- 本轮不修改生产代码；R1 已有稳定截图、真实清数据／保存／强停重启路径继续引用，无需重复视觉取证。
+- 本轮的测试构造失败曾依次暴露测试 Activity 进程不兼容、Compose 重建后测试内容重新挂载及滚动节点假设；均仅修正测试宿主／断言，最终 XML 全绿，没有发现生产缺陷。
+- P3-02-R2 仍待分析审查窗口独立复审，不代表 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成，不得自动进入 P3-03。

@@ -1,5 +1,9 @@
 package com.qingke.schedule.ui
 
+import android.view.View
+import android.widget.DatePicker
+import android.widget.TimePicker
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,14 +12,23 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.ViewAction
+import androidx.test.espresso.UiController
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
@@ -28,9 +41,13 @@ import com.qingke.schedule.viewmodel.SemesterFormState
 import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.hamcrest.Matcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.unit.dp
 
 @RunWith(AndroidJUnit4::class)
 class QingKeAppTest {
@@ -104,9 +121,97 @@ class QingKeAppTest {
         rule.onNodeWithTag("settings-tab").performClick(); rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
     }
 
+    @Test fun systemDateAndTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
+        var form by mutableStateOf(defaultForm(expanded = true))
+        var dateUpdates = 0; var startUpdates = 0; var endUpdates = 0
+        rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(
+            updateStartDate = { value -> dateUpdates++; form = form.copy(startDate = value) },
+            updatePeriodStart = { id, value -> startUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
+            updatePeriodEnd = { id, value -> endUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(end = value) else it }) },
+        )) }
+        rule.onNodeWithTag("semester-start-date").performClick(); waitForSystemDialog()
+        onView(isAssignableFrom(DatePicker::class.java)).perform(setDate(2026, 8, 2)); onView(withId(android.R.id.button1)).perform(click())
+        rule.onNodeWithText("开始日期：2026-08-02").assertIsDisplayed(); assertEquals(1, dateUpdates)
+        rule.onNodeWithTag("semester-start-date").performClick(); waitForSystemDialog(); onView(isAssignableFrom(DatePicker::class.java)).perform(setDate(2026, 8, 3)); onView(withId(android.R.id.button2)).perform(click())
+        rule.onNodeWithText("开始日期：2026-08-02").assertIsDisplayed(); assertEquals(1, dateUpdates)
+        rule.onNodeWithTag("period-p1-start").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(7, 20)); onView(withId(android.R.id.button1)).perform(click())
+        rule.onNodeWithText("07:20").assertIsDisplayed(); assertEquals(1, startUpdates)
+        rule.onNodeWithTag("period-p1-end").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(8, 10)); onView(withId(android.R.id.button1)).perform(click())
+        rule.onNodeWithText("08:10").assertIsDisplayed(); assertEquals(1, endUpdates)
+        rule.onNodeWithTag("period-p1-end").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(8, 30)); onView(withId(android.R.id.button2)).perform(click())
+        rule.onNodeWithText("08:10").assertIsDisplayed(); assertEquals(1, endUpdates)
+    }
+
+    @Test fun addAndDeleteUseCallbacksRenumberAndExposeNumberedDeleteSemantics() {
+        var form by mutableStateOf(defaultForm(expanded = true))
+        rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, formActions(
+            onAdd = {
+                val last = form.periods.last(); val start = last.end.plusMinutes(10)
+                form = form.copy(periods = form.periods + PeriodFormState("p11", 11, start, start.plusMinutes(45)))
+            },
+            onRemove = { id -> form = form.copy(periods = form.periods.filterNot { it.id == id }.mapIndexed { index, period -> period.copy(number = index + 1) }) },
+        )) }
+        rule.onNodeWithTag("add-period").performScrollTo().performClick()
+        rule.onNodeWithTag("period-p11-row").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("第 11 节").assertIsDisplayed()
+        rule.onNodeWithTag("period-p5-delete").performScrollTo().performClick()
+        rule.onAllNodesWithTag("period-p5-row").assertCountEquals(0)
+        rule.onNodeWithTag("period-p6-row").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("第 5 节").assertIsDisplayed()
+        rule.onNodeWithContentDescription("删除第 1 节").performScrollTo().assertIsDisplayed()
+        form = defaultForm(count = 1, expanded = true)
+        rule.onAllNodesWithTag("period-p1-delete").assertCountEquals(0)
+        form = defaultForm(count = 20, expanded = true)
+        rule.onNodeWithTag("add-period").assertIsNotEnabled()
+    }
+
+    @Test fun touchTargetsAndTabSemanticsMeetTheContract() {
+        var selected by mutableStateOf(MainTab.TODAY)
+        var form by mutableStateOf(defaultForm(expanded = true))
+        var mainShell by mutableStateOf(false)
+        rule.setContent {
+            if (mainShell) QingKeAppContent(readyWithSemester(), null, selected, QingKeAppActions(selectTab = { selected = it }))
+            else QingKeAppContent(onboarding(), form, selected, formActions())
+        }
+        listOf("semester-save-toolbar", "semester-start-date", "daily-periods-toggle", "period-p1-start", "period-p1-end", "period-p1-delete").forEach(::assertAtLeast48Dp)
+        assertAtLeast48Dp("semester-save", scroll = true)
+        mainShell = true
+        listOf("today-tab", "schedule-tab", "settings-tab").forEach(::assertAtLeast48Dp)
+        rule.onNodeWithTag("today-tab").assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
+        rule.onNodeWithContentDescription("今日").assertIsDisplayed(); rule.onNodeWithContentDescription("课表").assertIsDisplayed(); rule.onNodeWithContentDescription("设置").assertIsDisplayed()
+        rule.onNodeWithTag("schedule-tab").performClick()
+        rule.onNodeWithTag("schedule-tab").assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
+    }
+
     private fun formActions(
-        onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
-    ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, saveSemester = onSave, dismissError = onDismiss)
+        onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
+    ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
+
+    private fun assertAtLeast48Dp(tag: String, scroll: Boolean = false) {
+        val node = rule.onNodeWithTag(tag)
+        if (scroll) node.performScrollTo()
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        val minimum = with(rule.density) { 48.dp.toPx() }
+        assertTrue("$tag width=${bounds.width}", bounds.width >= minimum)
+        assertTrue("$tag height=${bounds.height}", bounds.height >= minimum)
+    }
+
+    private fun setDate(year: Int, month: Int, day: Int) = object : ViewAction {
+        override fun getDescription() = "set DatePicker value"
+        override fun getConstraints(): Matcher<View> = isAssignableFrom(DatePicker::class.java)
+        override fun perform(uiController: UiController, view: View) { (view as DatePicker).updateDate(year, month - 1, day) }
+    }
+
+    private fun setTime(hour: Int, minute: Int) = object : ViewAction {
+        override fun getDescription() = "set TimePicker value"
+        override fun getConstraints(): Matcher<View> = isAssignableFrom(TimePicker::class.java)
+        override fun perform(uiController: UiController, view: View) { (view as TimePicker).hour = hour; view.minute = minute }
+    }
+
+    private fun waitForSystemDialog() {
+        rule.waitForIdle()
+        SystemClock.sleep(250)
+    }
 
     private fun defaultForm(count: Int = 10, expanded: Boolean = false, validation: String? = null) = SemesterFormState(
         id = "semester", name = "2026 秋季学期", startDate = LocalDate.parse("2026-07-01"), totalWeeks = 18,

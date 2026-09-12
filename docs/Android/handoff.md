@@ -1,5 +1,28 @@
 # 安卓项目当前交接状态
 
+## P3-02-R2 最后设备测试已实施，等待最终独立复审（最新，2026-09-13）
+
+执行基准为 `11d9d9520528f9fb74ce252ed696c29a8b8cf5e0`，分支 `Android`。本轮只修改
+`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt`、新增
+`P3R2ActivityRecreationTest.kt`、本交接和 [P3-02-R2 API 37 证据](evidence/p3-02-r2-api37-20260913.txt)；
+没有修改任何 `src/main` 生产代码、ViewModel、ScheduleAppState、SemesterDraft、Room、DataStore、JSON、领域规则、
+iOS、Web 或共享 schema／fixtures，也没有进入 P3-03。
+
+新增设备测试以真实 `DatePickerDialog`／`TimePickerDialog` 控件选择和确认不同日期、开始／结束时间，取消不改变值；
+真实点击添加第 11 节与删除中间节次，并验证重新编号、1／20 边界和“删除第 1 节”语义。另以 `ComponentActivity` 的
+`ViewModelStore` 建立可控假仓库，先重建保留首次设置草稿名称、展开状态和节次时间，再保存、选择设置标签并第二次重建；
+工厂只创建一次 ViewModel，未重新注入静态草稿。触控测试直接测量十个关键节点的 bounds 至少 48dp，并核对三个标签
+content description 与选中语义。
+
+最终 API 37 ARM64 `qingke-api37-r3-arm`／`emulator-5584`（SDK 37、ABI `arm64-v8a`）的
+connectedDebugAndroidTest XML 为 30 tests、0 failures、0 errors、0 skipped：装配 2、Room 11、DataStore 8、
+Compose 9（`QingKeAppTest` 8、Activity 重建 1）。最终 clean 主机验证 Debug／Release JVM XML 各 76 tests、
+0 failures、0 errors、0 skipped，lintDebug 为 0 errors、15 warnings，APK 与 AndroidTest APK 均成功。已有 R1 真实生产
+持久化路径和稳定截图继续有效；本轮结束后模拟器已正常关闭。
+
+P3-02-R2 仅表示测试与证据补齐，仍须分析审查窗口独立复审；不得宣称 P3-02、A01、A06、A11、P3、完整 App 或用户验收
+完成，也不得自动进入 P3-03。
+
 ## P3-02-R1 UI 复审缺口已实施，等待最终独立复审（最新，2026-09-13）
 
 执行基准为 `c68c23390c3ba54e3a0b28b1e8a456354676364f`，分支 `Android`。本轮只在 P3-02-R1 授权范围内修改
