@@ -1,5 +1,29 @@
 # 安卓项目当前交接状态
 
+## P3-02-R3 重建测试证据已修正，等待最终独立复审（最新，2026-09-13）
+
+执行基准为 `61db3890a889ae0de3cd59c1a5e5c192e826e4af`，分支 `Android`。本轮只修改
+`Android/app/src/androidTest/java/com/qingke/schedule/ui/P3R2ActivityRecreationTest.kt`、本交接和
+[P3-02-R3 API 37 证据](evidence/p3-02-r3-api37-20260913.txt)；没有修改任何 `src/main` 生产代码、
+`QingKeAppTest.kt`、ViewModel、ScheduleAppState、SemesterDraft、Room、DataStore、JSON、领域规则、iOS、Web 或共享
+schema／fixtures，也没有进入 P3-03。
+
+本轮修复 R2 的测试证据缺口：每次 `ActivityScenario.recreate()` 后，均在 `scenario.onActivity` 的**新 Activity**
+上用 `ViewModelProvider(activity, factory)` 重新取得 `ScheduleViewModel`，并以 `assertSame` 验证它与重建前原实例
+为同一对象。随后重新 `setContent`、读取状态、保存、选择标签和断言均使用这个重建后重新取得的变量，不再把旧变量
+直接传入新 Activity。第一次重建确认名称“重建保留”、节次展开和首节 `07:20` 均保留；保存并选择设置标签后第二次
+重建同样重新取实例，设置标签仍选中。两次都断言工厂创建次数为 1。
+
+最终 API 37 ARM64 `qingke-api37-r3-arm`／`emulator-5584`（SDK 37、ABI `arm64-v8a`）
+`connectedDebugAndroidTest` XML 为 30 tests、0 failures、0 errors、0 skipped：装配 2、Room 11、DataStore 8、
+Compose 9（`QingKeAppTest` 8、`P3R2ActivityRecreationTest` 1，后者方法
+`activityRecreationKeepsActivityViewModelDraftAndSelectedTab` 已实际执行）。最终 clean 主机验证 Debug／Release JVM XML
+各 76 tests、0 failures、0 errors、0 skipped，`ScheduleViewModelTest` 每变体 10 项；lintDebug 为 0 errors、15 warnings，
+Debug／Release APK 与 AndroidTest APK 均成功。文档／布局／差异检查也已通过；本轮启动的模拟器已正常关闭。
+
+P3-02-R3 只修正独立复审所指的测试所有权证据，仍须分析审查窗口最终独立复审；不得宣称 P3-02、A01、A06、A11、P3、
+完整 App 或用户验收完成，也不得自动进入 P3-03。
+
 ## P3-02-R2 最后设备测试已实施，等待最终独立复审（最新，2026-09-13）
 
 执行基准为 `11d9d9520528f9fb74ce252ed696c29a8b8cf5e0`，分支 `Android`。本轮只修改

@@ -1,0 +1,34 @@
+P3-02-R3 Activity 重建测试证据
+===============================
+
+基准与范围
+----------
+
+- 分支：Android；实施基准：61db3890a889ae0de3cd59c1a5e5c192e826e4af。
+- 修改范围仅为 `P3R2ActivityRecreationTest.kt`、handoff.md 与本文件。
+- 未修改任何 `src/main` 生产代码、`QingKeAppTest.kt`、MainActivity、ScheduleViewModel、ScheduleAppState、SemesterDraft、Room、DataStore、协议、领域规则、iOS、Web 或共享 schema/fixtures；未进入 P3-03。
+
+R3 对 R2 证据缺口的修正
+-------------------------
+
+- R2 的用例会在重建后把重建前保存的 `model` 直接传给新 Activity 的 `QingKeApp`，因此不能证明新 Activity 的 `ViewModelStore` 保留实例。
+- R3 在第一次 `ActivityScenario.recreate()` 后，于 `scenario.onActivity` 的新 Activity 调用 `ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]`，赋给 `firstRecreatedModel`，并 `assertSame(originalModel, firstRecreatedModel)`；新 Activity 的 `setContent` 使用 `firstRecreatedModel`。
+- 第一次重建后的状态读取、保存与选择设置标签均只使用 `firstRecreatedModel`。断言名称仍为“重建保留”、节次展开、首节开始时间仍为 `07:20`，且工厂创建次数为 1。
+- 第二次重建后同样从第二个新 Activity 的 `ViewModelStore` 重新取得 `secondRecreatedModel`，`assertSame(originalModel, secondRecreatedModel)`，并以该实例重新挂载根内容及读取标签。断言设置标签仍选中，工厂创建次数仍为 1。
+
+最终验证
+----------
+
+- clean 命令：`ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37 ./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain`
+- 结果：BUILD SUCCESSFUL；Debug／Release JVM XML 各 76 tests、0 failures、0 errors、0 skipped；`ScheduleViewModelTest` 每变体 10 项；lintDebug 为 0 errors、15 warnings；Debug／Release APK 与 AndroidTest APK 均成功。
+- 设备：本轮启动 AVD `qingke-api37-r3-arm`，序列号 `emulator-5584`，ADB `device`，`sys.boot_completed=1`，SDK=37，ABI=`arm64-v8a`。
+- 设备命令：`ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain`；BUILD SUCCESSFUL in 24s，74 actionable tasks（1 executed、73 up-to-date）。
+- 最终 XML：30 tests、0 failures、0 errors、0 skipped。ScheduleAppDependenciesTest 2、RoomScheduleRepositoryTest 11、DataStoreSchedulePreferencesRepositoryTest 8、QingKeAppTest 8、P3R2ActivityRecreationTest 1；Compose 合计 9。修正后的 `activityRecreationKeepsActivityViewModelDraftAndSelectedTab` 在 XML 中实际出现并通过。
+- 文档验证：`python3 docs/tests/android-documentation.test.py`、`bash docs/tests/documentation.test.sh`、`bash docs/tests/repository-layout.test.sh`、`git diff --check` 与提交前 `git diff --cached --check` 均通过。
+- 测试完成后执行 `adb -s emulator-5584 emu kill`；最终 `adb devices -l` 不含本轮设备。
+
+限制与后续
+----------
+
+- 本轮没有新增生产路径或视觉证据；继续引用 R1 已有稳定截图和真实清数据／保存／强停重启记录。
+- R3 仅补强 Activity 级 ViewModel 的测试证据。P3-02-R3 仍须分析审查窗口最终独立复审，不代表 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成，不得自动进入 P3-03。

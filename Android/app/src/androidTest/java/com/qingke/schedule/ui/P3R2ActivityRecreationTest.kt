@@ -24,6 +24,8 @@ import com.qingke.schedule.viewmodel.ScheduleViewModel
 import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,29 +50,42 @@ class P3R2ActivityRecreationTest {
                 return ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDate.parse("2026-07-01") }, { "recreate-${ids++}" }) as T
             }
         }
-        val model = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
-        rule.setContent { QingKeApp(model) }
-        rule.waitUntil(5_000) { model.form.value != null }
-        val first = model.form.value!!.periods.first().id
+        val originalModel = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
+        rule.setContent { QingKeApp(originalModel) }
+        rule.waitUntil(5_000) { originalModel.form.value != null }
+        val first = originalModel.form.value!!.periods.first().id
         rule.onNodeWithTag("semester-name").performTextReplacement("重建保留")
         rule.onNodeWithTag("daily-periods-toggle").performClick()
-        model.updatePeriodStart(first, LocalTime.of(7, 20))
+        originalModel.updatePeriodStart(first, LocalTime.of(7, 20))
         rule.onNodeWithTag("period-$first-start").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
-        rule.activityRule.scenario.onActivity { activity -> activity.setContent { QingKeApp(model) } }
+        lateinit var firstRecreatedModel: ScheduleViewModel
+        rule.activityRule.scenario.onActivity { activity ->
+            firstRecreatedModel = ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]
+            assertSame(originalModel, firstRecreatedModel)
+            activity.setContent { QingKeApp(firstRecreatedModel) }
+        }
+        assertEquals("重建保留", firstRecreatedModel.form.value!!.name)
+        assertTrue(firstRecreatedModel.form.value!!.periodsExpanded)
+        assertEquals(LocalTime.of(7, 20), firstRecreatedModel.form.value!!.periods.first().start)
         rule.onNodeWithTag("semester-name").assertTextContains("重建保留")
         rule.onNodeWithTag("period-$first-start").assertIsDisplayed()
         rule.onNodeWithText("07:20").assertIsDisplayed()
         assertEquals(1, creations)
 
-        model.saveSemester()
-        rule.waitUntil(5_000) { !model.state.value.needsOnboarding }
-        model.selectTab(MainTab.SETTINGS)
+        firstRecreatedModel.saveSemester()
+        rule.waitUntil(5_000) { !firstRecreatedModel.state.value.needsOnboarding }
+        firstRecreatedModel.selectTab(MainTab.SETTINGS)
         rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
-        rule.activityRule.scenario.onActivity { activity -> activity.setContent { QingKeApp(model) } }
+        lateinit var secondRecreatedModel: ScheduleViewModel
+        rule.activityRule.scenario.onActivity { activity ->
+            secondRecreatedModel = ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]
+            assertSame(originalModel, secondRecreatedModel)
+            activity.setContent { QingKeApp(secondRecreatedModel) }
+        }
         rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
-        assertEquals(MainTab.SETTINGS, model.selectedTab.value)
+        assertEquals(MainTab.SETTINGS, secondRecreatedModel.selectedTab.value)
         assertEquals(1, creations)
     }
 
