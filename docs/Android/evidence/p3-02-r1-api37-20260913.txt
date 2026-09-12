@@ -1,0 +1,53 @@
+P3-02-R1 API 37、视觉与回归证据
+==================================
+
+基准与范围
+----------
+
+- 分支：Android
+- 实施基准：c68c23390c3ba54e3a0b28b1e8a456354676364f
+- 本轮实际修改：QingKeApp.kt、ScheduleViewModelTest.kt、QingKeAppTest.kt、handoff.md、本文件及稳定截图／hierarchy。
+- 未修改 ScheduleAppState、SemesterDraft、Room、DataStore、协议、领域规则、P3-01、iOS、Web、共享 schema/fixtures；未进入 P3-03。
+- espresso-core 仍固定为 3.7.0，Lifecycle 仍为 2.8.3。3.5.0／3.6.1 在 API 37 的历史失败和 3.7.0 首次成功记录保留于 p3-02-app-shell-api37-20260911.txt。
+
+实施与测试内容
+--------------
+
+- QingKeAppContent 是唯一渲染输入边界；QingKeApp(viewModel) 继续承担生命周期感知 StateFlow 收集，不复制业务状态。
+- ViewModel 10 项覆盖挂起读取的 retry 门禁、完成后 retry、已有学期无草稿、十节／唯一 ID、编辑快照、周数和节次数边界、非法保存、完整 Semester 保存、挂起保存单写入、失败／dismiss／取消和标签状态。
+- Compose 5 项真实进入设备测试：加载／失败／重试／READY 分支及 form=null 兜底；默认首次设置和展开；1／20 节及保存禁用；校验／错误对话框关闭后草稿保留；标签切换。
+- 设备测试开发过程中首次运行 26 项中有 3 项失败，原因是断言了长表单中屏幕外控件，不是生产行为失败；测试改为先滚动至目标控件后，最终 26 项全绿。没有忽略、删除或跳过测试。
+
+最终 clean 主机验证
+-----------------
+
+命令：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37 ./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL。Debug JVM XML：76 tests、0 failures、0 errors、0 skipped；Release JVM XML：76 tests、0 failures、0 errors、0 skipped；ScheduleViewModelTest 每变体 10 项。lintDebug：0 errors、15 warnings。Debug APK、Release APK 和 AndroidTest APK 均成功生成。
+
+最终 API 37 设备验证
+--------------------
+
+- AVD：qingke-api37-r3-arm；序列号：emulator-5584；ADB：device；sys.boot_completed=1；SDK=37；ABI=arm64-v8a；显示 1080x1920；基线字体 1.0。
+- 命令：ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+- 最终 XML：26 tests、0 failures、0 errors、0 skipped。
+- 分类：ScheduleAppDependenciesTest 2；RoomScheduleRepositoryTest 11；DataStoreSchedulePreferencesRepositoryTest 8；QingKeAppTest 5。
+- 实际 Compose 方法：loadingFailureRetryAndReadyBranchesNeverRenderBlank、onboardingDefaultsExpandAndUseMeaningfulControls、periodBoundariesDeleteAndSavingButtonsAreBehaviorallyDisabled、validationErrorAndSaveFailureKeepFormAndDismissDialog、mainShellTabsInvokeOneStateOwnerAndHaveAccessibleTargets。
+
+真实路径与视觉证据
+------------------
+
+- 安装最终 Debug APK，清除 com.qingke.schedule 数据，显式冷启动：显示首次设置；保存默认合法学期：显示“今日（壳层）”；force-stop 后冷启动：仍直接显示主壳。logcat 最近 500 行没有 com.qingke.schedule 的 FATAL EXCEPTION 或 ANR。
+- p3-02-r1-onboarding-light-api37.png：1080x1920、字体 1.0、system/light，首次设置和深色顶部系统栏。
+- p3-02-r1-main-light-api37.png：1080x1920、字体 1.0、system/light，主壳、可读的深色状态栏图标和信号黄选中标签。
+- p3-02-r1-onboarding-dark-api37.png：1080x1920、system/dark，首次设置深色外观。
+- p3-02-r1-periods-expanded-api37.png：展开节次后的纵向行，时间按钮与带编号删除语义不挤在同一横行。
+- p3-02-r1-onboarding-font130-api37.png：1080x1920、字体 1.3，首次设置控件仍可读且可操作。
+- p3-02-r1-main-relaunch-api37.png 和 p3-02-r1-main-relaunch-api37.xml：强停重启后的主壳截图及 hierarchy。
+
+其余验证与边界
+----------------
+
+- 已执行 python3 docs/tests/android-documentation.test.py、bash docs/tests/documentation.test.sh、bash docs/tests/repository-layout.test.sh、git diff --check 和提交前 git diff --cached --check。
+- 本轮仍只完成 P3-02-R1 的实施／测试／取证，必须由分析审查窗口独立复审；不能据此声称 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成，且不得自动开始 P3-03。

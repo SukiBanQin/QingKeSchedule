@@ -1,5 +1,30 @@
 # 安卓项目当前交接状态
 
+## P3-02-R1 UI 复审缺口已实施，等待最终独立复审（最新，2026-09-13）
+
+执行基准为 `c68c23390c3ba54e3a0b28b1e8a456354676364f`，分支 `Android`。本轮只在 P3-02-R1 授权范围内修改
+`ui/QingKeApp.kt`、`ScheduleViewModelTest.kt`、`QingKeAppTest.kt` 和本交接／证据；没有修改
+`ScheduleAppState`、`SemesterDraft`、Room、DataStore、协议、P3-01 展示模型、领域规则、iOS、Web 或共享 schema／fixtures，
+没有进入 P3-03、今日／周内容、课程编辑、完整设置、提醒或导入导出。
+
+界面新增单一、无状态的 `QingKeAppContent` 渲染边界；生产 `QingKeApp(viewModel)` 仍是唯一生命周期感知收集入口，
+没有第二套业务状态。它使 API 37 Compose 测试可真实覆盖 `NOT_LOADED/LOADING`、失败重试、首次设置、主壳、
+`READY + needsOnboarding + form=null` 加载兜底、保存失败弹窗和三个标签。首次设置改为方正终端控件、黄色强调、
+深色标签栏和竖向节次操作行；删除语义包含节次编号。系统栏按顶部实际表面切换图标明暗，浅色主壳截图中状态栏图标
+可读，边缘内容使用系统栏／导航栏 inset。
+
+ViewModel JVM 测试从每变体 4 项增至 10 项：包括挂起初始读取的重试门禁及完成后的再试、默认十节及唯一 ID、
+周数／节次数边界与连续编号、完整保存快照、挂起保存单写入、失败保留草稿与关闭错误、取消不发布普通错误、标签状态。
+最终 clean 验证 Debug／Release JVM XML 各 76 tests、0 failures、0 errors、0 skipped；`ScheduleViewModelTest`
+每变体 10 项。API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5584`，SDK 37，`arm64-v8a`）最终 XML 为 26 tests、
+0 failures、0 errors、0 skipped：装配 2、Room 11、DataStore 8、Compose 5。此前 P3-02 使用 espresso 3.5.0／3.6.1
+失败、升级到固定 3.7.0 后通过的历史保留在 [原 API 37 证据](evidence/p3-02-app-shell-api37-20260911.txt)；R1 的测试调整期
+曾有 3 项屏外 Compose 断言失败，最终重跑全绿，详见 [P3-02-R1 证据](evidence/p3-02-r1-api37-20260913.txt)。
+
+真实生产路径已重新验证：清除应用数据、冷启动进入首次设置、保存默认合法学期进入“今日（壳层）”、force-stop 后冷启动
+仍直接进入主壳，未发现该应用 FATAL EXCEPTION 或 ANR。稳定截图及 UI hierarchy 见该证据和 `evidence/p3-02-r1-*.png`。
+P3-02-R1 仍须分析审查窗口独立复审；这不代表 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成，也不得自动进入 P3-03。
+
 ## P3-02 应用壳与首次设置已实施，等待独立复审（最新，2026-09-11）
 
 执行基准为 `7c6b38bfb6a80eb7ee49a7472b6276b62265b920`。本轮在 P3-02 授权范围内新增 Activity 级
