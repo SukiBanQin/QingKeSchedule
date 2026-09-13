@@ -34,6 +34,26 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_sol_main_and_single_terra_subagent_contract(self):
+        rules = (ROOT / "AGENTS.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        common_markers = (
+            "Sol 主 Agent", "至多一个", "gpt-5.6-terra", "medium",
+            "不默认继承完整聊天", "共享工作区", "实际 diff",
+            "不承诺固定节省", "人工执行窗口", "未授权阶段",
+        )
+        for marker in common_markers:
+            self.assertIn(marker, rules)
+            self.assertIn(marker, handoff)
+        for marker in common_markers[:-1]:
+            self.assertIn(marker, plan)
+        for marker in ("中断", "仍可复用", "永久删除", "工具返回"):
+            self.assertIn(marker, plan)
+        self.assertIn("不重复内部完整提示词", plan)
+        self.assertIn("不创建子 Agent", handoff)
+        self.assertIn("不改全局配置", handoff)
+
     def test_incremental_reading_contract_and_task_templates(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 增量阅读", 1)[1].split("# 交接与验证", 1)[0]
         for safeguard in ("未提交改动", "新窗口", "压缩", "必要验证", "不保证缓存命中率"):
@@ -116,7 +136,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("docs/Android/handoff.md", rules)
         self.assertIn("Git commit", rules)
         self.assertIn("编写或更新相关测试", rules)
-        self.assertIn("人工交接", rules)
+        self.assertIn("人工备用", rules)
         for name in NAMES:
             self.assertIn(name, rules)
 
@@ -135,7 +155,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertIn(marker, plan)
         rules = (ROOT / "AGENTS.md").read_text()
-        self.assertIn("建议设置不等于已应用设置", rules)
+        self.assertIn("不得用其他模型或普通聊天窗口冒充 Terra", rules)
         self.assertIn("自动开始下一阶段开发", rules)
         handoff = (DOCS / "handoff.md").read_text()
         self.assertIn("实际窗口模型和档位未核实", handoff)
@@ -189,7 +209,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             for marker in ("任务", "提交", "验证", "AGENTS.md", "最终", "交接块"):
                 self.assertIn(marker, blocks[0], role)
         rules = (ROOT / "AGENTS.md").read_text()
-        for marker in ("最终回复末尾", "唯一一段", "不得只指向文档位置", "使用中文", "无后续任务"):
+        for marker in ("最终回复末尾", "唯一一段", "人工备用窗口", "使用中文", "无后续任务"):
             self.assertIn(marker, rules)
         handoff = (DOCS / "handoff.md").read_text()
         self.assertIn("用户只复制", handoff)
@@ -219,19 +239,18 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, rules)
         self.assertIn("远程同步：", (DOCS / "implementation-plan.md").read_text())
 
-    def test_current_workflow_uses_roles_and_sol_default(self):
-        for name in ("AGENTS.md", "docs/Android/product-baseline.md", "docs/Android/handoff.md"):
+    def test_current_workflow_uses_sol_main_and_terra_subagent(self):
+        for name in ("AGENTS.md", "docs/Android/implementation-plan.md", "docs/Android/handoff.md"):
             contents = (ROOT / name).read_text()
-            self.assertIn("分析审查窗口（默认 Sol）", contents, name)
-            self.assertNotIn("各一个 Astra 分析窗口", contents, name)
+            self.assertIn("Sol 主 Agent", contents, name)
+            self.assertIn("Terra 执行子 Agent", contents, name)
         plan = (DOCS / "implementation-plan.md").read_text()
-        for marker in ("不绑定模型名称", "本次改动及相关依赖", "疑难问题", "默认 Sol"):
+        for marker in ("gpt-5.6-terra", "主 Agent", "其他模型或档位调整", "用户决定"):
             self.assertIn(marker, plan)
         self.assertNotIn("复制给 Astra", plan)
         self.assertNotIn("由 Astra 复审时更新", plan)
         for name in ("AGENTS.md", "docs/Android/implementation-plan.md", "docs/Android/handoff.md"):
             contents = (ROOT / name).read_text()
-            self.assertIn("执行为主、分析按需、关键点审查", contents, name)
             self.assertIn("P1-03", contents, name)
             self.assertIn("专项复审", contents, name)
         self.assertIn("审查要求：", plan)
