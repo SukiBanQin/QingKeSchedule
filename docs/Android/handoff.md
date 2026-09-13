@@ -7,9 +7,9 @@
 完整 clean 的 Debug／Release JVM XML 均为 79 tests、0 failures、0 errors、0 skipped；`lintDebug`、
 Debug／Release APK 和 AndroidTest APK 均已完成，`git diff --check` 通过。
 
-但是，唯一目标 AVD `qingke-api37-r3-arm`（API 37、arm64-v8a）三次启动都在框架就绪前失效：`adb` 可短暂
+但是，唯一目标 AVD `qingke-api37-r3-arm`（API 37、arm64-v8a）四次启动都在框架就绪前失效：`adb` 可短暂
 枚举设备，但 shell 属性请求不响应，Gradle 报 `ShellCommandUnresponsiveException`／Unknown API Level；显式
-加速、软件模式和无 GPU 重试后，最新 QEMU 崩溃为 `SIGSEGV`。完整可复现命令、SDK／AVD 身份和 macOS
+加速、软件模式、无 GPU 和 Emulator 37.2.7.0 预览版重试后，最新 QEMU 崩溃为 `SIGSEGV`。完整可复现命令、SDK／AVD 身份和 macOS
 诊断报告路径见 [P3-03-R1 API 37 阻断证据](evidence/p3-03-r1-api37-blocker-20260913.txt)。因此尚未运行
 connected 测试、未生成／检查设备截图、未完成生产入口或无崩溃日志证据；尚未推送，也不得交回最终
 独立复审。设备恢复后必须先完成这些未决验证，再更新交接、提交、推送并交给 Sol／高复审。
