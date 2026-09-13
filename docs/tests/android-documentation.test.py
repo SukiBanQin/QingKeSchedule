@@ -34,6 +34,19 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_incremental_reading_contract_and_task_templates(self):
+        rules = (ROOT / "AGENTS.md").read_text().split("# 增量阅读", 1)[1].split("# 交接与验证", 1)[0]
+        for safeguard in ("未提交改动", "新窗口", "压缩", "必要验证", "不保证缓存命中率"):
+            self.assertIn(safeguard, rules)
+        plan = (DOCS / "implementation-plan.md").read_text()
+        for role in ("执行窗口 → 分析审查窗口", "分析审查窗口 → 执行窗口"):
+            section = plan.split("### " + role, 1)[1].split("### ", 1)[0]
+            block = re.findall(r"```text\n(.*?)\n```", section, re.S)[0]
+            self.assertIn("增量阅读", block)
+            self.assertIn("已读未变", block)
+            self.assertNotIn("请先读取", block)
+        self.assertIn("增量阅读规则更新", (DOCS / "handoff.md").read_text())
+
     def test_required_documents_and_local_references(self):
         for name in (
             *NAMES,
