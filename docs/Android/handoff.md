@@ -1,18 +1,30 @@
 # 安卓项目当前交接状态
 
-## P3-03-R1 实现进行中，API 37 ARM64 模拟器阻断（最新，2026-09-13）
+## P3-03-R1 已实施并完成 API 37 验证，等待最终独立复审（最新，2026-09-13）
 
-执行窗口仅在 P3-03-R1 授权范围内完成了今日课程颜色的严格 `#RRGGBB` 解析／青色回退和不依赖颜色的
-状态标签，并加入 JVM 颜色回归、Compose API 37 矩阵、真实下拉、生命周期／重建和测试宿主截图用例。
-完整 clean 的 Debug／Release JVM XML 均为 79 tests、0 failures、0 errors、0 skipped；`lintDebug`、
-Debug／Release APK 和 AndroidTest APK 均已完成，`git diff --check` 通过。
+执行窗口只在 P3-03-R1 授权范围内修正 TODAY 课程颜色：仅接受 `#RRGGBB`，非法值回退
+`QingKeCyan`，并以文字状态标签保留不依赖颜色的可读信息。测试还补齐真实下拉回调／重复门禁／反馈结束、
+STARTED 每秒 tick／停止／恢复／Activity 重建的时间所有权，以及完整 TODAY API 37 矩阵：四项目顺序与
+`COMPLETE/CURRENT/NEXT/UPCOMING`、重复业务 ID 的唯一 tag、featured 当前／下一门／全结束无 featured、三类空状态、
+详情回退、颜色、深浅主题、底部标签。新增内容没有进入 P3-04、课程编辑、周课表、完整设置、通知或导入导出。
 
-但是，唯一目标 AVD `qingke-api37-r3-arm`（API 37、arm64-v8a）四次启动都在框架就绪前失效：`adb` 可短暂
-枚举设备，但 shell 属性请求不响应，Gradle 报 `ShellCommandUnresponsiveException`／Unknown API Level；显式
-加速、软件模式、无 GPU 和 Emulator 37.2.7.0 预览版重试后，最新 QEMU 崩溃为 `SIGSEGV`。完整可复现命令、SDK／AVD 身份和 macOS
-诊断报告路径见 [P3-03-R1 API 37 阻断证据](evidence/p3-03-r1-api37-blocker-20260913.txt)。因此尚未运行
-connected 测试、未生成／检查设备截图、未完成生产入口或无崩溃日志证据；尚未推送，也不得交回最终
-独立复审。设备恢复后必须先完成这些未决验证，再更新交接、提交、推送并交给 Sol／高复审。
+此前“API 37 ARM64 模拟器阻断”结论已更正：四次失败错误地启动了
+`/Users/takagisan/.android/avd/qingke-api37-r3-arm.ini`（`target=android-0`），不是指定的正确副本
+`/Users/takagisan/.android/qingke-api37-r3-avd/qingke-api37-r3-arm.ini`（`target=android-37`）。因此旧 TCG、
+HVF、shell 和 SIGSEGV 记录只保留为错误 AVD 的历史，不能证明正确 API 37 环境阻断。以显式
+`ANDROID_HOME`、`ANDROID_SDK_ROOT`、`ANDROID_AVD_HOME` 启动正确副本后，日志确认 API 37、`-enable-hvf`、
+唯一 `emulator-5584`、boot completed、SDK 37 和 `arm64-v8a`；完整更正、启动命令、原始 XML、截图和生产入口
+结果见 [P3-03-R1 API 37 AVD 路径更正与恢复证据](evidence/p3-03-r1-api37-blocker-20260913.txt)。
+
+最终 clean 验证的 Debug／Release JVM XML 各为 79 tests、0 failures、0 errors、0 skipped；`lintDebug` 为
+0 errors、15 warnings，Debug／Release APK 与 AndroidTest APK 均完成。正确 API 37 ARM64 的
+`connectedDebugAndroidTest` 原始 XML 为 36 tests、0 failures、0 errors、0 skipped（装配 2、Room 11、
+DataStore 8、Activity 重建 2、Compose 13）。真实 Debug APK 已验证：保存学期进入 TODAY 空状态、空状态实际
+下拉出现刷新指示器、force-stop 重启仍进入 TODAY；相同过程 logcat 无 `FATAL EXCEPTION`／`ANR`。
+
+当前基准为 `647a8dca449023f4d89bf01de38c4fa0e037bfd7`，分支 `Android`，尚需将本轮未提交变更的最终提交
+推送至 `origin/Android` 后，交给 **Sol／高** 做 P3-03-R1 最终独立复审。不得将这些验证称为 P3-03、A02、A07、P3、
+完整 App 或用户验收完成，也不得自动开始 P3-04。
 
 ## P3-03 独立复审未通过，等待 P3-03-R1 修正（最新，2026-09-13）
 

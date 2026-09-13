@@ -27,6 +27,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.swipeDown
@@ -229,66 +230,80 @@ class QingKeAppTest {
         ).also {
             rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
             rule.onAllNodesWithTag("today-featured-course-0-0").assertCountEquals(0)
-            rule.onNodeWithTag("today-course-details-1-0").assertTextContains("第 2 节")
-            rule.onNodeWithTag("today-course-details-0-0").assertTextContains("老师")
-        }.forEach { (course, status, color) ->
-            rule.onNodeWithTag(course).performScrollTo().assertIsDisplayed()
+        }.forEachIndexed { courseIndex, (course, status, color) ->
+            rule.onNodeWithTag("today-scroll-content").performScrollToIndex(courseIndex + 3)
+            rule.onNodeWithTag(course).assertIsDisplayed()
             rule.onNodeWithTag(course.replace("today-course-", "today-course-status-")).assertTextContains(status)
             rule.onNodeWithTag(course.replace("today-course-", "today-course-color-")).assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("课程颜色：$color")),
             )
+            when (course) {
+                "today-course-0-0" -> rule.onNodeWithTag("today-course-details-0-0").assertTextContains("老师")
+                "today-course-1-0" -> rule.onNodeWithTag("today-course-details-1-0").assertTextContains("第 2 节")
+            }
         }
         listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
     }
 
     @Test fun todayApi37MatrixSwitchesFeaturedAndReportsAllThreeEmptyStates() {
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T08:50:00")) }
+        var state by mutableStateOf(readyToday())
+        var now by mutableStateOf(LocalDateTime.parse("2026-08-31T08:50:00"))
+        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
         rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
         rule.onNodeWithText("NEXT").assertIsDisplayed()
 
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T15:00:00")) }
+        now = LocalDateTime.parse("2026-08-31T15:00:00")
+        rule.waitForIdle()
         rule.onAllNodesWithTag("today-featured-course-0-0").assertCountEquals(0)
         rule.onAllNodesWithTag("today-featured-course-1-0").assertCountEquals(0)
-        rule.onNodeWithText("END OF SCHEDULE", substring = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("today-scroll-content").performScrollToIndex(6)
+        rule.onNodeWithTag("today-end-marker").assertIsDisplayed()
 
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-06-01T09:00:00")) }
-        rule.onNodeWithTag("today-empty").assertTextContains("当前日期不在这个学期内")
+        now = LocalDateTime.parse("2026-06-01T09:00:00")
+        rule.waitForIdle()
+        rule.onNodeWithTag("today-empty").assertIsDisplayed()
+        rule.onNodeWithText("当前日期不在这个学期内", substring = true).assertIsDisplayed()
 
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-09-01T09:00:00")) }
-        rule.onNodeWithTag("today-empty").assertTextContains("今天没有课程")
+        now = LocalDateTime.parse("2026-09-01T09:00:00")
+        rule.waitForIdle()
+        rule.onNodeWithTag("today-empty").assertIsDisplayed()
+        rule.onNodeWithText("今天没有课程，享受空闲时间吧。", substring = true).assertIsDisplayed()
 
-        val nonTeaching = readyToday().copy(preferences = SchedulePreferences.defaults.copy(
+        state = readyToday().copy(preferences = SchedulePreferences.defaults.copy(
             academicCalendar = AcademicCalendarPreferences(nonTeachingDates = listOf("2026-08-31")),
         ))
-        rule.setContent { QingKeAppContent(nonTeaching, null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00:00")) }
-        rule.onNodeWithTag("today-empty").assertTextContains("已设为停课日")
+        now = LocalDateTime.parse("2026-08-31T09:00:00")
+        rule.waitForIdle()
+        rule.onNodeWithTag("today-empty").assertIsDisplayed()
+        rule.onNodeWithText("已设为停课日", substring = true).assertIsDisplayed()
     }
 
     @Test fun todayPullToRefreshOnCoursesAndEmptyStateGatesReentryAndFinishesFeedback() {
         var refreshes = 0
-        fun render(state: ScheduleState, time: LocalDateTime) {
-            rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(refreshTime = { refreshes++ }), time) }
-        }
-        render(readyToday(), LocalDateTime.parse("2026-08-31T09:41:52"))
+        var state by mutableStateOf(readyToday())
+        var now by mutableStateOf(LocalDateTime.parse("2026-08-31T09:41:52"))
+        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(refreshTime = { refreshes++ }), now) }
         pullAndAssertOneRefresh(refreshes) { refreshes }
 
-        render(readyToday(), LocalDateTime.parse("2026-09-01T09:00:00"))
+        now = LocalDateTime.parse("2026-09-01T09:00:00")
         pullAndAssertOneRefresh(refreshes) { refreshes }
     }
 
     @Test fun todayApi37ScreenshotsCoverLightDarkAndLargeFontTestHosts() {
         var state by mutableStateOf(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = AppearanceMode.LIGHT)))
+        var fontScale by mutableStateOf(1f)
         val now = LocalDateTime.parse("2026-08-31T09:41:52")
-        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale = fontScale)) {
+                QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now)
+            }
+        }
         saveTodayScreenshot("p3-03-r1-today-light.png")
         state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK))
         rule.waitForIdle()
         saveTodayScreenshot("p3-03-r1-today-dark.png")
-        rule.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale = 1.3f)) {
-                QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now)
-            }
-        }
+        fontScale = 1.3f
+        rule.waitForIdle()
         saveTodayScreenshot("p3-03-r1-today-font130.png")
     }
 
@@ -335,7 +350,10 @@ class QingKeAppTest {
     }
 
     private fun saveTodayScreenshot(name: String) {
-        val directory = requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("p3-03-r1"))
+        val directory = File(
+            requireNotNull(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")),
+            "p3-03-r1",
+        ).also { check(it.exists() || it.mkdirs()) }
         File(directory, name).outputStream().use { output ->
             check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
         }
