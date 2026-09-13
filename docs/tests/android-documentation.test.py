@@ -48,6 +48,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p3-01-schedule-presentation.md",
             "p3-02-app-shell-onboarding.md",
             "p3-03-today-schedule.md",
+            "p3-03-r2-visual-alignment.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -1467,6 +1468,67 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("P3-03", contents)
             self.assertIn("通过最终独立复审", contents)
             self.assertIn("尚未用户验收", contents)
+
+    def test_p3_03_r2_visual_alignment_uses_user_assets_and_keeps_p3_04_closed(self):
+        analysis_path = DOCS / "p3-03-r2-visual-alignment.md"
+        analysis = analysis_path.read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        normalized = re.sub(r"\s+", " ", analysis)
+
+        for marker in (
+            "ef0ed3a0cfe9bbac1b3e164e959b8f773012afac",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "P3-03 暂不验收",
+            "不是“借鉴”或重新设计",
+            "source/cover.png",
+            "source/qingke-logo-q-matrix-preview.png",
+            "App 启动器标签同步为 “青课”",
+            "TerminalBackdrop",
+            "约 24dp 网格",
+            "01/02/03",
+            "独立反相深色矩形",
+            "SCHEDULE :// TODAY",
+            "本次 **不显示** 无法工作的 `ADD` 按钮",
+            "同状态参考",
+            "成对截图",
+            "Terra／高",
+            "Sol／高",
+            "target=android-37",
+            "不得开始 P3-04",
+        ):
+            self.assertIn(marker, normalized)
+
+        self.assertEqual(missing_links(analysis_path, analysis), [])
+        for relative_path, dimensions in (
+            ("source/cover.png", (1254, 1254)),
+            ("source/qingke-logo-q-matrix-preview.png", (1672, 941)),
+        ):
+            png = (ROOT / relative_path).read_bytes()
+            self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertEqual(struct.unpack(">II", png[16:24]), dimensions)
+
+        current = handoff.split(
+            "## P3-03-R2 视觉对齐分析完成，等待执行（最新，2026-09-13）",
+            1,
+        )[1].split("\n## ", 1)[0]
+        for marker in (
+            "P3-03 暂不验收",
+            "p3-03-r2-visual-alignment.md",
+            "source/cover.png",
+            "source/qingke-logo-q-matrix-preview.png",
+            "Terra／高",
+            "Sol／高",
+            "不得自动开始 P3-04",
+        ):
+            self.assertIn(marker, current)
+
+        for contents in (plan, design, baseline):
+            self.assertIn("p3-03-r2-visual-alignment.md", contents)
+            self.assertIn("暂不验收", contents)
+            self.assertIn("P3-04", contents)
 
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
