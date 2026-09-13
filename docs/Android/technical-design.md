@@ -2,7 +2,7 @@
 
 ## 文档状态
 
-更新日期：2026-09-13。状态：用户已确认方案及 P1、P2 阶段结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01、P2-02-R1 已独立复审；P2-03 已通过最终独立复审。P2-04 的[应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受组织性独立限制并确认 P2。P3-01 [今日与周课表展示模型](p3-01-schedule-presentation.md)已实现、测试、通过最终独立复审并获用户确认；P3-02 [应用壳、状态加载与首次学期设置](p3-02-app-shell-onboarding.md)已实现、测试、通过最终独立复审并获用户确认；P3-03 [今日课表页面与实时刷新](p3-03-today-schedule.md)已分析授权待实施。P3、功能页面整体和完整应用验收仍未完成。
+更新日期：2026-09-13。状态：用户已确认方案及 P1、P2 阶段结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01、P2-02-R1 已独立复审；P2-03 已通过最终独立复审。P2-04 的[应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受组织性独立限制并确认 P2。P3-01 [今日与周课表展示模型](p3-01-schedule-presentation.md)已实现、测试、通过最终独立复审并获用户确认；P3-02 [应用壳、状态加载与首次学期设置](p3-02-app-shell-onboarding.md)已实现、测试、通过最终独立复审并获用户确认；P3-03 [今日课表页面与实时刷新](p3-03-today-schedule.md)及 R1 已实现、测试并通过最终独立复审，尚未用户验收。P3、功能页面整体和完整应用验收仍未完成，P3-04 未获本轮授权。
 
 产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)，P2-03 的纯 Kotlin 草稿／冲突边界见 [表单草稿分析](p2-03-form-drafts.md)，P2 收口的联合状态与生产入口见 [P2-04 分析](p2-04-application-state-composition.md)；今日／周表纯 Kotlin 展示规则见 [P3-01 分析](p3-01-schedule-presentation.md)，首个 Compose／状态／持久化垂直切片见 [P3-02 分析](p3-02-app-shell-onboarding.md)，真实今日页和当前 iOS 秒级时间基准见 [P3-03 分析](p3-03-today-schedule.md)。
 

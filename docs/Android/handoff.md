@@ -1,5 +1,27 @@
 # 安卓项目当前交接状态
 
+## P3-03-R1 最终独立复审通过，等待用户确认（最新，2026-09-13）
+
+分析审查窗口已独立复审 Android
+`19a04f37a87e55b078e0a4425028044948a2b62f..d7e31dae414c9f5cb6b47aaa0ee35c9c6bd7d590` 的实际
+12 文件 diff、`origin/IOS` `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`、原始 JVM／lint／API 37 XML、
+六张设备截图及真实生产入口记录；没有发现阻断问题，没有修改应用代码，也没有进入 P3-04。
+
+课程颜色现在只接受严格 `#RRGGBB`，非法值回退 `QingKeCyan`；生产行实际使用解析后的色条，同时以
+`COMPLETE/CURRENT/NEXT/UPCOMING` 文字标签表达状态。API 37 用例覆盖四项顺序、重复业务 ID 的唯一
+`OccurrenceKey` tag、当前／下一门 featured、全结束无 featured、三类空状态、详情回退、深浅主题、底部标签、
+有课／空状态真实下拉门禁及反馈，以及 STARTED tick、停止、恢复立即刷新和 Activity 重建后的同一 ViewModel。
+
+审查窗口以 `--rerun-tasks` 独立执行 Debug／Release JVM、lint、AndroidTest APK 和唯一正确 API 37 ARM64
+connected 测试：主机 100 个任务通过，JVM 两变体各 79 tests 且 0 failures／errors／skipped，lint 为 0 errors、
+15 warnings；正确 `target=android-37` AVD 的启动参数含 `-enable-hvf`，唯一 `emulator-5584` 实测
+`boot_completed=1`、SDK 37、`arm64-v8a`，connected XML 为 36 tests、0 failures、0 errors、0 skipped。
+文档 55 项、通用文档测试、布局测试和 `git diff --check` 均通过；设备已正常关闭。完整记录见
+[P3-03-R1 最终独立复审证据](evidence/p3-03-r1-final-review-20260913.txt)。
+
+准确状态是：P3-03 已实现、测试并通过最终独立复审，但尚未获得用户对 P3-03 或 A02／A07 的验收；P3 和
+完整 App 仍未完成。当前没有已授权的 P3-04 实施任务，不自动生成或开始下一阶段。
+
 ## P3-03-R1 已实施并完成 API 37 验证，等待最终独立复审（最新，2026-09-13）
 
 执行窗口只在 P3-03-R1 授权范围内修正 TODAY 课程颜色：仅接受 `#RRGGBB`，非法值回退

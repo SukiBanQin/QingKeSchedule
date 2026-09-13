@@ -1380,7 +1380,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("P3-03", contents)
             self.assertIn("今日课表页面与实时刷新", contents)
             self.assertIn("P3-02", contents)
-        self.assertIn("P3-03 已分析授权待实施", plan)
+        self.assertIn("P3-03 及 R1 已实现、测试并通过最终独立复审，尚未用户验收", plan)
         self.assertIn("开始时刻至结束时刻前进行中", baseline)
         self.assertIn("结束时刻及之后结束", baseline)
         self.assertIn("前台\n  时每秒刷新", baseline)
@@ -1422,6 +1422,51 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不得进入 P3-04",
         ):
             self.assertIn(marker, evidence)
+
+    def test_p3_03_r1_final_review_closes_gaps_without_claiming_acceptance(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence = (DOCS / "evidence/p3-03-r1-final-review-20260913.txt").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        latest = handoff.split(
+            "## P3-03-R1 最终独立复审通过，等待用户确认（最新，2026-09-13）",
+            1,
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+
+        for marker in (
+            "19a04f37a87e55b078e0a4425028044948a2b62f..d7e31dae414c9f5cb6b47aaa0ee35c9c6bd7d590",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "严格 `#RRGGBB`",
+            "OccurrenceKey",
+            "36 tests、0 failures、0 errors、0 skipped",
+            "P3-03 已实现、测试并通过最终独立复审",
+            "尚未获得用户",
+            "不自动生成或开始下一阶段",
+        ):
+            self.assertIn(marker, normalized)
+
+        for marker in (
+            "实际 diff 为 12 个文件",
+            "courseColor()",
+            "真实 swipeDown",
+            "新 Activity 的 ViewModelStore",
+            "target=android-0",
+            "target=android-37",
+            "100 actionable tasks 全部 executed",
+            "74 actionable tasks 全部 executed",
+            "最终 ADB 列表为空",
+            "未发现阻断问题",
+            "不等于用户验收",
+            "当前未授权 P3-04",
+        ):
+            self.assertIn(marker, evidence)
+
+        for contents in (plan, design, baseline):
+            self.assertIn("P3-03", contents)
+            self.assertIn("通过最终独立复审", contents)
+            self.assertIn("尚未用户验收", contents)
 
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
