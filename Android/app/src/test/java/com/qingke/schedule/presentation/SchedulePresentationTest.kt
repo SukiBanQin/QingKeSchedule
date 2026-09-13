@@ -29,14 +29,16 @@ class SchedulePresentationTest {
     fun todayUsesSharedFixtureSortingStatusesNextAndProgress() {
         val data = fixture()
         val presentation = TodaySchedulePresentation.create(
-            semester(), data.courses, LocalDateTime.parse("2026-08-31T09:41"),
+            semester(), data.courses, LocalDateTime.parse("2026-08-31T09:41:52"),
         )
 
         assertEquals(1, presentation.teachingWeek)
         assertEquals(listOf("schedule-every", "schedule-odd", "schedule-alpha", "schedule-beta"), presentation.items.map { it.occurrence.schedule.id })
         assertEquals(listOf("FINISHED", "ONGOING", "UPCOMING", "UPCOMING"), presentation.items.map { it.status.name })
         assertEquals(listOf("schedule-alpha"), presentation.items.filter { it.isNext }.map { it.occurrence.schedule.id })
-        assertEquals(CourseTimingProgress(46, 64, 46.0 / 110.0), presentation.items[1].timingProgress)
+        assertEquals(CourseTimingProgress(2812, 3788, 2812.0 / 6600.0), presentation.items[1].timingProgress)
+        assertEquals(46, presentation.items[1].timingProgress!!.elapsedMinutes)
+        assertEquals("63:08", presentation.items[1].timingProgress!!.remainingClockText)
         assertNull(presentation.items.first().timingProgress)
 
         val before = TodaySchedulePresentation.create(semester(), data.courses, LocalDateTime.parse("2026-08-30T09:00"))

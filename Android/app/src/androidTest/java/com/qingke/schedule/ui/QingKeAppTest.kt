@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -30,6 +31,9 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import com.qingke.schedule.domain.Period
+import com.qingke.schedule.domain.Course
+import com.qingke.schedule.domain.CourseSchedule
+import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.preferences.SchedulePreferences
@@ -40,6 +44,7 @@ import com.qingke.schedule.viewmodel.PeriodFormState
 import com.qingke.schedule.viewmodel.SemesterFormState
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -183,6 +188,24 @@ class QingKeAppTest {
         rule.onNodeWithTag("schedule-tab").assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
     }
 
+    @Test fun todayPageUsesPresentationProgressAndStableOccurrenceTagsForDuplicateBusinessIds() {
+        var refreshes = 0
+        rule.setContent {
+            QingKeAppContent(
+                readyToday(), null, MainTab.TODAY,
+                QingKeAppActions(refreshTime = { refreshes++ }),
+                LocalDateTime.parse("2026-08-31T09:41:52"),
+            )
+        }
+        rule.onNodeWithTag("today-screen").assertIsDisplayed()
+        rule.onNodeWithTag("today-brand-header").assertIsDisplayed()
+        rule.onNodeWithTag("today-course-count").assertTextContains("04")
+        rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
+        rule.onNodeWithTag("today-featured-progress").assertIsDisplayed()
+        rule.onNodeWithText("已进行 46 分钟 · 剩余 63:08").assertIsDisplayed()
+        assertEquals(0, refreshes)
+    }
+
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
     ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
@@ -225,4 +248,22 @@ class QingKeAppTest {
         data = ScheduleData(1, Semester("semester", "已有", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"))), emptyList(), "1970-01-01T00:00:00Z"),
         preferences = SchedulePreferences.defaults, loadStatus = LoadStatus.READY,
     )
+
+    private fun readyToday(): ScheduleState {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "10:45"),
+            Period(3, "11:00", "11:45"), Period(4, "14:00", "14:45"),
+        ))
+        fun schedule(id: String, period: Int) = CourseSchedule(id, 1, period, period, 1, 18, RepeatRule.EVERY, "")
+        return ScheduleState(
+            data = ScheduleData(1, semester, listOf(
+                Course("duplicate", "已结束", "老师", "#287B74", listOf(schedule("duplicate", 1))),
+                Course("duplicate", "进行中", "", "#287B74", listOf(schedule("duplicate", 2))),
+                Course("future", "下一门", "", "#287B74", listOf(schedule("duplicate", 3))),
+                Course("future", "后续", "", "not-a-color", listOf(schedule("duplicate", 4))),
+            ), "1970-01-01T00:00:00Z"),
+            preferences = SchedulePreferences.defaults,
+            loadStatus = LoadStatus.READY,
+        )
+    }
 }

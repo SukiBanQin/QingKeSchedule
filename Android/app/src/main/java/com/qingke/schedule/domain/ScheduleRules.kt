@@ -75,13 +75,13 @@ object ScheduleRules {
         now: LocalDateTime,
     ): CourseStatus {
         val start = semester.periods.firstOrNull { it.number == occurrence.schedule.startPeriod }
-            ?.let { minutes(it.startTime) }
+            ?.let { parseLocalTime(it.startTime) }
         val end = semester.periods.firstOrNull { it.number == occurrence.schedule.endPeriod }
-            ?.let { minutes(it.endTime) }
-        val current = now.hour * 60 + now.minute
+            ?.let { parseLocalTime(it.endTime) }
+        val current = now.toLocalTime()
         return when {
             start == null || end == null || current < start -> CourseStatus.UPCOMING
-            current <= end -> CourseStatus.ONGOING
+            current < end -> CourseStatus.ONGOING
             else -> CourseStatus.FINISHED
         }
     }

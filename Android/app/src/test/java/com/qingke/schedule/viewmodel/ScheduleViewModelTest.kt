@@ -9,6 +9,7 @@ import com.qingke.schedule.preferences.SchedulePreferencesRepository
 import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleAppState
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -36,7 +37,7 @@ class ScheduleViewModelTest {
 
     @Test fun initialLoadRunsOnceAndBuildsDeterministicOnboardingDraft() = runTest {
         val repository = FakeScheduleRepository()
-        val model = ScheduleViewModel(appState(repository), now = { LocalDate.parse("2026-06-30") }, idFactory = ids())
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-06-30T09:00") }, idFactory = ids())
         advanceUntilIdle()
         assertEquals(1, repository.loadCalls)
         assertEquals(LoadStatus.READY, model.state.value.loadStatus)
@@ -48,7 +49,7 @@ class ScheduleViewModelTest {
 
     @Test fun invalidFormDoesNotSaveAndSavedFormUsesSingleSemester() = runTest {
         val repository = FakeScheduleRepository()
-        val model = ScheduleViewModel(appState(repository), now = { LocalDate.parse("2026-07-01") }, idFactory = ids())
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-07-01T09:00") }, idFactory = ids())
         advanceUntilIdle()
         model.updateName(" "); model.saveSemester(); advanceUntilIdle()
         assertEquals(0, repository.saveCalls)
@@ -60,7 +61,7 @@ class ScheduleViewModelTest {
 
     @Test fun editsPeriodsExpansionTabAndFullSemesterSnapshot() = runTest {
         val repository = FakeScheduleRepository()
-        val model = ScheduleViewModel(appState(repository), now = { LocalDate.parse("2026-07-01") }, idFactory = ids())
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-07-01T09:00") }, idFactory = ids())
         advanceUntilIdle()
         model.updateName("  自定义学期  "); model.updateStartDate(LocalDate.parse("2026-09-02")); model.updateTotalWeeks(20)
         model.togglePeriods(); val first = model.form.value!!.periods.first(); model.updatePeriodStart(first.id, LocalTime.of(7, 30)); model.updatePeriodEnd(first.id, LocalTime.of(8, 20)); model.addPeriod(); model.selectTab(MainTab.SETTINGS)
@@ -89,8 +90,24 @@ class ScheduleViewModelTest {
         assertEquals(2, repository.loadCalls)
     }
 
+    @Test fun refreshingClockOnlyUpdatesMemoryAndPreservesDraftTabAndRepositoryState() = runTest {
+        var point = LocalDateTime.parse("2026-08-31T09:41:52")
+        val repository = FakeScheduleRepository()
+        val model = ScheduleViewModel(appState(repository), now = { point }, idFactory = ids())
+        advanceUntilIdle()
+        model.updateName("保留草稿")
+        model.selectTab(MainTab.SETTINGS)
+        val before = model.form.value
+        point = LocalDateTime.parse("2026-08-31T09:41:53")
+        model.refreshCurrentTime()
+        assertEquals(point, model.currentTime.value)
+        assertEquals(1, repository.loadCalls)
+        assertEquals(before, model.form.value)
+        assertEquals(MainTab.SETTINGS, model.selectedTab.value)
+    }
+
     @Test fun defaultDraftHasAllTimesInOrderAndUniqueIds() = runTest {
-        val model = ScheduleViewModel(appState(FakeScheduleRepository()), now = { LocalDate.parse("2026-07-01") }, idFactory = ids())
+        val model = ScheduleViewModel(appState(FakeScheduleRepository()), now = { LocalDateTime.parse("2026-07-01T09:00") }, idFactory = ids())
         advanceUntilIdle()
         val form = model.form.value!!
         assertEquals(listOf(

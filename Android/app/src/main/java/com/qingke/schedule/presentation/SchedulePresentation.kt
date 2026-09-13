@@ -38,10 +38,13 @@ object AcademicCalendarResolver {
 }
 
 data class CourseTimingProgress(
-    val elapsedMinutes: Int,
-    val remainingMinutes: Int,
+    val elapsedSeconds: Int,
+    val remainingSeconds: Int,
     val fraction: Double,
-)
+) {
+    val elapsedMinutes: Int get() = elapsedSeconds / 60
+    val remainingClockText: String get() = "%d:%02d".format(remainingSeconds / 60, remainingSeconds % 60)
+}
 
 data class TodayCourseItem(
     val occurrence: CourseOccurrence,
@@ -317,13 +320,14 @@ private fun timingProgress(
 ): CourseTimingProgress? {
     if (status != CourseStatus.ONGOING) return null
     val start = semester.periods.firstOrNull { it.number == occurrence.schedule.startPeriod }
-        ?.let { ScheduleRules.minutes(it.startTime) } ?: return null
+        ?.let { ScheduleRules.parseLocalTime(it.startTime) } ?: return null
     val end = semester.periods.firstOrNull { it.number == occurrence.schedule.endPeriod }
-        ?.let { ScheduleRules.minutes(it.endTime) } ?: return null
-    val current = now.hour * 60 + now.minute
-    val duration = maxOf(end - start, 1)
-    val elapsed = (current - start).coerceIn(0, duration)
-    return CourseTimingProgress(elapsed, maxOf(end - current, 0), elapsed.toDouble() / duration)
+        ?.let { ScheduleRules.parseLocalTime(it.endTime) } ?: return null
+    val current = now.toLocalTime()
+    val duration = maxOf(java.time.Duration.between(start, end).seconds.toInt(), 1)
+    val elapsed = java.time.Duration.between(start, current).seconds.toInt().coerceIn(0, duration)
+    val remaining = (duration - elapsed).coerceAtLeast(0)
+    return CourseTimingProgress(elapsed, remaining, elapsed.toDouble() / duration)
 }
 
 private fun conflictingKeys(occurrences: List<CourseOccurrence>): Set<OccurrenceKey> {

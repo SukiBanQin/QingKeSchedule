@@ -1,5 +1,19 @@
 # 安卓项目当前交接状态
 
+## P3-03 今日页与秒级时钟已实施，等待独立复审（最新，2026-09-13）
+
+执行基准为 `1426661035d386bce0146d3eb048a72f0abd197a`，分支 `Android`。本轮将
+`TodaySchedulePresentation` 接入 TODAY 标签，按 `origin/IOS` `fc3ddfb8` 的秒级语义更新状态：开始时刻进入
+ONGOING、结束时刻进入 FINISHED，进行中进度提供秒数、分钟派生与 `m:ss` 倒计时。`ScheduleViewModel` 持有可观察
+`LocalDateTime`，`refreshCurrentTime()` 只更新内存时间；根 Compose 以生命周期 STARTED 边界立即刷新并每秒更新。
+
+最终 API 37 ARM64 connectedDebugAndroidTest XML 为 31 tests、0 failures、0 errors、0 skipped：装配 2、Room 11、
+DataStore 8、Compose 10（QingKeAppTest 9、Activity 重建 1）。Debug／Release JVM XML 各 78 tests、0 failures、0 errors、
+0 skipped；lintDebug 为 0 errors、15 warnings。完整范围、命令和限制见
+[P3-03 API 37 证据](evidence/p3-03-api37-20260913.txt)。本轮未实现课程编辑、周课表、设置、通知、导入导出或 P3-04。
+
+P3-03 仍须 Sol／高独立复审；不得据此宣称 P3-03、A02、A07、P3、完整 App 或用户验收完成。
+
 ## 用户确认 P3-02，P3-03 今日页与实时刷新分析完成待实施（最新，2026-09-13）
 
 用户已确认 P3-02 的实现、测试和最终独立复审结果。准确状态为：P3-02 已实现、测试、通过最终独立复审

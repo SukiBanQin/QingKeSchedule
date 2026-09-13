@@ -65,6 +65,17 @@ class ScheduleRulesTest {
         assertFalse(ScheduleRules.isTeachingWeekInSemester(3, leapSemester))
     }
 
+    @Test fun occurrenceStatusUsesSecondPreciseStartAndEndBoundaries() {
+        val schedule = schedule(RepeatRule.EVERY)
+        val occurrence = CourseOccurrence(
+            Course("course", "课程", "", "#287B74", listOf(schedule)), schedule, OccurrenceKey(0, 0),
+        )
+        assertEquals(CourseStatus.UPCOMING, ScheduleRules.occurrenceStatus(occurrence, semester, LocalDateTime.parse("2026-08-31T07:59:59")))
+        assertEquals(CourseStatus.ONGOING, ScheduleRules.occurrenceStatus(occurrence, semester, LocalDateTime.parse("2026-08-31T08:00:00")))
+        assertEquals(CourseStatus.ONGOING, ScheduleRules.occurrenceStatus(occurrence, semester, LocalDateTime.parse("2026-08-31T08:44:59")))
+        assertEquals(CourseStatus.FINISHED, ScheduleRules.occurrenceStatus(occurrence, semester, LocalDateTime.parse("2026-08-31T08:45:00")))
+    }
+
     @Test
     fun conflictsUseClosedPeriodsWeeksRepeatRulesAndStableInputOrder() {
         val every = schedule(RepeatRule.EVERY).copy(id = "candidate", startPeriod = 2, endPeriod = 3)
@@ -139,8 +150,8 @@ class ScheduleRulesTest {
         assertEquals(listOf(OccurrenceKey(0, 0), OccurrenceKey(0, 1)), occurrences.map { it.key })
         assertEquals(CourseStatus.UPCOMING, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T07:59")))
         assertEquals(CourseStatus.ONGOING, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T08:00")))
-        assertEquals(CourseStatus.ONGOING, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T09:40")))
-        assertEquals(CourseStatus.FINISHED, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T09:41")))
+        assertEquals(CourseStatus.ONGOING, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T09:39:59")))
+        assertEquals(CourseStatus.FINISHED, ScheduleRules.occurrenceStatus(occurrences.first(), presentationSemester, LocalDateTime.parse("2026-08-31T09:40:00")))
     }
 
     private fun schedule(repeatRule: RepeatRule) = CourseSchedule(

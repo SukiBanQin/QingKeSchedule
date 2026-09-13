@@ -9,6 +9,7 @@ import com.qingke.schedule.draft.SemesterDraft
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.state.ScheduleState
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +32,7 @@ data class SemesterFormState(
 
 class ScheduleViewModel(
     private val appState: ScheduleAppState,
-    private val now: () -> LocalDate = LocalDate::now,
+    private val now: () -> LocalDateTime = LocalDateTime::now,
     private val idFactory: () -> String = { java.util.UUID.randomUUID().toString() },
 ) : ViewModel() {
     val state: StateFlow<ScheduleState> = appState.state
@@ -39,6 +40,8 @@ class ScheduleViewModel(
     val form: StateFlow<SemesterFormState?> = mutableForm.asStateFlow()
     private val mutableSelectedTab = MutableStateFlow(MainTab.TODAY)
     val selectedTab: StateFlow<MainTab> = mutableSelectedTab.asStateFlow()
+    private val mutableCurrentTime = MutableStateFlow(now())
+    val currentTime: StateFlow<LocalDateTime> = mutableCurrentTime.asStateFlow()
     private var draft: SemesterDraft? = null
     private var saveRequested = false
     private var loadJob: Job? = null
@@ -57,12 +60,15 @@ class ScheduleViewModel(
     private suspend fun loadAndPrepare() {
         appState.load()
         if (state.value.needsOnboarding && draft == null) {
-            draft = SemesterDraft.create(now(), idFactory)
+            draft = SemesterDraft.create(mutableCurrentTime.value.toLocalDate(), idFactory)
             publishForm()
         }
     }
 
     fun selectTab(tab: MainTab) { mutableSelectedTab.value = tab }
+
+    /** Updates only the observable local clock. It deliberately does not reload persistent state. */
+    fun refreshCurrentTime() { mutableCurrentTime.value = now() }
 
     fun updateName(value: String) = edit { it.name = value }
     fun updateStartDate(value: LocalDate) = edit { it.startDate = value }
@@ -114,7 +120,7 @@ class ScheduleViewModel(
 
     class Factory(
         dependencies: ScheduleAppDependencies,
-        private val now: () -> LocalDate = LocalDate::now,
+        private val now: () -> LocalDateTime = LocalDateTime::now,
         private val idFactory: () -> String = { java.util.UUID.randomUUID().toString() },
     ) : ViewModelProvider.Factory {
         private val state = ScheduleAppState(dependencies.scheduleRepository, dependencies.preferencesRepository)

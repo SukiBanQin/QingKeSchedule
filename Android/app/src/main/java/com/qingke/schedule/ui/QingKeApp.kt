@@ -16,12 +16,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -33,9 +37,15 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,7 +58,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.qingke.schedule.domain.CourseOccurrence
+import com.qingke.schedule.domain.CourseStatus
+import com.qingke.schedule.presentation.ScheduleDisplayText
+import com.qingke.schedule.presentation.TodayCourseItem
+import com.qingke.schedule.presentation.TodaySchedulePresentation
 import com.qingke.schedule.preferences.AppearanceMode
 import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleState
@@ -57,8 +75,12 @@ import com.qingke.schedule.viewmodel.PeriodFormState
 import com.qingke.schedule.viewmodel.ScheduleViewModel
 import com.qingke.schedule.viewmodel.SemesterFormState
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 private val SignalYellow = Color(0xFFFFD400)
 private val QingKeCyan = Color(0xFF28B9D6)
@@ -82,6 +104,7 @@ data class QingKeAppActions(
     val removePeriod: (String) -> Unit = {},
     val togglePeriods: () -> Unit = {},
     val saveSemester: () -> Unit = {},
+    val refreshTime: () -> Unit = {},
 )
 
 @Composable
@@ -89,6 +112,17 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val form by viewModel.form.collectAsStateWithLifecycle()
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.refreshCurrentTime()
+            while (isActive) {
+                delay(1_000)
+                viewModel.refreshCurrentTime()
+            }
+        }
+    }
     QingKeAppContent(
         state, form, selectedTab,
         QingKeAppActions(
@@ -98,7 +132,9 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             updatePeriodStart = viewModel::updatePeriodStart, updatePeriodEnd = viewModel::updatePeriodEnd,
             addPeriod = viewModel::addPeriod, removePeriod = viewModel::removePeriod,
             togglePeriods = viewModel::togglePeriods, saveSemester = viewModel::saveSemester,
+            refreshTime = viewModel::refreshCurrentTime,
         ),
+        currentTime,
     )
 }
 
@@ -108,6 +144,7 @@ fun QingKeAppContent(
     form: SemesterFormState?,
     selectedTab: MainTab,
     actions: QingKeAppActions,
+    currentTime: LocalDateTime = LocalDateTime.now(),
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -125,7 +162,7 @@ fun QingKeAppContent(
             LoadStatus.NOT_LOADED, LoadStatus.LOADING -> LoadingScreen()
             LoadStatus.FAILED -> LoadErrorScreen(state.error.orEmpty(), actions.retryLoad)
             LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.isSaving, actions) } ?: LoadingScreen()
-            else MainShell(selectedTab, actions.selectTab)
+            else MainShell(state, selectedTab, currentTime, actions)
         }
         state.error?.let { message -> if (state.loadStatus == LoadStatus.READY) ErrorDialog(message, actions.dismissError) }
     }
@@ -203,10 +240,160 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun MainShell(selected: MainTab, select: (MainTab) -> Unit) = Scaffold(
+@Composable private fun MainShell(
+    state: ScheduleState,
+    selected: MainTab,
+    currentTime: LocalDateTime,
+    actions: QingKeAppActions,
+) = Scaffold(
     bottomBar = { NavigationBar(containerColor = InverseSurface, modifier = Modifier.navigationBarsPadding()) {
         listOf(MainTab.TODAY to "今日", MainTab.SCHEDULE to "课表", MainTab.SETTINGS to "设置").forEach { (tab, label) ->
-            NavigationBarItem(selected == tab, { select(tab) }, icon = {}, label = { Text(label) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = InverseSurface, selectedTextColor = SignalYellow, indicatorColor = SignalYellow, unselectedIconColor = Color.White, unselectedTextColor = Color.White), modifier = Modifier.heightIn(min = 48.dp).testTag("${tab.name.lowercase()}-tab").semantics { contentDescription = label })
+            NavigationBarItem(selected == tab, { actions.selectTab(tab) }, icon = {}, label = { Text(label) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = InverseSurface, selectedTextColor = SignalYellow, indicatorColor = SignalYellow, unselectedIconColor = Color.White, unselectedTextColor = Color.White), modifier = Modifier.heightIn(min = 48.dp).testTag("${tab.name.lowercase()}-tab").semantics { contentDescription = label })
         }
     } }, modifier = Modifier.testTag("main-shell"),
-) { padding -> Column(Modifier.fillMaxSize().statusBarsPadding().padding(padding), Arrangement.Center, Alignment.CenterHorizontally) { Text(when (selected) { MainTab.TODAY -> "今日（壳层）"; MainTab.SCHEDULE -> "课表（壳层）"; MainTab.SETTINGS -> "设置（壳层）" }, style = MaterialTheme.typography.headlineMedium) } }
+) { padding ->
+    when (selected) {
+        MainTab.TODAY -> TodayScheduleScreen(state, currentTime, actions.refreshTime, Modifier.padding(padding))
+        MainTab.SCHEDULE -> ShellPlaceholder("课表（壳层）", Modifier.padding(padding))
+        MainTab.SETTINGS -> ShellPlaceholder("设置（壳层）", Modifier.padding(padding))
+    }
+}
+
+@Composable private fun ShellPlaceholder(text: String, modifier: Modifier = Modifier) = Column(
+    modifier.fillMaxSize().statusBarsPadding(), Arrangement.Center, Alignment.CenterHorizontally,
+) { Text(text, style = MaterialTheme.typography.headlineMedium) }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun TodayScheduleScreen(
+    state: ScheduleState,
+    now: LocalDateTime,
+    refresh: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val semester = state.data.semester ?: return
+    val presentation = TodaySchedulePresentation.create(
+        semester, state.data.courses, now, state.preferences.academicCalendar,
+    )
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val triggerRefresh = {
+        if (!refreshing) scope.launch {
+            refreshing = true
+            refresh()
+            delay(350)
+            refreshing = false
+        }
+    }
+    Column(modifier.fillMaxSize().statusBarsPadding().testTag("today-screen")) {
+        Row(
+            Modifier.fillMaxWidth().background(InverseSurface).padding(horizontal = 20.dp, vertical = 14.dp)
+                .testTag("today-brand-header"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("青课", color = Color.White, fontWeight = FontWeight.Black)
+            Spacer(Modifier.weight(1f))
+            Text("LOCAL / 01", color = SignalYellow, fontWeight = FontWeight.Bold)
+        }
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = triggerRefresh, modifier = Modifier.fillMaxSize().testTag("today-refresh-container")) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    TodayHero(now, semester, presentation, modifier = Modifier.testTag("today-date-hero"))
+                }
+                if (refreshing) item { RefreshFeedback() }
+                if (presentation.items.isEmpty()) {
+                    item { TodayEmpty(presentation.emptyMessage) }
+                } else {
+                    val featured = presentation.items.firstOrNull { it.status == CourseStatus.ONGOING }
+                        ?: presentation.items.firstOrNull { it.isNext }
+                    if (featured != null) item(key = "featured-${featured.occurrence.key.courseIndex}-${featured.occurrence.key.scheduleIndex}") {
+                        FeaturedCourse(featured, semester)
+                    }
+                    item { Text("课程序列  //  QUEUE / ALL DAY", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("today-course-sequence")) }
+                    items(
+                        presentation.items,
+                        key = { "${it.occurrence.key.courseIndex}-${it.occurrence.key.scheduleIndex}" },
+                    ) { item -> CourseRow(item, semester) }
+                    item {
+                        Text(
+                            "END OF SCHEDULE // ${presentation.items.lastOrNull()?.let { ScheduleDisplayText.timeRange(it.occurrence.schedule, semester).substringAfter('–') } ?: "--:--"}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun TodayHero(
+    now: LocalDateTime,
+    semester: com.qingke.schedule.domain.Semester,
+    presentation: TodaySchedulePresentation,
+    modifier: Modifier = Modifier,
+) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+    Column(Modifier.weight(1f)) {
+        Text(now.format(DateTimeFormatter.ofPattern("MM/dd")), style = MaterialTheme.typography.displayLarge)
+        Text("SCHEDULE :// TODAY", color = Color.White, modifier = Modifier.background(InverseSurface).padding(6.dp))
+        Text("今日", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)
+        val week = presentation.teachingWeek
+        Text(
+            if (week != null && week in 1..semester.totalWeeks) "第 ${"%02d".format(week)} 教学周 · ${if (week % 2 == 0) "双周" else "单周"}"
+            else "学期外 · ${semester.name}",
+            modifier = Modifier.testTag("today-teaching-week"),
+        )
+    }
+    Column(horizontalAlignment = Alignment.End) {
+        Text("COURSE", style = MaterialTheme.typography.labelSmall)
+        Text("%02d".format(presentation.items.size), style = MaterialTheme.typography.displaySmall, modifier = Modifier.testTag("today-course-count"))
+        Text("/ DAY", style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable private fun RefreshFeedback() = Row(
+    Modifier.fillMaxWidth().background(InverseSurface).padding(12.dp).testTag("today-refresh-status"),
+) { Text("刷新中  //  SYNC / LOCAL", color = QingKeCyan, fontWeight = FontWeight.Bold) }
+
+@Composable private fun TodayEmpty(message: String) = Column(
+    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(20.dp).testTag("today-empty"),
+) { Text("STANDBY", color = QingKeCyan); Text("今天没有课程", style = MaterialTheme.typography.titleLarge); Text(message) }
+
+@Composable private fun FeaturedCourse(item: TodayCourseItem, semester: com.qingke.schedule.domain.Semester) = Column(
+    Modifier.fillMaxWidth().background(InverseSurface).padding(16.dp)
+        .testTag("today-featured-course-${item.occurrence.key.courseIndex}-${item.occurrence.key.scheduleIndex}"),
+) {
+    Text(if (item.status == CourseStatus.ONGOING) "CURRENT" else "NEXT", color = SignalYellow, fontWeight = FontWeight.Black)
+    Text(ScheduleDisplayText.timeRange(item.occurrence.schedule, semester), color = Color.White)
+    Text(item.occurrence.course.name, color = Color.White, style = MaterialTheme.typography.headlineSmall)
+    Text(courseDetails(item.occurrence), color = Color.White)
+    item.timingProgress?.let { progress ->
+        LinearProgressIndicator({ progress.fraction.toFloat() }, Modifier.fillMaxWidth().padding(top = 10.dp).testTag("today-featured-progress"), color = QingKeCyan)
+        Text("已进行 ${progress.elapsedMinutes} 分钟 · 剩余 ${progress.remainingClockText}", color = Color.White)
+    }
+}
+
+@Composable private fun CourseRow(item: TodayCourseItem, semester: com.qingke.schedule.domain.Semester) = Row(
+    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(14.dp)
+        .testTag("today-course-${item.occurrence.key.courseIndex}-${item.occurrence.key.scheduleIndex}"),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Column(Modifier.weight(1f)) {
+        Text(statusText(item), color = if (item.status == CourseStatus.ONGOING) SignalYellow else QingKeCyan, fontWeight = FontWeight.Bold)
+        Text(ScheduleDisplayText.timeRange(item.occurrence.schedule, semester))
+        Text(item.occurrence.course.name, style = MaterialTheme.typography.titleMedium)
+        Text(courseDetails(item.occurrence))
+    }
+}
+
+private fun statusText(item: TodayCourseItem): String = when (item.status) {
+    CourseStatus.FINISHED -> "COMPLETE"
+    CourseStatus.ONGOING -> "CURRENT"
+    CourseStatus.UPCOMING -> if (item.isNext) "NEXT" else "UPCOMING"
+}
+
+private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
+    occurrence.schedule.classroom.trim(), occurrence.course.teacher.trim(),
+).filter { it.isNotEmpty() }.joinToString(" · ").ifEmpty { ScheduleDisplayText.periodRange(occurrence.schedule) }

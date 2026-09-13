@@ -47,7 +47,7 @@ class P3R2ActivityRecreationTest {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 creations++
-                return ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDate.parse("2026-07-01") }, { "recreate-${ids++}" }) as T
+                return ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDate.parse("2026-07-01").atStartOfDay() }, { "recreate-${ids++}" }) as T
             }
         }
         val originalModel = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
