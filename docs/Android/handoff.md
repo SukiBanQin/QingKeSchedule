@@ -1,5 +1,29 @@
 # 安卓项目当前交接状态
 
+## P3-03-R2 今日页及共享主壳视觉对齐已实施，待 Sol／高独立审查与用户确认（最新，2026-09-14）
+
+本轮在 `Android` 分支从 `10b92535216b87de2f808e3d5ec392aa6af18321` 实施已授权的 P3-03-R2；开始时
+工作区干净且与 `origin/Android` 一致。应用代码仅改 Android Manifest、资源、`QingKeApp.kt` 和相关
+Compose AndroidTest；没有修改 iOS、Web、`source/`、领域／持久化／共享协议或构建工具链，也没有进入 P3-04。
+
+Android 现与 `origin/IOS` `fc3ddfb8ffa14b205a591ffdbed5632d5f975001` 的 `TerminalBackdrop`、品牌头、
+三段 hero、活动条、featured／序列、空状态和 `TerminalTabBar` 对齐；保留 R1 已验证的颜色回退、状态、
+下拉门禁、生命周期 tick、Activity／ViewModel 所有权及唯一 occurrence tag。`source/cover.png` 已作为
+launcher/adaptive icon 来源，Logo 为用户指定 `source/qingke-logo-q-matrix-preview.png` 的 Android 资源副本，
+应用名为“青课”。没有放置不可用的 ADD、编辑或详情入口。
+
+本轮最终正确 API 37 ARM64 `connectedDebugAndroidTest` XML 为 37 tests、0 failures、0 errors、0 skipped；
+Debug／Release JVM 各 79 tests、0 failures／errors／skipped，lintDebug 0 errors、19 warnings，Debug／Release
+和 AndroidTest APK 均完成。生产 APK 已验证首次学期保存、TODAY 空状态下拉、三个标签、force-stop／重启、launcher
+图标和名称，最后 app logcat 未见 FATAL／ANR；本轮启动 AVD 将在交付前关闭。所有截图、命令、限制、iOS 参考和
+Android 平台差异见 [P3-03-R2 视觉对齐证据](evidence/p3-03-r2-visual-alignment-20260914.txt)。
+
+关键限制必须如实保留：P3-03 尚未授权课程录入／导入，生产入口只能验证 TODAY 空状态；固定课程、当前 featured、
+完整序列、深浅／130% 与三类空状态由 API 37 connected 测试宿主截图覆盖，文件名均标注 `testhost`，不能当作
+生产课程数据。iOS 独立模拟器已实际启动和截图，但导入参考仍在首次设置流程，不能冒充与 Android 固定数据的成对
+TODAY 图。因此 R2 已实施和测试，但尚待 Sol／高独立审查及用户视觉验收；不得宣称 A02、A07、P3 或完整 App 验收，
+不得自动开始 P3-04。
+
 ## Sol 主 Agent／Terra 执行子 Agent 流程启用（2026-09-14）
 
 用户授权当前窗口作为 Sol 主 Agent：用户主要与主 Agent 对话，主 Agent 负责分析、定界、协调、核对实际 diff 和审查，不直接修改应用代码；用户明确授权的文档更新及其验证除外。已授权且适合委派的应用实施可由主 Agent 自行调用至多一个执行子 Agent，无需用户逐次复制提示词，但不能据此开始未授权阶段。

@@ -222,6 +222,9 @@ class QingKeAppTest {
 
     @Test fun todayApi37MatrixShowsOrderedStatusesColorsDetailsFeaturedAndBottomTabs() {
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:41:52")) }
+        listOf("terminal-backdrop", "today-brand-logo", "today-month-code", "today-day-number", "today-hero-code", "today-activity-rail").forEach {
+            rule.onNodeWithTag(it).assertIsDisplayed()
+        }
         listOf(
             Triple("today-course-0-0", "COMPLETE", "#287B74"),
             Triple("today-course-1-0", "CURRENT", "#287B74"),
@@ -242,7 +245,7 @@ class QingKeAppTest {
                 "today-course-1-0" -> rule.onNodeWithTag("today-course-details-1-0").assertTextContains("第 2 节")
             }
         }
-        listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
+        listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onAllNodesWithTag(it).assertCountEquals(1) }
     }
 
     @Test fun todayApi37MatrixSwitchesFeaturedAndReportsAllThreeEmptyStates() {
@@ -250,7 +253,7 @@ class QingKeAppTest {
         var now by mutableStateOf(LocalDateTime.parse("2026-08-31T08:50:00"))
         rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
         rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
-        rule.onNodeWithText("NEXT").assertIsDisplayed()
+        rule.onNodeWithTag("today-featured-status").assertTextContains("NEXT").assertIsDisplayed()
 
         now = LocalDateTime.parse("2026-08-31T15:00:00")
         rule.waitForIdle()
@@ -298,13 +301,32 @@ class QingKeAppTest {
                 QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now)
             }
         }
-        saveTodayScreenshot("p3-03-r1-today-light.png")
+        saveTodayScreenshot("android-api37-today-light-testhost.png")
         state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK))
         rule.waitForIdle()
-        saveTodayScreenshot("p3-03-r1-today-dark.png")
+        saveTodayScreenshot("android-api37-today-dark-testhost.png")
         fontScale = 1.3f
         rule.waitForIdle()
-        saveTodayScreenshot("p3-03-r1-today-font130.png")
+        saveTodayScreenshot("android-api37-today-font130-testhost.png")
+    }
+
+    @Test fun todayApi37ScreenshotsCoverAllThreeEmptyStates() {
+        var state by mutableStateOf(readyToday())
+        var now by mutableStateOf(LocalDateTime.parse("2026-06-01T09:00:00"))
+        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
+        rule.onNodeWithTag("today-empty").assertIsDisplayed()
+        saveTodayScreenshot("android-api37-empty-outside-semester.png")
+
+        now = LocalDateTime.parse("2026-09-01T09:00:00")
+        rule.waitForIdle()
+        saveTodayScreenshot("android-api37-empty-no-courses.png")
+
+        state = readyToday().copy(preferences = SchedulePreferences.defaults.copy(
+            academicCalendar = AcademicCalendarPreferences(nonTeachingDates = listOf("2026-08-31")),
+        ))
+        now = LocalDateTime.parse("2026-08-31T09:00:00")
+        rule.waitForIdle()
+        saveTodayScreenshot("android-api37-empty-non-teaching.png")
     }
 
     private fun formActions(
@@ -338,7 +360,9 @@ class QingKeAppTest {
     }
 
     private fun pullAndAssertOneRefresh(before: Int, refreshes: () -> Int) {
-        val container = rule.onNodeWithTag("today-refresh-container")
+        // Pull from the real nested scrolling surface, matching an end-user gesture rather than
+        // sending a synthetic swipe to PullToRefreshBox's non-visual semantic wrapper.
+        val container = rule.onNodeWithTag("today-scroll-content")
         container.performTouchInput { swipeDown() }
         rule.waitUntil(2_000) { refreshes() == before + 1 }
         rule.onNodeWithTag("today-refresh-status").assertIsDisplayed()
@@ -352,7 +376,7 @@ class QingKeAppTest {
     private fun saveTodayScreenshot(name: String) {
         val directory = File(
             requireNotNull(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")),
-            "p3-03-r1",
+            "p3-03-r2",
         ).also { check(it.exists() || it.mkdirs()) }
         File(directory, name).outputStream().use { output ->
             check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))

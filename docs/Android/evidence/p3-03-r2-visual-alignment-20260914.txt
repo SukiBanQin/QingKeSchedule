@@ -1,0 +1,48 @@
+# P3-03-R2 今日页与共享主壳视觉对齐证据（2026-09-14）
+
+执行基准：Android `10b92535216b87de2f808e3d5ec392aa6af18321`；iOS 参考为独立工作区
+`/Users/takagisan/课表软件-IOS` 的 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`（干净 `IOS...origin/IOS`）。
+
+## 实施范围
+
+- 以 iOS `TerminalBackdrop`、`TerminalPinnedBrandHeader`、`TodayScheduleView` 和 `TerminalTabBar` 为准，Android
+  新增 24dp 网格、三圈圆弧、环境渐变、浅／深画布与方角终端面板。
+- TODAY 保持 R1 的 `TodaySchedulePresentation`、颜色解析、状态文案、稳定 occurrence tag、秒级刷新与下拉门禁；
+  仅更换品牌头、三段日期 hero、活动条、featured、序列／行和三类空状态的视觉层级。
+- 底部为图标、中文标题、`01/02/03`、独立反色选中块和 30×4dp 黄色短线；状态仍只由 `ScheduleViewModel` 管理。
+- `source/cover.png` 机械缩放为 Android launcher／adaptive 资源，`source/qingke-logo-q-matrix-preview.png`
+  复制为只读 Android drawable；原 `source/` 未改。Manifest label、icon、roundIcon 已改为“青课”。
+
+## 截图与对照
+
+截图目录：`docs/Android/evidence/p3-03-r2/`。
+
+- `android-api37-today-light-testhost.png`、`android-api37-today-dark-testhost.png`、
+  `android-api37-today-font130-testhost.png`：正确 API 37 ARM64 connected 测试宿主的固定课程数据；含当前 featured、
+  完整序列和全部三标签。文件名明确标注 testhost，**不是**生产入口的课程数据。
+- `android-api37-empty-outside-semester.png`、`android-api37-empty-no-courses.png`、
+  `android-api37-empty-non-teaching.png`：connected 测试宿主的三类空状态。
+- `android-api37-launcher-icon.png`、`android-api37-production-onboarding.png`、
+  `android-api37-production-today-empty.png`、`android-api37-production-pull-refresh.png`、
+  `android-api37-production-schedule-tab.png`、`android-api37-production-settings-tab.png`：真实 Debug APK 的 API 37
+  生产入口。流程为安装、清除数据、首次设置以默认合法值保存、进入 TODAY 空状态、下拉、三标签、force-stop 与冷启动。
+- `ios-fc3ddfb8-production-reference.png` 和 `ios-fc3ddfb8-imported-reference.png`：独立 iOS `fc3ddfb8` 模拟器实拍，
+  用于核对素材、背景与层级。后者仍停在 iOS 的首次设置导入流程，因此不能冒充与 Android 固定课程数据的成对 TODAY 图。
+
+限制：P3-03 不含 Android 课程新增／导入入口；生产 APK 只能合法到达 TODAY 空状态，不能从生产入口构造固定课程的
+featured／完整序列或深浅／130% 对照。这些状态由 connected 测试宿主固定数据覆盖，留待 Sol 独立审查及用户实际视觉确认。
+没有添加假 ADD、编辑、详情点击或越权进入 P3-04。
+
+## 自动化与设备验证
+
+- `clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest`：通过。
+  Debug／Release JVM 各 79 tests，0 failures／0 errors／0 skipped；Debug lint 0 errors、19 warnings；Debug、Release
+  与 AndroidTest APK 均生成。
+- 正确 AVD：`qingke-api37-r3-arm`，显式 `ANDROID_HOME`／`ANDROID_SDK_ROOT` 和
+  `ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd`；实际 `emulator-5554`，SDK 37、`arm64-v8a`。
+  `connectedDebugAndroidTest` XML：37 tests，0 failures、0 errors、0 skipped。
+- 生产入口验证保存默认学期、空状态下拉、三标签、force-stop／重启；最后 500 条 app logcat 未见
+  `FATAL EXCEPTION` 或 `ANR in com.qingke.schedule`。
+
+Android 平台差异：系统状态／导航栏、Roboto／`FontFamily.Monospace` 的字形栅格与 iOS Avenir Next Condensed 不同；
+Android adaptive icon 受系统安全区裁切。品牌颜色、网格／圆环、信息结构、方角面板和选中态不因此改变。
