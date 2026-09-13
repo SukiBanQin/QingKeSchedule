@@ -1,5 +1,36 @@
 # 安卓项目当前交接状态
 
+## P3-03 独立复审未通过，等待 P3-03-R1 修正（最新，2026-09-13）
+
+分析审查窗口已只读复审 Android
+`1426661035d386bce0146d3eb048a72f0abd197a..60d776a3c315a4b43fec1c52a7d6e64bcd489e87` 的实际
+11 文件 diff、最新 `origin/IOS` `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`、Debug／Release JVM XML、
+API 37 connectedDebugAndroidTest XML 和 P3-03 证据。实施提交的父提交、文件范围、远端同步和测试数量与执行
+交接一致；复审期间没有修改应用代码，也没有进入 P3-04。
+
+已确认秒级生产语义与 iOS 基准一致：开始时刻进入 `ONGOING`、结束前一秒仍为 `ONGOING`、结束时刻进入
+`FINISHED`，共享 fixture 的进度为 2812／3788 秒和 `63:08`。`ScheduleViewModel.refreshCurrentTime()` 只更新
+内存时钟，根 Compose 使用 `repeatOnLifecycle(STARTED)`，列表生产键和 tag 使用
+`OccurrenceKey(courseIndex, scheduleIndex)`；代码范围没有越界接入课程编辑、周表、设置、通知或导入导出。
+
+复审仍发现三个阻断项：
+
+1. 今日课程序列没有读取或解析 `course.color`，`CourseRow` 始终使用主题 `surfaceVariant`，因此合法
+   `#RRGGBB` 和非法颜色显示相同，也没有实现非法颜色回退青色的契约。
+2. 本轮唯一新增 Compose 用例只检查静态页面、课程数、featured 和 `63:08`，最后反而断言刷新回调为 0；
+   没有执行有课／空状态真实下拉、刷新门禁及反馈结束，也没有验证 STARTED tick 在离开前台后停止、返回前台
+   立即刷新和 Activity 级 ViewModel 复用。其名称声称覆盖重复业务 ID 稳定 tag，但没有逐项断言四个
+   `today-course-{courseIndex}-{scheduleIndex}` 节点、顺序或状态。
+3. 没有提交任何 `p3-03-*.png`；现有证据只有摘要文本，未满足固定数据浅色／深色和 130% 字体或窄屏截图，
+   也没有记录真实生产入口对今日空状态下拉刷新及强停重启的完整步骤和结果。下一门 featured、全部结束时
+   无 featured、三类空状态、详情回退、课程颜色与深浅主题也缺少 API 37 回归。
+
+原始 API 37 XML 确为 31 tests、0 failures、0 errors、0 skipped，Debug／Release JVM XML 各 78 tests 且新增
+秒级和 ViewModel 用例真实进入测试体；这些结果有效，但不能覆盖上述缺口。完整复审记录见
+[P3-03 独立复审证据](evidence/p3-03-review-20260913.txt)。下一步只能由执行窗口完成 **P3-03-R1**：修复课程
+颜色及回退，补齐生命周期、真实下拉、完整今日 UI 矩阵、截图和生产入口证据，再交回分析窗口最终复审。
+建议执行窗口使用 **Terra／高**。不得宣称 P3-03、A02、A07、P3、完整 App 或用户验收完成，不得进入 P3-04。
+
 ## P3-03 今日页与秒级时钟已实施，等待独立复审（最新，2026-09-13）
 
 执行基准为 `1426661035d386bce0146d3eb048a72f0abd197a`，分支 `Android`。本轮将

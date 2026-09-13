@@ -1385,6 +1385,44 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("结束时刻及之后结束", baseline)
         self.assertIn("前台\n  时每秒刷新", baseline)
 
+    def test_p3_03_review_records_visual_refresh_and_device_evidence_gaps(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence = (DOCS / "evidence/p3-03-review-20260913.txt").read_text()
+        latest = handoff.split(
+            "## P3-03 独立复审未通过，等待 P3-03-R1 修正（最新，2026-09-13）",
+            1,
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+
+        for marker in (
+            "1426661035d386bce0146d3eb048a72f0abd197a..60d776a3c315a4b43fec1c52a7d6e64bcd489e87",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "课程颜色",
+            "surfaceVariant",
+            "刷新回调为 0",
+            "repeatOnLifecycle(STARTED)",
+            "today-course-{courseIndex}-{scheduleIndex}",
+            "p3-03-*.png",
+            "P3-03-R1",
+            "Terra／高",
+            "不得进入 P3-04",
+        ):
+            self.assertIn(marker, normalized)
+
+        for marker in (
+            "实际 diff 为 11 个文件",
+            "course.color",
+            "refreshes == 0",
+            "真实下拉手势",
+            "STARTED 每秒更新",
+            "recreate 后仍从新 Activity 的 ViewModelStore",
+            "31 tests、0 failures、0 errors、0 skipped",
+            "各 78 tests、0 failures、0 errors、0 skipped",
+            "独立复审\n未通过",
+            "不得进入 P3-04",
+        ):
+            self.assertIn(marker, evidence)
+
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
         evidence = (DOCS / "evidence/p3-01-schedule-presentation-jvm-20260910.txt").read_text()
