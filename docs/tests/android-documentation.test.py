@@ -47,6 +47,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p2-04-review.md",
             "p3-01-schedule-presentation.md",
             "p3-02-app-shell-onboarding.md",
+            "p3-03-today-schedule.md",
         ):
             with self.subTest(document=name):
                 path = DOCS / name
@@ -1316,14 +1317,73 @@ class AndroidDocumentationTests(unittest.TestCase):
         ]:
             self.assertIn(marker, analysis)
 
-        self.assertIn(
-            "## 用户确认 P3-01，P3-02 应用壳与首次设置分析完成待实施（最新，2026-09-11）",
-            handoff,
-        )
+        self.assertIn("P3-02 应用壳与首次设置分析完成待实施", handoff)
         self.assertIn("P3-01 已实现、测试、审查并获用户确认", handoff)
-        self.assertIn("P3-02 已分析授权待实施", plan)
+        self.assertIn("P3-02 应用壳、状态加载与首次学期设置", plan)
         self.assertIn("P3-02", design)
         self.assertIn("P3-02 应用壳、状态加载与首次学期设置", baseline)
+
+    def test_p3_03_today_page_analysis_tracks_current_ios_time_contract(self):
+        analysis = (DOCS / "p3-03-today-schedule.md").read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        normalized = re.sub(r"\s+", " ", analysis)
+
+        for marker in (
+            "db1077f4c7103b548644b484346b34588469bd4e",
+            "fc3ddfb8ffa14b205a591ffdbed5632d5f975001",
+            "c3191ae",
+            "Terra／高",
+            "elapsedSeconds",
+            "remainingSeconds",
+            "remainingClockText",
+            "2812",
+            "3788",
+            "63:08",
+            "结束时刻及之后为 `FINISHED`",
+            "每秒更新",
+            "下拉刷新",
+            "不得调用 `ScheduleAppState.load()`",
+            "TodaySchedulePresentation.create()",
+            "OccurrenceKey(courseIndex, scheduleIndex)",
+            "today-featured-progress",
+            "重复 `course.id`／`schedule.id`",
+            "130% 字体",
+            "不显示无效的编辑箭头",
+            "不得修改 `MainActivity`",
+            "不得提前实现 P3-04",
+            "connectedDebugAndroidTest",
+            "必须 由分析审查窗口独立复审",
+        ):
+            self.assertIn(marker, normalized)
+
+        latest = handoff.split(
+            "## 用户确认 P3-02，P3-03 今日页与实时刷新分析完成待实施（最新，2026-09-13）",
+            1,
+        )[1].split("\n## ", 1)[0]
+        normalized_handoff = re.sub(r"\s+", " ", latest)
+        for marker in (
+            "P3-02 已实现、测试、通过最终独立复审 并获用户确认",
+            "c3191ae",
+            "秒级倒计时",
+            "结束时刻即 `FINISHED`",
+            "不放置当前无法工作的 ADD 或编辑入口",
+            "Terra／高",
+            "没有修改应用代码",
+            "不自动进入 P3-04",
+        ):
+            self.assertIn(marker, normalized_handoff)
+
+        for contents in (plan, design, baseline):
+            self.assertIn("P3-03", contents)
+            self.assertIn("今日课表页面与实时刷新", contents)
+            self.assertIn("P3-02", contents)
+        self.assertIn("P3-03 已分析授权待实施", plan)
+        self.assertIn("开始时刻至结束时刻前进行中", baseline)
+        self.assertIn("结束时刻及之后结束", baseline)
+        self.assertIn("前台\n  时每秒刷新", baseline)
 
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
