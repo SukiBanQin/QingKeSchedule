@@ -1,0 +1,32 @@
+P3-03-R1 API 37 ARM64 设备阻断证据
+=====================================
+
+日期：2026-09-13
+
+本轮已完成但尚未作为 P3-03-R1 验收结论的本地实现：
+- 今日课程行严格接受 `#RRGGBB`；无效值回退 `QingKeCyan`，并以深色底的文字状态标签保留非颜色状态信息。
+- 新增 JVM 颜色解析回归；新增 Compose API 37 矩阵、真实下拉手势、生命周期／Activity 重建和测试宿主
+  浅色、深色、130% 字体截图用例。它们已经编译进 `assembleDebugAndroidTest`，但尚未能运行。
+
+已通过的本地验证：
+- `ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain`
+  完成；Debug／Release JVM XML 各 79 tests、0 failures、0 errors、0 skipped（含
+  `QingKeAppColorTest` 1 项）；lintDebug 已生成报告且没有 error。
+- `git diff --check` 通过。
+
+API 37 阻断（不等同于测试失败）：
+- 目标 AVD：`qingke-api37-r3-arm`，API 37，ABI `arm64-v8a`；SDK 工具为
+  `/Users/takagisan/Library/Android/sdk-qingke-api37`。
+- 三次启动均一度被 `adb devices -l` 枚举为 `emulator-5554 device`，但 Android 框架尚未响应
+  `adb shell getprop`，Gradle 因 `ShellCommandUnresponsiveException` 将其标为 Unknown API Level。
+- 显式 `-accel on`、`-accel off` 与无 GPU 参数均重试过。宿主 `emulator -accel-check` 显示
+  `Hypervisor.Framework OS X Version 26.6`；QEMU 仍记录 `hvf is not enabled on this aarch64 host`。
+- 最新 macOS 崩溃报告
+  `/Users/takagisan/Library/Logs/DiagnosticReports/qemu-system-aarch64-2026-09-13-181428.ips`
+  记录 `EXC_BAD_ACCESS` / `SIGSEGV`；较早一次
+  `qemu-system-aarch64-2026-09-13-180942.ips` 记录
+  `libandroid-emu-tracing.dylib` 缺失。即使补齐启动器库路径环境，后续实例仍 SIGSEGV。
+
+因此尚未完成：唯一 API 37 ARM64 `connectedDebugAndroidTest`、测试宿主 PNG 拉取与视觉检查、真实生产
+入口（已保存学期、空状态下拉、force-stop 重启）及无 FATAL EXCEPTION／ANR 日志证据。不得把本文件或
+本地绿测表述为 P3-03-R1、P3-03、A02、A07、P3、完整 App 或用户验收完成。

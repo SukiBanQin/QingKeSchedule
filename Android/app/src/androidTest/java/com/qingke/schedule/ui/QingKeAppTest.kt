@@ -4,10 +4,13 @@ import android.view.View
 import android.widget.DatePicker
 import android.widget.TimePicker
 import android.os.SystemClock
+import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,12 +20,17 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.platform.LocalDensity
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.ViewAction
@@ -53,6 +61,11 @@ import org.junit.runner.RunWith
 import org.hamcrest.Matcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.test.platform.app.InstrumentationRegistry
+import com.qingke.schedule.preferences.AcademicCalendarPreferences
+import com.qingke.schedule.preferences.AppearanceMode
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class QingKeAppTest {
@@ -206,6 +219,79 @@ class QingKeAppTest {
         assertEquals(0, refreshes)
     }
 
+    @Test fun todayApi37MatrixShowsOrderedStatusesColorsDetailsFeaturedAndBottomTabs() {
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:41:52")) }
+        listOf(
+            Triple("today-course-0-0", "COMPLETE", "#287B74"),
+            Triple("today-course-1-0", "CURRENT", "#287B74"),
+            Triple("today-course-2-0", "NEXT", "#287B74"),
+            Triple("today-course-3-0", "UPCOMING", "#28B9D6"),
+        ).also {
+            rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
+            rule.onAllNodesWithTag("today-featured-course-0-0").assertCountEquals(0)
+            rule.onNodeWithTag("today-course-details-1-0").assertTextContains("第 2 节")
+            rule.onNodeWithTag("today-course-details-0-0").assertTextContains("老师")
+        }.forEach { (course, status, color) ->
+            rule.onNodeWithTag(course).performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag(course.replace("today-course-", "today-course-status-")).assertTextContains(status)
+            rule.onNodeWithTag(course.replace("today-course-", "today-course-color-")).assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("课程颜色：$color")),
+            )
+        }
+        listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onNodeWithTag(it).assertIsDisplayed() }
+    }
+
+    @Test fun todayApi37MatrixSwitchesFeaturedAndReportsAllThreeEmptyStates() {
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T08:50:00")) }
+        rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
+        rule.onNodeWithText("NEXT").assertIsDisplayed()
+
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T15:00:00")) }
+        rule.onAllNodesWithTag("today-featured-course-0-0").assertCountEquals(0)
+        rule.onAllNodesWithTag("today-featured-course-1-0").assertCountEquals(0)
+        rule.onNodeWithText("END OF SCHEDULE", substring = true).performScrollTo().assertIsDisplayed()
+
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-06-01T09:00:00")) }
+        rule.onNodeWithTag("today-empty").assertTextContains("当前日期不在这个学期内")
+
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-09-01T09:00:00")) }
+        rule.onNodeWithTag("today-empty").assertTextContains("今天没有课程")
+
+        val nonTeaching = readyToday().copy(preferences = SchedulePreferences.defaults.copy(
+            academicCalendar = AcademicCalendarPreferences(nonTeachingDates = listOf("2026-08-31")),
+        ))
+        rule.setContent { QingKeAppContent(nonTeaching, null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00:00")) }
+        rule.onNodeWithTag("today-empty").assertTextContains("已设为停课日")
+    }
+
+    @Test fun todayPullToRefreshOnCoursesAndEmptyStateGatesReentryAndFinishesFeedback() {
+        var refreshes = 0
+        fun render(state: ScheduleState, time: LocalDateTime) {
+            rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(refreshTime = { refreshes++ }), time) }
+        }
+        render(readyToday(), LocalDateTime.parse("2026-08-31T09:41:52"))
+        pullAndAssertOneRefresh(refreshes) { refreshes }
+
+        render(readyToday(), LocalDateTime.parse("2026-09-01T09:00:00"))
+        pullAndAssertOneRefresh(refreshes) { refreshes }
+    }
+
+    @Test fun todayApi37ScreenshotsCoverLightDarkAndLargeFontTestHosts() {
+        var state by mutableStateOf(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = AppearanceMode.LIGHT)))
+        val now = LocalDateTime.parse("2026-08-31T09:41:52")
+        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
+        saveTodayScreenshot("p3-03-r1-today-light.png")
+        state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK))
+        rule.waitForIdle()
+        saveTodayScreenshot("p3-03-r1-today-dark.png")
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale = 1.3f)) {
+                QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now)
+            }
+        }
+        saveTodayScreenshot("p3-03-r1-today-font130.png")
+    }
+
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
     ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
@@ -234,6 +320,25 @@ class QingKeAppTest {
     private fun waitForSystemDialog() {
         rule.waitForIdle()
         SystemClock.sleep(250)
+    }
+
+    private fun pullAndAssertOneRefresh(before: Int, refreshes: () -> Int) {
+        val container = rule.onNodeWithTag("today-refresh-container")
+        container.performTouchInput { swipeDown() }
+        rule.waitUntil(2_000) { refreshes() == before + 1 }
+        rule.onNodeWithTag("today-refresh-status").assertIsDisplayed()
+        container.performTouchInput { swipeDown() }
+        assertEquals(before + 1, refreshes())
+        SystemClock.sleep(500)
+        rule.waitForIdle()
+        rule.onAllNodesWithTag("today-refresh-status").assertCountEquals(0)
+    }
+
+    private fun saveTodayScreenshot(name: String) {
+        val directory = requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("p3-03-r1"))
+        File(directory, name).outputStream().use { output ->
+            check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+        }
     }
 
     private fun defaultForm(count: Int = 10, expanded: Boolean = false, validation: String? = null) = SemesterFormState(

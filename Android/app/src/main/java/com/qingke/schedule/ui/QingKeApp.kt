@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -89,6 +90,15 @@ private val DarkSurface = Color(0xFF182427)
 private val LightSurface = Color(0xFFF1F5F4)
 private val Danger = Color(0xFFE65A4F)
 private val TerminalShape = RoundedCornerShape(0.dp)
+
+/** Accept only the persisted six-digit RGB format; malformed legacy data gets the brand fallback. */
+internal fun courseColor(raw: String): Color {
+    if (!raw.matches(Regex("^#[0-9A-Fa-f]{6}$"))) return QingKeCyan
+    return Color(0xFF000000L or raw.substring(1).toLong(16))
+}
+
+internal fun courseColorLabel(raw: String): String =
+    if (raw.matches(Regex("^#[0-9A-Fa-f]{6}$"))) raw.uppercase() else "#28B9D6"
 
 /** The testable root has callbacks only; production still owns all lifecycle-aware collection. */
 data class QingKeAppActions(
@@ -368,7 +378,7 @@ fun QingKeAppContent(
     Text(if (item.status == CourseStatus.ONGOING) "CURRENT" else "NEXT", color = SignalYellow, fontWeight = FontWeight.Black)
     Text(ScheduleDisplayText.timeRange(item.occurrence.schedule, semester), color = Color.White)
     Text(item.occurrence.course.name, color = Color.White, style = MaterialTheme.typography.headlineSmall)
-    Text(courseDetails(item.occurrence), color = Color.White)
+    Text(courseDetails(item.occurrence), color = Color.White, modifier = Modifier.testTag("today-featured-details"))
     item.timingProgress?.let { progress ->
         LinearProgressIndicator({ progress.fraction.toFloat() }, Modifier.fillMaxWidth().padding(top = 10.dp).testTag("today-featured-progress"), color = QingKeCyan)
         Text("已进行 ${progress.elapsedMinutes} 分钟 · 剩余 ${progress.remainingClockText}", color = Color.White)
@@ -380,11 +390,25 @@ fun QingKeAppContent(
         .testTag("today-course-${item.occurrence.key.courseIndex}-${item.occurrence.key.scheduleIndex}"),
     verticalAlignment = Alignment.CenterVertically,
 ) {
+    val color = courseColor(item.occurrence.course.color)
+    val key = item.occurrence.key
+    Box(
+        Modifier.width(6.dp).heightIn(min = 76.dp).background(color)
+            .testTag("today-course-color-${key.courseIndex}-${key.scheduleIndex}")
+            .semantics { contentDescription = "课程颜色：${courseColorLabel(item.occurrence.course.color)}" },
+    )
+    Spacer(Modifier.width(12.dp))
     Column(Modifier.weight(1f)) {
-        Text(statusText(item), color = if (item.status == CourseStatus.ONGOING) SignalYellow else QingKeCyan, fontWeight = FontWeight.Bold)
+        Text(
+            statusText(item),
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.background(InverseSurface).padding(horizontal = 6.dp, vertical = 2.dp)
+                .testTag("today-course-status-${key.courseIndex}-${key.scheduleIndex}"),
+        )
         Text(ScheduleDisplayText.timeRange(item.occurrence.schedule, semester))
         Text(item.occurrence.course.name, style = MaterialTheme.typography.titleMedium)
-        Text(courseDetails(item.occurrence))
+        Text(courseDetails(item.occurrence), modifier = Modifier.testTag("today-course-details-${key.courseIndex}-${key.scheduleIndex}"))
     }
 }
 

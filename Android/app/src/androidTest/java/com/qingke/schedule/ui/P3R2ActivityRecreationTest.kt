@@ -2,6 +2,7 @@ package com.qingke.schedule.ui
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.os.SystemClock
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -11,8 +12,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.qingke.schedule.domain.Course
+import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.persistence.ScheduleRepository
@@ -22,6 +25,7 @@ import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.viewmodel.MainTab
 import com.qingke.schedule.viewmodel.ScheduleViewModel
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -89,9 +93,63 @@ class P3R2ActivityRecreationTest {
         assertEquals(1, creations)
     }
 
-    private class HostRepository : ScheduleRepository {
-        private var data = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z")
-        override suspend fun load() = data
+    @Test fun todayClockTicksOnlyWhileStartedRefreshesImmediatelyAndKeepsOneActivityModelAfterRecreate() {
+        var clock = LocalDateTime.parse("2026-08-31T09:41:52")
+        val repository = HostRepository(
+            ScheduleData(
+                1,
+                Semester("semester", "已保存学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45"))),
+                emptyList(),
+                "1970-01-01T00:00:00Z",
+            ),
+        )
+        val preferences = object : SchedulePreferencesRepository {
+            override suspend fun load() = SchedulePreferences.defaults
+            override suspend fun save(preferences: SchedulePreferences) = preferences
+            override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences) = transform(SchedulePreferences.defaults)
+        }
+        var creations = 0
+        val factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                creations++
+                return ScheduleViewModel(ScheduleAppState(repository, preferences), { clock }) as T
+            }
+        }
+        val original = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
+        rule.setContent { QingKeApp(original) }
+        rule.waitUntil(5_000) { original.state.value.loadStatus.name == "READY" }
+        rule.onNodeWithTag("today-screen").assertIsDisplayed()
+
+        clock = clock.plusSeconds(1)
+        rule.waitUntil(2_500) { original.currentTime.value == clock }
+        val startedTime = original.currentTime.value
+        rule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        SystemClock.sleep(1_200)
+        clock = clock.plusSeconds(1)
+        SystemClock.sleep(1_200)
+        assertEquals(startedTime, original.currentTime.value)
+
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.waitUntil(2_000) { original.currentTime.value == clock }
+        rule.activityRule.scenario.recreate()
+        lateinit var recreated: ScheduleViewModel
+        rule.activityRule.scenario.onActivity { activity ->
+            recreated = ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]
+            assertSame(original, recreated)
+            activity.setContent { QingKeApp(recreated) }
+        }
+        rule.waitUntil(2_000) { recreated.currentTime.value == clock }
+        rule.onNodeWithTag("today-screen").assertIsDisplayed()
+        assertEquals(1, creations)
+        assertEquals(1, repository.loads)
+    }
+
+    private class HostRepository(
+        private var data: ScheduleData = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z"),
+    ) : ScheduleRepository {
+        var loads = 0
+        override suspend fun load() = data.also { loads++ }
         override suspend fun replace(data: ScheduleData) = data.also { this.data = it }
         override suspend fun saveSemester(semester: Semester) = data.copy(semester = semester).also { data = it }
         override suspend fun saveCourse(course: Course) = data
