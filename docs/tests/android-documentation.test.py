@@ -54,6 +54,17 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("不创建子 Agent", handoff)
         self.assertIn("不改全局配置", handoff)
 
+    def test_subagent_reuse_requires_lookup_and_safe_writer_transition(self):
+        rules = (ROOT / "AGENTS.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text().split(
+            "### 子 Agent 查找、复用与重建", 1)[1].split("## 需要独立审查", 1)[0]
+        for contents in (rules, plan):
+            for marker in ("所属主会话", "标识", "completed", "续接", "缓存未命中",
+                           "未确认停止写入前不启动另一个写入者", "跨官方／中转站"):
+                self.assertIn(marker, contents)
+        self.assertIn("不声称已尝试恢复", plan)
+        self.assertIn("子 Agent 复用规则补充", (DOCS / "handoff.md").read_text())
+
     def test_incremental_reading_contract_and_task_templates(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 增量阅读", 1)[1].split("# 交接与验证", 1)[0]
         for safeguard in ("未提交改动", "新窗口", "压缩", "必要验证", "不保证缓存命中率"):
