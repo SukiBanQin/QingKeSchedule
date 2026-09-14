@@ -157,3 +157,10 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - API 37 ARM64 定向 instrumentation 已通过：课程 panel／backdrop bounds、冲突 status tag，以及真实 dropdown 打开并选择非相邻星期。完整主机、connected 与生产截图仍待最终提交基准执行。
 
 - 最终确认层修正：top row 仅保留 code 和状态点；status 是下一行独立方角有色 tag。discard／delete 的 accent、code、状态点、status 与主操作统一 `Danger`，conflict 统一 signal。三种指定中文文案、两按钮与 status tag 的定向 API 37 用例通过；完整回归待最后提交基准。
+
+## B4 终端视觉生产复拍与最终自动化（2026-09-14）
+
+- 最终代码基准 `ccfb078`：固定 API 37 ARM64 `emulator-5554` 上，`clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 成功。Debug／Release JVM 均为 **88 tests、0 failures、0 errors、0 skipped**；`lintDebug` **0 errors、21 warnings**；Debug、Release 与 AndroidTest APK 都已生成。
+- 最终 `connectedDebugAndroidTest --rerun-tasks` XML：**56 tests、0 failures、0 errors、0 skipped**。
+- 生产 `app-debug.apk` 安装并通过真实 `MainActivity` 操作最小学期与两门课程；新截图位于 `evidence/p3-04-visual-r1/`：TODAY 浅色空态／有课、CREATE、PROFILE chooser、APPEND、实际星期菜单、未保存确认、删除确认、冲突确认，以及深色 + 130% 字体的冲突确认。画面检查覆盖独立 editor 网格背景不透出 TODAY、双行顶栏、单课程信息 panel、ADD 内框／折角、菜单、三种 status tag 和浅色／深色可读性；未发现裁切或重叠。
+- 生产流程后导出 logcat 并检索 `FATAL EXCEPTION`、`ANR in com.qingke.schedule`、`am_anr` 与目标应用 crash，均无匹配。系统恢复 light / 1.0 font scale。该证据表示已修正、已测试，仍等待 Sol 最终视觉复审和用户验收；不代表用户验收。

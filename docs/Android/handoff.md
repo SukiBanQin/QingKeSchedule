@@ -14,6 +14,12 @@
 
 确认层文案已收紧为 iOS 约定：冲突 `检测到课程冲突`／`冲突会被标记，但仍可保存。`；未保存修改为明确放弃提示；删除为不可撤销和确认删除。该修正及最终验证仍待提交。
 
+## P3-04 B4 视觉返工已完成自动化与生产复拍，待 Sol 最终视觉复审（2026-09-14）
+
+最终代码为 `Android` 分支 `ccfb078d017c1a4346df2f35e3b0a4ab449d9691`，本地与 `origin/Android` 同步、交付前工作区干净。仅修改 P3-04 TODAY／ADD／CourseEditor、对应 AndroidTest 和证据文档；没有扩大到 iOS、Web、共享协议、Room 业务、周表、设置、通知、导入导出或 `main`。最终 production 证据目录为 `docs/Android/evidence/p3-04-visual-r1/`。
+
+最终验证：API 37 ARM64 `emulator-5554`；Debug／Release JVM 各 88 tests、0 failures/errors/skipped；`lintDebug` 0 errors、21 warnings；Debug／Release／AndroidTest APK 通过。最终 `connectedDebugAndroidTest --rerun-tasks` XML 为 **56 tests、0 failures、0 errors、0 skipped**。生产 APK 已实际完成最小学期、空态／有课 TODAY、CREATE、chooser、APPEND、真实 picker、conflict、discard、delete、深色／130% 复拍；目标 FATAL／ANR 检索无匹配，系统已恢复 light / 1.0。准确状态为**已修正、已自动化测试、已生产复拍，等待 Sol 最终视觉复审及用户验收**；不得称为用户已验收或启动下一阶段。
+
 已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
 
 ## 子 Agent 复用规则补充（2026-09-14）
