@@ -164,6 +164,12 @@ class QingKeAppTest {
         rule.onNodeWithText("WARNING / CONFLICT", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-conflict-confirm-status").assertTextContains("SCHEDULE COLLISION")
         rule.onNodeWithTag("course-conflict-confirm-backdrop").assertIsDisplayed()
+        rule.onNodeWithText("检测到课程冲突", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("仍可保存", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Discard)
+        rule.waitForIdle(); rule.onNodeWithTag("course-discard-confirm-status").assertTextContains("DISCARD CHANGES"); rule.onNodeWithText("放弃未保存的修改？", useUnmergedTree = true).assertIsDisplayed(); rule.onNodeWithText("继续编辑", useUnmergedTree = true).assertIsDisplayed(); rule.onNodeWithText("放弃修改", useUnmergedTree = true).assertIsDisplayed()
+        editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Delete)
+        rule.waitForIdle(); rule.onNodeWithTag("course-delete-confirm-status").assertTextContains("IRREVERSIBLE"); rule.onNodeWithText("删除这门课程？", useUnmergedTree = true).assertIsDisplayed(); rule.onNodeWithText("确认删除", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun schedulePickerOpensMenuAndSelectsNonAdjacentDay() {

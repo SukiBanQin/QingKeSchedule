@@ -155,3 +155,5 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - `01 / 课程资料` 现将名称、教师、课程颜色、圆形六色样本、自定义颜色和当前色值置于同一 terminal panel；名称和教师改为 plain 输入行与 divider，保留原业务 tag 与更新回调。APPEND 改为 `沿用课程资料 / REUSED PROFILE`，并明确仅新增安排；危险区改为独立 `99` header、panel 与不可撤销说明。
 - CourseEditor backdrop 提升到全屏 root，内层内容才应用系统栏 padding；测试断言 backdrop 和 editor root 有相同 bounds。三类 dialog 使用独立有色 status tag、状态点及按 discard/delete/conflict 选择的 tone／文案；浅色标题和正文采用主题文字色。
 - API 37 ARM64 定向 instrumentation 已通过：课程 panel／backdrop bounds、冲突 status tag，以及真实 dropdown 打开并选择非相邻星期。完整主机、connected 与生产截图仍待最终提交基准执行。
+
+- 最终确认层修正：top row 仅保留 code 和状态点；status 是下一行独立方角有色 tag。discard／delete 的 accent、code、状态点、status 与主操作统一 `Danger`，conflict 统一 signal。三种指定中文文案、两按钮与 status tag 的定向 API 37 用例通过；完整回归待最后提交基准。

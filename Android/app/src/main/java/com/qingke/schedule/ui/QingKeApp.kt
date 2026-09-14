@@ -640,12 +640,14 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
 )
 
 @Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .58f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
-    Column(Modifier.padding(24.dp).fillMaxWidth().terminalPanel(dark = dark, accent = if (code.startsWith("DANGER")) Danger else SignalYellow, level = TerminalSurfaceLevel.ELEVATED).padding(16.dp).testTag(tag)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = if (code.startsWith("DANGER")) Danger else SignalYellow, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(if (code.startsWith("DANGER")) Danger else SignalYellow, androidx.compose.foundation.shape.CircleShape)); Spacer(Modifier.width(6.dp)); Text(status, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 9.sp, modifier = Modifier.testTag("$tag-status")) }
+    val danger = code.startsWith("DANGER") || status == "DISCARD CHANGES"
+    val tone = if (danger) Danger else SignalYellow
+    Column(Modifier.padding(24.dp).fillMaxWidth().terminalPanel(dark = dark, accent = tone, level = TerminalSurfaceLevel.ELEVATED).padding(16.dp).testTag(tag)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = tone, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(tone, androidx.compose.foundation.shape.CircleShape).testTag("$tag-status-dot")) }
+        Text(status, color = InverseSurface, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp).background(tone).padding(horizontal = 6.dp, vertical = 3.dp).testTag("$tag-status"))
         Text(title, color = terminalText(dark), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         if (message.isNotEmpty()) Text(message, color = terminalSecondary(dark), modifier = Modifier.padding(top = 8.dp))
         messageContent?.let { Column(Modifier.padding(top = 8.dp)) { it() } }
-        val danger = code.startsWith("DANGER") || status == "DISCARD CHANGES"
         Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { if (dismissTag != null) OutlinedButton(onDismiss, Modifier.weight(1f).heightIn(min = 46.dp).testTag(dismissTag), shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(contentColor = terminalText(dark))) { Text(dismiss) }; Button(onConfirm, Modifier.weight(1f).heightIn(min = 46.dp).testTag(confirmTag), shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = if (danger) Danger else SignalYellow, contentColor = InverseSurface)) { Text(confirm) } }
     }
 }
