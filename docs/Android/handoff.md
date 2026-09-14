@@ -1,10 +1,10 @@
 # 安卓项目当前交接状态
 
-## P3-03-R2 聚焦视觉修正设备验证完成，待 Sol 审查与用户视觉验收（2026-09-14）
+## P3-03-R2 聚焦视觉修正通过 Sol 独立复审，待用户视觉验收（2026-09-14）
 
 执行子 Agent 已无损恢复 `qingke-api37-r3-arm`：此前 `-no-window` 父进程快速返回被误判为 AVD 退出，verbose 日志确认 QEMU 继续完整冷启动；`emulator-5554` 已实际确认 SDK 37、`arm64-v8a`、`sys.boot_completed=1`。最终 `connectedDebugAndroidTest` 为 41 tests、0 failures、0 errors、0 skipped。设备 testhost 截图已更新浅／深、130% 字体、固定课程 featured／队列／底栏与三类空状态；130% 目视发现的课程行时间换行已在当前授权视觉范围内以固定单行字号修正并重跑通过。底栏几何测试现在通过非合并语义树验证实际 wrap-content 内容组小于标签宽度且与标签中心相差不超过 1.5px。
 
-本轮证据见 [P3-03-R2 聚焦视觉修正 API 37 设备证据](evidence/p3-03-r2-visual-device-recovery-20260914.txt)。测试宿主固定课程仍不是生产入口能力；未加入 ADD、测试入口或课程 CRUD。此状态是“已实现／已设备测试、Sol 待审查、用户视觉验收待定”，不代表 P3、A02、A07、A11 或完整 App 已验收。本轮代码／证据提交号由完成提交后在交付信息中记录。
+本轮代码与设备证据提交为 `5f5bf2b48d763acab15b9ae83b24ff9b8ee5c1e2`，详见 [P3-03-R2 聚焦视觉修正 API 37 设备证据](evidence/p3-03-r2-visual-device-recovery-20260914.txt)。Sol 主 Agent 已独立核对实际 diff、最终 connected XML、设备属性、七张更新截图和 iOS 同状态参考，未发现新的阻断项。测试宿主固定课程仍不是生产入口能力；未加入 ADD、测试入口或课程 CRUD。此状态是“已实现／已设备测试／已通过 Sol 技术独立复审、用户视觉验收待定”，不代表 P3、A02、A07、A11 或完整 App 已验收。
 
 ## P3-03-R2 聚焦视觉修正实施（2026-09-14）
 
