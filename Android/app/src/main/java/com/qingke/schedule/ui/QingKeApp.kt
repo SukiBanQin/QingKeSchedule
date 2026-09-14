@@ -309,12 +309,14 @@ fun QingKeAppContent(
             val active = selected == tab
             Column(Modifier.weight(1f).height(62.dp).background(if (active) InverseSurface else Color.Transparent, TerminalShape)
                 .selectable(active, onClick = { onSelect(tab) }, role = Role.Tab).testTag("${tab.name.lowercase()}-tab").semantics { contentDescription = title }) {
-                Row(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 7.dp).testTag("${tab.name.lowercase()}-tab-content"), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    TerminalTabIcon(tab, if (active) Color(0xFFF1F5F4) else terminalText(dark), "${tab.name.lowercase()}-tab-icon")
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(title, color = if (active) Color(0xFFF1F5F4) else terminalText(dark), fontWeight = FontWeight.Bold)
-                        Text(number, color = if (active) SignalYellow else terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
+                Row(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.testTag("${tab.name.lowercase()}-tab-content"), verticalAlignment = Alignment.CenterVertically) {
+                        TerminalTabIcon(tab, if (active) Color(0xFFF1F5F4) else terminalText(dark), "${tab.name.lowercase()}-tab-icon")
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(title, color = if (active) Color(0xFFF1F5F4) else terminalText(dark), fontWeight = FontWeight.Bold)
+                            Text(number, color = if (active) SignalYellow else terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
                 Box(Modifier.align(Alignment.CenterHorizontally).width(30.dp).heightIn(min = 4.dp).background(if (active) SignalYellow else Color.Transparent))

@@ -4,7 +4,7 @@
 
 本轮执行子 Agent 已在 `Android` 分支完成用户新增视觉反馈范围：`TerminalTabBar` 三个等宽标签的图标／标题／编号组改为水平居中；从 `source/qingke-logo-q-matrix-preview.png` 机械裁除透明留白并输出 1300×500 Android Logo，同步浅色、深色及 night 变体；共享 `terminalPanel` 增加浅／深色半透明表面、左上至右下高光渐变、亮边及方角黑色柔和阴影，并应用于底栏及既有面板使用点。新增 AndroidTest 覆盖标签图标／标题／编号存在和 1300×500 Logo 资源契约，未新增生产 ADD 或测试数据入口。
 
-上一提交 `c79b137` 已推送。本轮继续修正尚未提交：内容 Row 改为 `fillMaxWidth` 并新增几何中心断言；恢复通用 `terminalBorder`，新增独立 `terminalPanelEdge`；实现 standard/elevated 两级面板，底栏使用 elevated，其余面板使用 standard。 connectedDebugAndroidTest 仍需启动 `qingke-api37-r3-arm`；不得宣称用户视觉验收完成。
+上一提交 `c79b137` 已提交并推送；本轮修正提交为 `d5cdca9`（已提交并推送）。其内容 Row 使用 `fillMaxWidth` 外层居中，测试标签位于实际 wrap-content 内容组并通过 bounds 中心断言；恢复通用 `terminalBorder`，新增独立 `terminalPanelEdge`；实现 standard/elevated 两级面板，底栏使用 elevated，其余面板使用 standard。主机 JVM／lint／AndroidTest APK 与文档测试通过；connectedDebugAndroidTest 因 `qingke-api37-r3-arm` 当前无法启动、无连接设备而未执行。不得宣称用户视觉验收完成。
 
 ## 切换中转站 Sol 主窗口，P3-03-R2 用户视觉反馈待定界（最新，2026-09-14）
 
