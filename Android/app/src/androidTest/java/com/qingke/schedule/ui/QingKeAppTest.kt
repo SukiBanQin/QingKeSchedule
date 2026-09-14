@@ -228,6 +228,9 @@ class QingKeAppTest {
         var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var addCalls = 0
         rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        val noticeBounds = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("success notice must clear ADD: notice=$noticeBounds add=$addBounds", noticeBounds.bottom <= addBounds.top || noticeBounds.right <= addBounds.left || noticeBounds.left >= addBounds.right)
         rule.onNodeWithTag("today-add-course").performClick(); assertEquals(1, addCalls)
         state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK)); rule.waitForIdle()
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()

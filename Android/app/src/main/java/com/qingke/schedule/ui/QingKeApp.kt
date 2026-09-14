@@ -243,7 +243,8 @@ fun QingKeAppContent(
 
 @Composable private fun CourseSuccessNotice(message: String, dark: Boolean, consume: () -> Unit) {
     LaunchedEffect(message) { delay(2_600); consume() }
-    Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 104.dp), contentAlignment = Alignment.BottomCenter) {
+    // Keep the non-blocking notice above both the terminal tab bar and TODAY's floating ADD.
+    Box(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 104.dp, bottom = 180.dp), contentAlignment = Alignment.BottomCenter) {
         Row(Modifier.fillMaxWidth().terminalPanel(dark, QingKeCyan).padding(12.dp).testTag("course-success-notice")) {
             Text("OK", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(10.dp)); Text(message, color = terminalText(dark), fontWeight = FontWeight.Bold)
