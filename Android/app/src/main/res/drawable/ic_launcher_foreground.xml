@@ -2,6 +2,6 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The inset keeps the cover artwork inside the Android adaptive-icon safe zone. -->
     <item android:bottom="18dp" android:end="18dp" android:start="18dp" android:top="18dp">
-        <bitmap android:gravity="fill" android:src="@mipmap/ic_launcher" />
+        <bitmap android:gravity="fill" android:src="@drawable/qingke_cover" />
     </item>
 </layer-list>

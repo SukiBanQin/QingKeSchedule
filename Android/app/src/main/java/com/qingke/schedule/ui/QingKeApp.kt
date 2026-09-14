@@ -6,7 +6,6 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
@@ -342,18 +341,20 @@ fun QingKeAppContent(
     val presentation = TodaySchedulePresentation.create(semester, state.data.courses, now, state.preferences.academicCalendar)
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val triggerRefresh = { if (!refreshing) scope.launch { refreshing = true; refresh(); delay(350); refreshing = false } }
+    val triggerRefresh = {
+        if (!refreshing) {
+            refreshing = true
+            scope.launch {
+                refresh()
+                delay(350)
+                refreshing = false
+            }
+        }
+    }
     Column(modifier.statusBarsPadding().testTag("today-screen")) {
         BrandHeader(dark)
         PullToRefreshBox(isRefreshing = refreshing, onRefresh = triggerRefresh, modifier = Modifier.weight(1f).fillMaxWidth().testTag("today-refresh-container")) {
-            var draggedDistance by remember { mutableStateOf(0f) }
-            LazyColumn(Modifier.fillMaxSize().testTag("today-scroll-content").pointerInput(refreshing) {
-                detectVerticalDragGestures(
-                    onVerticalDrag = { _, amount -> draggedDistance += amount },
-                    onDragEnd = { if (kotlin.math.abs(draggedDistance) > 96f && !refreshing) triggerRefresh(); draggedDistance = 0f },
-                    onDragCancel = { draggedDistance = 0f },
-                )
-            }, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            LazyColumn(Modifier.fillMaxSize().testTag("today-scroll-content"), contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 item { TodayHero(now, semester, presentation, dark, Modifier.testTag("today-date-hero")) }
                 if (refreshing) item { RefreshFeedback(dark) }
                 if (presentation.items.isEmpty()) item { TodayEmpty(presentation.emptyMessage, dark) }
@@ -376,7 +377,7 @@ fun QingKeAppContent(
     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 12.dp).border(width = 0.dp, color = Color.Transparent)
         .drawBehind { drawLine(if (dark) Color.White.copy(alpha = .20f) else Color.Black.copy(alpha = .18f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.testTag("today-brand-header"), verticalAlignment = Alignment.CenterVertically,
 ) {
-    androidx.compose.foundation.Image(painterResource(R.drawable.qingke_logo), "青课 QINGKE ACADEMIC TERMINAL", Modifier.width(154.dp).heightIn(min = 54.dp).testTag("today-brand-logo"), contentScale = ContentScale.Fit)
+    androidx.compose.foundation.Image(painterResource(if (dark) R.drawable.qingke_logo_dark else R.drawable.qingke_logo), "青课 QINGKE ACADEMIC TERMINAL", Modifier.width(154.dp).heightIn(min = 54.dp).testTag("today-brand-logo"), contentScale = ContentScale.Fit)
     Spacer(Modifier.weight(1f)); Text("LOCAL / 01", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
 }
 
@@ -413,7 +414,7 @@ fun QingKeAppContent(
 
 @Composable private fun CourseRow(item: TodayCourseItem, semester: com.qingke.schedule.domain.Semester, index: Int, dark: Boolean) = Row(Modifier.fillMaxWidth().terminalPanel(dark, courseColor(item.occurrence.course.color)).alpha(if (item.status == CourseStatus.FINISHED) .56f else 1f).padding(12.dp).testTag("today-course-${item.occurrence.key.courseIndex}-${item.occurrence.key.scheduleIndex}"), verticalAlignment = Alignment.CenterVertically) {
     val key = item.occurrence.key; val accent = if (item.status == CourseStatus.ONGOING) SignalYellow else courseColor(item.occurrence.course.color)
-    Text("%02d".format(index + 1), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.width(24.dp)); Column(Modifier.width(66.dp)) { val range = ScheduleDisplayText.timeRange(item.occurrence.schedule, semester).split("–"); Text(range.firstOrNull().orEmpty(), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge); Text(range.getOrNull(1).orEmpty(), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(1.dp).heightIn(min = 52.dp).background(terminalBorder(dark))); Column(Modifier.padding(start = 13.dp).weight(1f)) { Text(statusText(item), color = if (item.status == CourseStatus.ONGOING) InverseSurface else terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall, modifier = Modifier.background(accent).padding(horizontal = 6.dp, vertical = 2.dp).testTag("today-course-status-${key.courseIndex}-${key.scheduleIndex}")); Text(item.occurrence.course.name, color = terminalText(dark), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(courseDetails(item.occurrence), color = terminalSecondary(dark), modifier = Modifier.testTag("today-course-details-${key.courseIndex}-${key.scheduleIndex}"), style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(3.dp).heightIn(min = 68.dp).background(accent).testTag("today-course-color-${key.courseIndex}-${key.scheduleIndex}").semantics { contentDescription = "课程颜色：${courseColorLabel(item.occurrence.course.color)}" })
+    Text("%02d".format(index + 1), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.width(24.dp).graphicsLayer { rotationZ = -90f }.testTag("today-course-index-${key.courseIndex}-${key.scheduleIndex}")); Column(Modifier.width(66.dp)) { val range = ScheduleDisplayText.timeRange(item.occurrence.schedule, semester).split("–"); Text(range.firstOrNull().orEmpty(), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge); Text(range.getOrNull(1).orEmpty(), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(1.dp).heightIn(min = 52.dp).background(terminalBorder(dark))); Column(Modifier.padding(start = 13.dp).weight(1f)) { Text(statusText(item), color = if (item.status == CourseStatus.ONGOING) InverseSurface else terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall, modifier = Modifier.background(accent).padding(horizontal = 6.dp, vertical = 2.dp).testTag("today-course-status-${key.courseIndex}-${key.scheduleIndex}")); Text(item.occurrence.course.name, color = terminalText(dark), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(courseDetails(item.occurrence), color = terminalSecondary(dark), modifier = Modifier.testTag("today-course-details-${key.courseIndex}-${key.scheduleIndex}"), style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(3.dp).heightIn(min = 68.dp).background(accent).testTag("today-course-color-${key.courseIndex}-${key.scheduleIndex}").semantics { contentDescription = "课程颜色：${courseColorLabel(item.occurrence.course.color)}" })
 }
 
 private fun terminalText(dark: Boolean) = if (dark) Color(0xFFF1F5F4) else Color(0xFF091113)

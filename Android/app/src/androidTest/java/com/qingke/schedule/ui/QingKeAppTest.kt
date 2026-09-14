@@ -1,10 +1,13 @@
 package com.qingke.schedule.ui
 
+import android.os.SystemClock
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.content.res.Configuration
+import android.util.Xml
 import android.view.View
 import android.widget.DatePicker
 import android.widget.TimePicker
-import android.os.SystemClock
-import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -66,6 +69,7 @@ import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.AppearanceMode
+import com.qingke.schedule.R
 import java.io.File
 
 @RunWith(AndroidJUnit4::class)
@@ -308,6 +312,53 @@ class QingKeAppTest {
         fontScale = 1.3f
         rule.waitForIdle()
         saveTodayScreenshot("android-api37-today-font130-testhost.png")
+        fontScale = 1f
+        state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.LIGHT))
+        rule.waitForIdle()
+        rule.onNodeWithTag("today-scroll-content").performScrollToIndex(8)
+        rule.onNodeWithTag("today-end-marker").assertIsDisplayed()
+        saveTodayScreenshot("android-api37-course-sequence-testhost.png")
+    }
+
+    @Test fun launcherForegroundUsesIndependentCoverArtworkAndAppLabel() {
+        val resources = rule.activity.resources
+        val parser = resources.getXml(R.drawable.ic_launcher_foreground)
+        var foregroundSource = 0
+        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "bitmap") {
+                foregroundSource = Xml.asAttributeSet(parser).getAttributeResourceValue(
+                    "http://schemas.android.com/apk/res/android", "src", 0,
+                )
+            }
+        }
+        assertEquals(R.drawable.qingke_cover, foregroundSource)
+        assertTrue(foregroundSource != R.mipmap.ic_launcher)
+        assertEquals("青课", rule.activity.applicationInfo.loadLabel(rule.activity.packageManager).toString())
+    }
+
+    @Test fun nightLogoUsesReadableNonCyanForegroundVariant() {
+        val baseConfiguration = rule.activity.resources.configuration
+        val nightConfiguration = Configuration(baseConfiguration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES
+        }
+        val nightResources = rule.activity.createConfigurationContext(nightConfiguration).resources
+        val qualifierLogo = requireNotNull(BitmapFactory.decodeResource(nightResources, R.drawable.qingke_logo))
+        val logo = requireNotNull(BitmapFactory.decodeResource(nightResources, R.drawable.qingke_logo_dark))
+        assertEquals(qualifierLogo.width, logo.width)
+        assertEquals(qualifierLogo.height, logo.height)
+        val visibleNonCyan = buildList {
+            for (y in 0 until logo.height step 8) for (x in 0 until logo.width step 8) {
+                val pixel = logo.getPixel(x, y)
+                val alpha = pixel ushr 24 and 0xff
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                val cyan = blue > 100 && blue > red * 1.25 && green > red * 1.1
+                if (alpha > 200 && !cyan) add((red + green + blue) / 3)
+            }
+        }
+        assertTrue(visibleNonCyan.isNotEmpty())
+        assertTrue(visibleNonCyan.all { it >= 200 })
     }
 
     @Test fun todayApi37ScreenshotsCoverAllThreeEmptyStates() {

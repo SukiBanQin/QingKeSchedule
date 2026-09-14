@@ -1,27 +1,32 @@
 # 安卓项目当前交接状态
 
-## P3-03-R2 今日页及共享主壳视觉对齐已实施，待 Sol／高独立审查与用户确认（最新，2026-09-14）
+## P3-03-R2 首轮复审问题修正进行中，待完整验证与 Sol／高复审（最新，2026-09-14）
 
 本轮在 `Android` 分支从 `10b92535216b87de2f808e3d5ec392aa6af18321` 实施已授权的 P3-03-R2；开始时
 工作区干净且与 `origin/Android` 一致。应用代码仅改 Android Manifest、资源、`QingKeApp.kt` 和相关
 Compose AndroidTest；没有修改 iOS、Web、`source/`、领域／持久化／共享协议或构建工具链，也没有进入 P3-04。
 
-Android 现与 `origin/IOS` `fc3ddfb8ffa14b205a591ffdbed5632d5f975001` 的 `TerminalBackdrop`、品牌头、
+首轮实施提交为 `5b18381b22ffe6876868395fce2a446083fe7423`，Sol 独立复审尚未通过，实际指出：夜间／130% Logo
+不可读、adaptive foreground 自引用导致默认机器人、双重下拉手势风险、序号未旋转且完整队列缺图、iOS 参考未进入
+TODAY。本轮只修正这五项，并未开始 P3-04。Android 现与 `origin/IOS` `fc3ddfb8ffa14b205a591ffdbed5632d5f975001` 的 `TerminalBackdrop`、品牌头、
 三段 hero、活动条、featured／序列、空状态和 `TerminalTabBar` 对齐；保留 R1 已验证的颜色回退、状态、
-下拉门禁、生命周期 tick、Activity／ViewModel 所有权及唯一 occurrence tag。`source/cover.png` 已作为
-launcher/adaptive icon 来源，Logo 为用户指定 `source/qingke-logo-q-matrix-preview.png` 的 Android 资源副本，
-应用名为“青课”。没有放置不可用的 ADD、编辑或详情入口。
+下拉门禁、生命周期 tick、Activity／ViewModel 所有权及唯一 occurrence tag。`source/cover.png` 已以独立
+`qingke_cover` drawable 作为 launcher/adaptive foreground 来源，Logo 为用户指定
+`source/qingke-logo-q-matrix-preview.png` 的 Android 资源副本，并新增符合 Android night qualifier 的机械派生浅色前景
+版本（保留青色和透明度）；应用名为“青课”。生产手写下拉已删除，只保留 `PullToRefreshBox`，并在启动协程前同步门禁；
+课程行索引按 iOS 方向旋转。没有放置不可用的 ADD、编辑或详情入口。
 
-本轮最终正确 API 37 ARM64 `connectedDebugAndroidTest` XML 为 37 tests、0 failures、0 errors、0 skipped；
-Debug／Release JVM 各 79 tests、0 failures／errors／skipped，lintDebug 0 errors、19 warnings，Debug／Release
-和 AndroidTest APK 均完成。生产 APK 已验证首次学期保存、TODAY 空状态下拉、三个标签、force-stop／重启、launcher
-图标和名称，最后 app logcat 未见 FATAL／ANR；本轮启动 AVD 将在交付前关闭。所有截图、命令、限制、iOS 参考和
-Android 平台差异见 [P3-03-R2 视觉对齐证据](evidence/p3-03-r2-visual-alignment-20260914.txt)。
+已测试：修正后的 clean Debug／Release JVM 各 79 tests／8 XML、0 failures／errors／skipped；lintDebug 0 issues／0 errors，
+Debug、Release unsigned 与 AndroidTest APK 均已生成。正确 API 37 ARM64 `connectedDebugAndroidTest` 为 39 tests／1 XML、
+0 failures／errors／skipped；夜间 Logo、资源契约、唯一标准下拉和旋转队列截图都由该轮覆盖。iOS 独立 `fc3ddfb8` 的 fixture
+导入 XCTest 为 1 test／0 failures，并已在实际 Debug App 确认导入后进入 `today-tab`、保存 TODAY 图。所有截图、命令、
+限制、iOS 参考和 Android 平台差异见 [P3-03-R2 视觉对齐证据](evidence/p3-03-r2-visual-alignment-20260914.txt)。
 
 关键限制必须如实保留：P3-03 尚未授权课程录入／导入，生产入口只能验证 TODAY 空状态；固定课程、当前 featured、
 完整序列、深浅／130% 与三类空状态由 API 37 connected 测试宿主截图覆盖，文件名均标注 `testhost`，不能当作
-生产课程数据。iOS 独立模拟器已实际启动和截图，但导入参考仍在首次设置流程，不能冒充与 Android 固定数据的成对
-TODAY 图。因此 R2 已实施和测试，但尚待 Sol／高独立审查及用户视觉验收；不得宣称 A02、A07、P3 或完整 App 验收，
+生产课程数据。iOS 旧 onboarding 参考不再作为 TODAY 证据；最新 `ios-fc3ddfb8-today-imported.png` 是实际 fixture 导入确认后的
+TODAY。生产 Debug APK 已重新安装，app drawer 可见 cover 图形，但自动化未取得同一静态帧内同时清楚显示最后一项图标和“青课”
+标签的证据；该项如实留待 Sol 或用户设备人工确认。R2 仍待 Sol／高独立审查，且绝不代表用户验收；不得宣称 A02、A07、P3 或完整 App 验收，
 不得自动开始 P3-04。
 
 ## Sol 主 Agent／Terra 执行子 Agent 流程启用（2026-09-14）
