@@ -53,3 +53,8 @@
 
 - `ScheduleViewModelTest` 新增可执行协调用例：空名称／完全重复不写、冲突确认冻结候选、失败保留草稿、删除取消／成功、重复 ID 第二项精确删除及陈旧指纹拒绝后保留编辑器。Debug JVM 86 tests、0 failures/errors/skipped。
 - 本轮只处理 B 自动化，尚未关闭所有 Activity recreate、挂起／取消、Room cancellation 与完整 Compose 流程分支；C 生产证据仍未开始。
+
+## B2 单飞补测（2026-09-14）
+
+- `appendSuccessAndSuspendedSaveDeleteAreSingleFlight` 用 `CompletableDeferred` 实际验证 append 成功文案、挂起保存双击只有一次写入，以及挂起删除双击只有一次写入并在完成后关闭编辑器。Debug JVM 87 tests、0 failures/errors/skipped。
+- B 的 Activity recreate／Room cancellation／完整 Compose back 分支仍待补齐，C 仍明确排除。
