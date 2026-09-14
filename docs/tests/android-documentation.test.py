@@ -1580,6 +1580,39 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, latest)
         self.assertIn("本轮用户视觉验收通过", evidence)
 
+    def test_p3_04_course_editor_analysis_is_actionable_and_keeps_duplicate_id_decision_open(self):
+        path = DOCS / "p3-04-course-editor.md"
+        analysis = path.read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        latest = handoff.split(
+            "## P3-04 课程 CRUD 分析完成，等待重复 ID 决定与实施授权（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+
+        for marker in (
+            "A04／A05",
+            "CourseEditorState",
+            "CourseSaveEvaluation.Invalid/Conflicting/Ready",
+            "没有课程时直接新建",
+            "已有课程时先进入选择页",
+            "仍然保存",
+            "系统返回",
+            "force-stop",
+            "connectedDebugAndroidTest",
+            "重复课程 ID",
+            "精确操作所选来源（建议）",
+            "尚未授权实施",
+            "不得仅添加截图按钮",
+        ):
+            self.assertIn(marker, analysis + latest)
+        for contents in (plan, design, baseline):
+            self.assertIn("p3-04-course-editor.md", contents)
+            self.assertIn("重复", contents)
+            self.assertIn("实施授权", contents)
+        self.assertEqual(missing_links(path, analysis), [])
+
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
         path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"
         evidence = path.read_text()
