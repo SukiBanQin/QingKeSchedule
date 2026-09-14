@@ -1,5 +1,13 @@
 # 安卓项目当前交接状态
 
+## P3-04 B4 后续终端视觉返工进行中（2026-09-14）
+
+本轮在 `Android` 分支、基准 `3eff01c` 上继续用户已明确授权的 TODAY 与 ADD／CourseEditor 视觉对齐；未修改 iOS、Web、`source/`、共享协议、Room 语义、周课表、设置、通知、导入导出或 `main`。工作区只有当前唯一写入者，未创建或恢复子 Agent。
+
+已实现但尚待最终全量 API 37 回归：CourseEditor 独立完整 terminal backdrop；58dp 文字顶栏（取消、中文／英文双行、黄色保存）；PROFILE chooser 的 `01 / 创建方式 / COURSE DATA` 与 `02 / 已有课程 / REUSE N`；CREATE／EDIT 的圆形六色样本、卡外安排标题、黄色添加安排、仅顶部保存及 EDIT `99`；TODAY 54dp ADD、`QUEUE EMPTY`、行进入提示、无末端色条、居中结束标记；冲突／未保存／删除／错误／颜色终端 dialog。新增 Compose 用例验证这些结构和原有末端色条语义移除。
+
+已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
+
 ## 子 Agent 复用规则补充（2026-09-14）
 
 用户授权补充创建前查找和按标识续接规则：同阶段相关任务先查旧 Agent，completed、闲置一两小时或缓存未命中均不单独触发重建。创建后记录所属主会话／服务、标识、范围、模型档位和最后确认状态；无法确认旧写入停止时不启动另一个写入者。具体见 AGENTS.md 与实施计划“子 Agent 查找、复用与重建”。

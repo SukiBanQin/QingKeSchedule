@@ -135,3 +135,11 @@
 Sol 已检查 `80ed71b^..7f9137d` 的实际生产／测试 diff、Room index＋fingerprint 精确写入、冲突与完全重复规则、
 ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity 重建覆盖；未发现剩余 P3-04 代码阻断项。因此可表述为
 **P3-04 已通过 Sol 技术独立复审**。这不等于用户产品验收；用户验收仍待用户亲自在已打开的模拟器中确认，也不得据此开始 P3-04 之外阶段。
+
+## B4 后续终端视觉返工（2026-09-14）
+
+- 仅在 TODAY 与 P3-04 ADD／CourseEditor 已授权范围内实施：编辑器改为独立、不透明的 terminal backdrop；58dp 顶栏采用文字取消、居中中文／英文双行标题和黄色文字保存；chooser 改为创建方式与已课程复用两个编号分区，按名称排序但仍通过原 source index 追加。
+- CREATE／EDIT 的课程资料使用圆形六色样本和选中记号；安排标题移至卡外并使用 `02… / 上课安排 N / SCHEDULE`；添加安排使用黄色填充；底部重复保存入口已移除，EDIT 的 `99 / 危险操作` 保留，APPEND 不显示危险区。
+- TODAY 的 ADD 改为 54dp 黄色方形（加号、ADD、内对角折线），空态为 `QUEUE EMPTY` 和 `+ ADD`，课程行改为右侧进入提示并去除末端色条，结束标记居中。Material `AlertDialog` 已改为方角 terminal dialog，覆盖冲突、未保存、删除、应用错误和自定义颜色层。
+- 新增 Compose AndroidTest 覆盖独立编辑器标识、toolbar／section／色样／单一保存入口、chooser 双 section、terminal conflict dialog，以及 TODAY ADD／空态／进入提示／结束标记；原有颜色条语义断言同步改为确认末端色条不存在。
+- 本轮主机 clean 验证：Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 通过；`lintDebug` 为 **0 errors、21 warnings**。API 37 ARM64 的定向 `todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances` 通过；完整 clean connected 回归尚在本轮提交后的收口中，不能将本节记为用户验收或新的生产截图证据。
