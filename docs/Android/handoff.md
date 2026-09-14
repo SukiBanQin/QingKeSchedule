@@ -6,6 +6,8 @@
 
 补充 B2：`CompletableDeferred` 单飞用例已验证 append 成功文案、挂起保存双击单写及挂起删除双击单写，Debug JVM 更新为 87 tests、0 failures／errors／skipped。Activity editor 重建、取消传播、Room cancellation 和剩余 Compose 实际交互仍未完成，B 不能标为关闭。
 
+补充 B3：真实 `scenario.recreate()` 已覆盖同一 ViewModel 下的课程 editor 路由、名称／教师、非法颜色输入、颜色对话框、第二安排和确认层保持；定向 API 37 ARM64 connected 为 3 tests、0 failures／errors／skipped。ViewModel 已覆盖保存取消后编辑器／草稿保留且无普通错误，以及删除普通失败保留编辑器和错误发布；Debug JVM 更新为 88 tests、0 failures／errors／skipped。B4 的 Compose Back／连续提示与 Room cancellation/reopen 尚待，B 仍未关闭。
+
 ## P3-04 R3 编辑器结构收口，仍待生产设备硬门槛与 Sol 复审（最新，2026-09-14）
 
 R3 已将编辑器品牌头与 TODAY 分离，正确显示 `PROFILE/CREATE/EDIT/APPEND / 04`，并修正工具栏与品牌头顺序、01／02…／99 编号及起止节次时间文案。对应 Compose 测试已加入并完成 Debug JVM／AndroidTest APK 编译。生产 APK 的真实 CRUD 长链、force-stop 重启、无 FATAL／ANR 记录及要求截图仍未取得，属于未关闭硬门槛；不得称为已设备验证或用户验收。

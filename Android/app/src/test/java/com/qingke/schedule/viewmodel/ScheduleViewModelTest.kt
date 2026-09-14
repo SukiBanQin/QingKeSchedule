@@ -259,6 +259,16 @@ class ScheduleViewModelTest {
         repository.deleteGate!!.complete(Unit); advanceUntilIdle(); assertEquals("课程删除成功", model.courseSuccess.value)
     }
 
+    @Test fun courseCancellationAndDeleteFailureKeepEditorWithoutOrdinaryError() = runTest {
+        val course = testCourse("id", "原课", "", 1)
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(course), "now"); it.courseCancel = true }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openCourseAt(0); model.updateCourseName("取消后保留"); model.saveCourse(); advanceUntilIdle()
+        assertNotNull(model.editor.value); assertFalse(model.editor.value!!.isInFlight); assertNull(model.state.value.error)
+        repository.courseCancel = false; repository.deleteFail = true; model.requestDeleteCourse(); model.confirmDeleteCourse(); advanceUntilIdle()
+        assertNotNull(model.editor.value); assertFalse(model.editor.value!!.isInFlight); assertNotNull(model.state.value.error)
+    }
+
     private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
     private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
 
@@ -271,18 +281,18 @@ class ScheduleViewModelTest {
     private class FakeScheduleRepository : ScheduleRepository {
         var data = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z")
         var loadCalls = 0; var saveCalls = 0; var courseWrites = 0; var deleteWrites = 0; var courseFail = false; var failLoad = false; var failSave = false; var cancelSave = false; var saved: Semester? = null; var lastCourse: Course? = null
-        var loadGate: CompletableDeferred<Unit>? = null; var saveGate: CompletableDeferred<Unit>? = null; var courseGate: CompletableDeferred<Unit>? = null; var deleteGate: CompletableDeferred<Unit>? = null; var deleteFail = false
+        var loadGate: CompletableDeferred<Unit>? = null; var saveGate: CompletableDeferred<Unit>? = null; var courseGate: CompletableDeferred<Unit>? = null; var deleteGate: CompletableDeferred<Unit>? = null; var deleteFail = false; var courseCancel = false
         override suspend fun load(): ScheduleData { loadCalls++; loadGate?.await(); if (failLoad) error("load") ; return data }
         override suspend fun replace(data: ScheduleData) = data
         override suspend fun saveSemester(semester: Semester): ScheduleData { saveCalls++; saveGate?.await(); if (cancelSave) throw CancellationException("cancelled"); if (failSave) error("save"); saved = semester; return data.copy(semester = semester).also { data = it } }
         override suspend fun saveCourse(course: Course): ScheduleData {
-            courseWrites++; courseGate?.await(); if (courseFail) error("course") ; lastCourse = course
+            courseWrites++; courseGate?.await(); if (courseCancel) throw CancellationException("course"); if (courseFail) error("course") ; lastCourse = course
             val index = data.courses.indexOfFirst { it.id == course.id }
             data = data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course })
             return data
         }
         override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData {
-            courseWrites++; courseGate?.await(); if (courseFail) error("course"); lastCourse = course
+            courseWrites++; courseGate?.await(); if (courseCancel) throw CancellationException("course"); if (courseFail) error("course"); lastCourse = course
             require(data.courses.getOrNull(index) == expected)
             data = data.copy(courses = data.courses.toMutableList().also { it[index] = course }); return data
         }

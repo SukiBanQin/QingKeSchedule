@@ -58,3 +58,9 @@
 
 - `appendSuccessAndSuspendedSaveDeleteAreSingleFlight` 用 `CompletableDeferred` 实际验证 append 成功文案、挂起保存双击只有一次写入，以及挂起删除双击只有一次写入并在完成后关闭编辑器。Debug JVM 87 tests、0 failures/errors/skipped。
 - B 的 Activity recreate／Room cancellation／完整 Compose back 分支仍待补齐，C 仍明确排除。
+
+## B3 编辑器重建与取消补测（2026-09-14）
+
+- `P3R2ActivityRecreationTest.activityRecreationKeepsCourseEditorRouteDraftColorDialogAndConfirmation` 在真实 `scenario.recreate()` 后确认同一 ViewModel 仍保留 CREATE 路由、名称、教师、非法 `colorInput`、颜色对话框、两个安排及放弃确认层；定向 API 37 ARM64 connected 为 3 tests、0 failures/errors/skipped。
+- `courseCancellationAndDeleteFailureKeepEditorWithoutOrdinaryError` 验证 save `CancellationException` 后草稿保留、in-flight 恢复且无普通错误，以及 delete 普通失败保留编辑器并发布错误。Debug JVM 88 tests、0 failures/errors/skipped。
+- B4 的完整 Compose Back／连续消息和 Room cancellation/reopen 仍未完成；C 仍未开始。

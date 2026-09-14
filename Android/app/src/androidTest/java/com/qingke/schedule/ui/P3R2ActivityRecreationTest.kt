@@ -24,6 +24,8 @@ import com.qingke.schedule.preferences.SchedulePreferencesRepository
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.viewmodel.MainTab
 import com.qingke.schedule.viewmodel.ScheduleViewModel
+import com.qingke.schedule.viewmodel.CourseEditorMode
+import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -91,6 +93,28 @@ class P3R2ActivityRecreationTest {
         rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
         assertEquals(MainTab.SETTINGS, secondRecreatedModel.selectedTab.value)
         assertEquals(1, creations)
+    }
+
+    @Test fun activityRecreationKeepsCourseEditorRouteDraftColorDialogAndConfirmation() {
+        var ids = 0
+        val repository = HostRepository(ScheduleData(1, Semester("term", "学期", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"))), emptyList(), "now"))
+        val preferences = object : SchedulePreferencesRepository {
+            override suspend fun load() = SchedulePreferences.defaults
+            override suspend fun save(preferences: SchedulePreferences) = preferences
+            override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences) = transform(SchedulePreferences.defaults)
+        }
+        val factory = object : ViewModelProvider.Factory { @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>) = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-01T09:00") }, { "editor-${ids++}" }) as T }
+        val original = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
+        rule.setContent { QingKeApp(original) }; rule.waitUntil(5_000) { original.state.value.loadStatus.name == "READY" }
+        original.openAddCourse(); original.updateCourseName("重建课程"); original.updateCourseTeacher("老师"); original.addCourseSchedule()
+        val second = original.editor.value!!.schedules.last().id; original.updateCourseScheduleDay(second, 2); original.updateCourseColorInput("#NOPE"); original.showColorDialog(); original.requestCloseEditor()
+        rule.activityRule.scenario.recreate()
+        lateinit var recreated: ScheduleViewModel
+        rule.activityRule.scenario.onActivity { activity -> recreated = ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]; assertSame(original, recreated); activity.setContent { QingKeApp(recreated) } }
+        val editor = recreated.editor.value!!
+        assertEquals(CourseEditorMode.CREATE, editor.mode); assertEquals("重建课程", editor.name); assertEquals("老师", editor.teacher); assertEquals("#NOPE", editor.colorInput)
+        assertTrue(editor.isColorDialogOpen); assertEquals(2, editor.schedules.size); assertEquals(2, editor.schedules.last().dayOfWeek); assertTrue(editor.confirmation is CourseEditorConfirmation.Discard)
+        rule.onNodeWithTag("course-color-dialog").assertIsDisplayed(); rule.onNodeWithTag("course-discard-confirm").assertIsDisplayed()
     }
 
     @Test fun todayClockTicksOnlyWhileStartedRefreshesImmediatelyAndKeepsOneActivityModelAfterRecreate() {
