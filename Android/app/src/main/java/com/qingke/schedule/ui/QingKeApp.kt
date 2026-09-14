@@ -576,9 +576,9 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
         }
         }
         when (val confirmation = editor.confirmation) {
-            CourseEditorConfirmation.Discard -> EditorDialog("放弃未保存修改？", "返回将丢失当前输入。", "放弃", actions.discardCourseEditor, actions.dismissCourseConfirmation, "course-discard-confirm", dark)
-            CourseEditorConfirmation.Delete -> EditorDialog("删除课程？", "课程和全部上课安排将被删除。", "删除", actions.confirmDeleteCourse, actions.dismissCourseConfirmation, "course-delete-confirm", dark)
-            is CourseEditorConfirmation.Conflicts -> EditorDialog("发现时间冲突", conflictMessage(confirmation.conflicts), "仍然保存", actions.confirmSaveDespiteConflicts, actions.dismissCourseConfirmation, "course-conflict-confirm", dark)
+            CourseEditorConfirmation.Discard -> EditorDialog("放弃未保存的修改？", "当前编辑内容尚未保存。放弃后，本次修改不会保留。", "放弃修改", actions.discardCourseEditor, actions.dismissCourseConfirmation, "course-discard-confirm", dark)
+            CourseEditorConfirmation.Delete -> EditorDialog("删除这门课程？", "课程及其所有上课安排都会被删除，这项操作无法撤销。", "确认删除", actions.confirmDeleteCourse, actions.dismissCourseConfirmation, "course-delete-confirm", dark)
+            is CourseEditorConfirmation.Conflicts -> EditorDialog("检测到课程冲突", "${conflictMessage(confirmation.conflicts)} 冲突会被标记，但仍可保存。", "仍然保存", actions.confirmSaveDespiteConflicts, actions.dismissCourseConfirmation, "course-conflict-confirm", dark)
             null -> Unit
         }
         if (editor.isColorDialogOpen) CourseColorDialog(editor, dark, actions)

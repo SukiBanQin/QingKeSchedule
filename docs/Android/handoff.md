@@ -12,6 +12,8 @@
 
 本轮继续收口（未提交）：01 课程资料完整收进同一 panel，plain 输入行／divider、颜色、圆形样本、自定义入口和当前值均在其中；APPEND、chooser、99 危险区补说明 footer。编辑器 backdrop 已覆盖全屏 root，测试验证与 editor 相同 bounds；dialog 使用独立 status tag、状态点、主题文字和明确的冲突／放弃／不可撤销文案。三项 API 37 定向 UI 测试通过；仍待提交后最终全量验证与生产截图。
 
+确认层文案已收紧为 iOS 约定：冲突 `检测到课程冲突`／`冲突会被标记，但仍可保存。`；未保存修改为明确放弃提示；删除为不可撤销和确认删除。该修正及最终验证仍待提交。
+
 已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
 
 ## 子 Agent 复用规则补充（2026-09-14）
