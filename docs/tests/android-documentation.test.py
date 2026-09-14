@@ -1592,6 +1592,32 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, latest)
         self.assertEqual(missing_links(path, evidence), [])
 
+    def test_intermediary_handoff_preserves_visual_feedback_and_stops_official_writer(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## 切换中转站 Sol 主窗口，P3-03-R2 用户视觉反馈待定界（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+        for marker in (
+            "停止派发新任务",
+            "`/root/p3_03_r2_visual` 已返回 `completed`",
+            "不能在中转站直接复用",
+            "b2947af72c92e7aa7f758e997ac813290aafd229",
+            "用户视觉验收未通过",
+            "图标／标题组没有水平居中",
+            "1672×941",
+            "1300×500",
+            "TerminalAcrylicSurface",
+            "不得为了截图添加无效按钮",
+            "尚未明确授权开始该代码修正",
+            "ADB 列表为空",
+            "不得直接使用官方",
+            "`gpt-5.6-terra`",
+            "Terra／高",
+            "同时最多一个",
+            "禁止它继续创建子 Agent",
+        ):
+            self.assertIn(marker, latest)
+
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
         evidence = (DOCS / "evidence/p3-01-schedule-presentation-jvm-20260910.txt").read_text()

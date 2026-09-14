@@ -1,5 +1,46 @@
 # 安卓项目当前交接状态
 
+## 切换中转站 Sol 主窗口，P3-03-R2 用户视觉反馈待定界（最新，2026-09-14）
+
+用户准备从当前官方 Sol 主窗口切换到中转站 Sol 主窗口，继续采用“一个 Sol 主 Agent＋同时至多一个 Terra 执行子 Agent”。
+当前窗口已停止派发新任务，不启动 P3-04 或其他阶段；唯一官方子 Agent `/root/p3_03_r2_visual` 已返回 `completed`，最后写入为
+`58ad3b1396ad2e9628c1f9f768bd68e14b745f30`，之后没有继续运行或写入。该标识只属于官方窗口，不能在中转站直接复用或假定可迁移。
+原人工执行窗口未被删除或自动操作。当前主窗口完成本交接提交和推送后停止开发，等待用户明确恢复。
+
+当前分支为 `Android`。应用实施提交为 `5b18381b22ffe6876868395fce2a446083fe7423`，首轮复审修正为
+`58ad3b1396ad2e9628c1f9f768bd68e14b745f30`，Sol 最终复审与证据收口为
+`b2947af72c92e7aa7f758e997ac813290aafd229`；本交接文档提交编号由最终交付消息提供。切换前 `b2947af` 的本地 HEAD、
+`origin/Android` 和远程 `refs/heads/Android` 一致，工作区干净。
+
+P3-03-R2 的代码、自动化和 Sol 独立复审已经完成，但用户随后对照 Android／iOS 模拟器指出新的视觉差异，尚未接受当前结果，因此准确状态是：
+技术独立复审已通过，用户视觉验收未通过，必须保留新反馈并重新定界修正，不能宣称 P3-03、A02、A07、A11、P3 或完整 App 已验收。
+已确认的视觉问题如下：
+
+1. Android 底栏每个等宽标签内部的图标／标题组没有水平居中，视觉偏左；iOS `TerminalTabBar` 的内容组居中。
+2. Android 直接使用用户指定的 1672×941 原始 Logo，透明画布留白较多，导致同为约 154×54 布局框时可见图案小于 iOS；iOS
+   实际 `QingKeLogo` 资源为裁紧的 1300×500。修正应从用户原图机械裁掉透明留白并匹配 iOS 可见框，不改变 Logo 图形。
+3. Android `terminalPanel` 当前是平面半透明背景、普通边框和色条，没有 iOS `TerminalAcrylicSurface` 的
+   `.ultraThinMaterial`／对角高光 wash、亮色 `panelEdge` 与黑色柔和 shadow；空状态、featured、课程行和底栏因此缺少反光与层次。
+   Android 可用稳定的半透明底色、对角高光渐变、亮边与方角阴影做跨版本拟态；不要求照搬 Apple 私有材质或字体。
+4. Android 没有 ADD 是既有范围决定，不是遗漏图标：生产课程新增／编辑尚未实现。不得为了截图添加无效按钮或测试数据入口；真正
+   ADD 必须与课程新增、多个安排、保存、重复门禁、冲突确认、持久化和返回确认一起在另行授权的功能任务中接通。
+
+下一项建议先由接手 Sol 按增量阅读核对上述现场，形成聚焦的 **P3-03-R2 视觉修正**范围：底栏内容居中、Logo 可见尺寸、共享
+亚克力表面／高光／边缘／阴影及浅色、深色、130% 字体、空状态和固定课程截图对照；仍排除 ADD、课程 CRUD、周课表、完整设置和
+P3-04。用户本轮要求先分析，尚未明确授权开始该代码修正；接手窗口须先向用户确认实施授权，不能自动委派或开发。ADD 应在视觉壳
+确认后另行分析对应真实课程功能。
+
+最近已完成的正式验证见 [P3-03-R2 最终独立复审证据](evidence/p3-03-r2-final-review-20260914.txt)：Debug／Release JVM 各
+79 tests、0 failures／errors／skipped；`lintDebug` 0 errors、20 warnings；正确 API 37 ARM64 connected 39 tests、0 failures／
+errors／skipped；文档测试、`documentation.test.sh`、`repository-layout.test.sh` 和 `git diff --check` 通过。环境为
+`ANDROID_HOME=ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37`、
+`ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd`、AVD `qingke-api37-r3-arm`。交接前已用 `adb emu kill` 正常关闭
+`emulator-5554`，ADB 列表为空，没有运行中的 Gradle 或模拟器；应用和本轮视觉反馈没有产生未提交代码。
+
+中转站 Sol 必须先检查自身子 Agent 工具是否能明确指定 `gpt-5.6-terra`、思考档位、后续复用和停止操作；不得直接使用官方
+`/root/p3_03_r2_visual` 标识。不支持指定模型或工具不可用时如实报告，不以普通聊天窗口或其他模型冒充。只有用户明确授权上述
+聚焦实施后，才创建一个 Terra 执行子 Agent，沿用既定 **Terra／高**档位；同时最多一个，并在任务中禁止它继续创建子 Agent。
+
 ## P3-03-R2 通过最终独立复审，等待用户视觉验收（最新，2026-09-14）
 
 本轮在 `Android` 分支从 `10b92535216b87de2f808e3d5ec392aa6af18321` 实施已授权的 P3-03-R2；开始时
