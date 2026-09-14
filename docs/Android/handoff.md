@@ -20,6 +20,8 @@
 
 最终验证：API 37 ARM64 `emulator-5554`；Debug／Release JVM 各 88 tests、0 failures/errors/skipped；`lintDebug` 0 errors、21 warnings；Debug／Release／AndroidTest APK 通过。最终 `connectedDebugAndroidTest --rerun-tasks` XML 为 **56 tests、0 failures、0 errors、0 skipped**。生产 APK 已实际完成最小学期、空态／有课 TODAY、CREATE、chooser、APPEND、真实 picker、conflict、discard、delete、深色／130% 复拍；目标 FATAL／ANR 检索无匹配，系统已恢复 light / 1.0。准确状态为**已修正、已自动化测试、已生产复拍，等待 Sol 最终视觉复审及用户验收**；不得称为用户已验收或启动下一阶段。
 
+R1 复核发现旧生产图中的 success notice 覆盖右下 ADD，且一张 chooser 证据误采 CREATE。当前代码通过 180dp bottom inset 将 notice 置于 tab/ADD 上方，新增 bounds 不相交测试；浅色真正 chooser 与关闭软键盘的 conflict 已替换，新增深色 chooser 与深色／130% conflict。相关生产截图均在 `docs/Android/evidence/p3-04-visual-r1/`；最终提交后的完整主机／connected 复跑结果以交付记录为准，仍待 Sol 复审和用户验收。
+
 已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
 
 ## 子 Agent 复用规则补充（2026-09-14）

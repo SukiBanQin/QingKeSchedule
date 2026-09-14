@@ -164,3 +164,9 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - 最终 `connectedDebugAndroidTest --rerun-tasks` XML：**56 tests、0 failures、0 errors、0 skipped**。
 - 生产 `app-debug.apk` 安装并通过真实 `MainActivity` 操作最小学期与两门课程；新截图位于 `evidence/p3-04-visual-r1/`：TODAY 浅色空态／有课、CREATE、PROFILE chooser、APPEND、实际星期菜单、未保存确认、删除确认、冲突确认，以及深色 + 130% 字体的冲突确认。画面检查覆盖独立 editor 网格背景不透出 TODAY、双行顶栏、单课程信息 panel、ADD 内框／折角、菜单、三种 status tag 和浅色／深色可读性；未发现裁切或重叠。
 - 生产流程后导出 logcat 并检索 `FATAL EXCEPTION`、`ANR in com.qingke.schedule`、`am_anr` 与目标应用 crash，均无匹配。系统恢复 light / 1.0 font scale。该证据表示已修正、已测试，仍等待 Sol 最终视觉复审和用户验收；不代表用户验收。
+
+## B4 R1 成功提示与证据重拍（2026-09-14）
+
+- 复核发现 success notice 与 TODAY 浮动 ADD 发生覆盖。notice 现为 tab 与 ADD 预留 180dp 底部安全区；Compose 回归直接读取两个语义 bounds，要求二者不相交，同时仍验证 notice 下 ADD 可点击与自动消失。
+- 替换了误采的浅色 chooser 文件：`production-chooser-light.png` 现在实际显示 `SELECT PROFILE`、两个 section 与已有课程；`production-conflict.png` 在关闭软键盘后重拍完整 dialog。补拍当前代码的 deep chooser、deep + 130% conflict。生产 logcat 再次筛查无目标 FATAL／ANR，设备最终恢复 light / 1.0。
+- 浅色的 TODAY 空／有课、CREATE、chooser、APPEND、picker、discard、delete、conflict 与深色 chooser、深色+130% conflict 构成当前最小矩阵；它覆盖所有本轮返工结构，但仍等待 Sol 复审与用户验收。
