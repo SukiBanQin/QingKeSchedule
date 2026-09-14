@@ -116,6 +116,17 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-add-schedule").assertIsNotEnabled()
     }
 
+    @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
+        var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var addCalls = 0
+        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
+        rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        rule.onNodeWithTag("today-add-course").performClick(); assertEquals(1, addCalls)
+        state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK)); rule.waitForIdle()
+        rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        rule.waitUntil(3_200) { notice == null }
+        rule.onAllNodesWithTag("course-success-notice").assertCountEquals(0)
+    }
+
     @Test fun onboardingDefaultsExpandAndUseMeaningfulControls() {
         var form by mutableStateOf(defaultForm())
         var saves = 0

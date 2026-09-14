@@ -1,5 +1,11 @@
 # 安卓项目当前交接状态
 
+## P3-04 R2 视觉与提示返工已验证，待 Sol 最终复审（最新，2026-09-14）
+
+R2 修正主壳成功提示在深色面板上的文字可读性，并以 Compose 测试覆盖浅／深、ADD 不被提示阻挡和约 2.6 秒自动消失。编辑器现固定显示品牌头、顶部取消／标题／保存栏及底部 signal line；chooser 采用平衡顶部栏，身份与安排为编号终端分区，编辑模式的删除移至末尾 `99 / 危险操作`，append 不显示危险区。起止节次各自显示对应时间。
+
+R2 API 37 ARM64 connected：46 tests、0 failures／errors／skipped；`testReleaseUnitTest assembleDebug assembleRelease lintDebug` 已取得 `BUILD SUCCESSFUL`，lint 0 errors、21 warnings。仍未完成正式生产 APK 的完整 CRUD 长链、force-stop 记录和要求的截图；该限制必须由 Sol 最终复审保留，不能声称完成用户验收。详见 [P3-04 课程 CRUD 验证证据](evidence/p3-04-course-editor-20260914.txt)。
+
 ## P3-04 R1 复审返工已完成自动化验证，待 Sol 最终复审（最新，2026-09-14）
 
 首轮复审列出的 TODAY 浮动 ADD、追加只读、排序来源 index、确认层返回、iOS 六色、可访问语义、深色表单、in-flight 禁用、主壳成功提示及测试覆盖问题均已在 P3-04 原授权范围内返工。新增 `ADD` 不再只出现在空状态；chooser 排序不丢失精确编辑来源；追加身份字段在 ViewModel 和 UI 双层禁止修改；自定义颜色的原始输入保存在 ViewModel，成功提示为约 2.6 秒的非阻塞终端层。没有扩展至周表、设置、通知、传输、iOS/Web/source/schema/main。

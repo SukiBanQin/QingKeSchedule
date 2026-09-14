@@ -244,7 +244,7 @@ fun QingKeAppContent(
     Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 104.dp), contentAlignment = Alignment.BottomCenter) {
         Row(Modifier.fillMaxWidth().terminalPanel(dark, QingKeCyan).padding(12.dp).testTag("course-success-notice")) {
             Text("OK", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(10.dp)); Text(message, color = InverseSurface, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(10.dp)); Text(message, color = terminalText(dark), fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -508,20 +508,26 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     BackHandler(onBack = actions.editorBack)
     Box(Modifier.fillMaxSize().background(if (dark) Color(0xF2081113) else Color(0xF5E3EBEB)).statusBarsPadding().navigationBarsPadding().testTag("course-editor")) {
         if (editor.mode == CourseEditorMode.CHOOSER) {
-            Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxSize()) {
+                BrandHeader(dark)
                 EditorHeader("添加课程", actions.closeCourseEditor, null, false, dark)
+                Column(Modifier.weight(1f).padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
                 Text("选择操作", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
                 Button(actions.openNewCourse, Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 52.dp).testTag("course-create-new"), shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = InverseSurface, contentColor = Color.White)) { Text("新建课程") }
                 Text("复用已有课程资料并追加一个上课安排", Modifier.padding(top = 24.dp), color = terminalText(dark), fontWeight = FontWeight.Bold)
                 courses.withIndex().sortedWith(compareBy<IndexedValue<com.qingke.schedule.domain.Course>> { it.value.name.trim() }.thenBy { it.index }).forEach { entry ->
                     OutlinedButton({ actions.appendCourseAt(entry.index) }, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp).testTag("course-append-${entry.index}").semantics { contentDescription = "${entry.value.name}，追加安排，来源 ${entry.index + 1}" }, shape = TerminalShape) { Text("${entry.value.name}  ·  追加安排") }
                 }
+                }
             }
         } else {
             val periodMaximum = semester?.periods?.maxOfOrNull { it.number } ?: 1
             val weekMaximum = semester?.totalWeeks ?: 1
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-                EditorHeader(if (editor.isAppend) "追加上课安排" else if (editor.mode == CourseEditorMode.EDIT) "编辑课程" else "新建课程", actions.closeCourseEditor, if (editor.mode == CourseEditorMode.EDIT) actions.deleteCourse else null, editor.isInFlight, dark)
+            Column(Modifier.fillMaxSize()) {
+                BrandHeader(dark)
+                EditorHeader(if (editor.isAppend) "追加上课安排" else if (editor.mode == CourseEditorMode.EDIT) "编辑课程" else "新建课程", actions.closeCourseEditor, actions.saveCourse, editor.isInFlight, dark)
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+                Text("01 / 课程资料", Modifier.padding(top = 12.dp), color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
                 if (editor.isAppend) {
                     Column(Modifier.fillMaxWidth().padding(top = 12.dp).terminalPanel(dark, QingKeCyan).padding(12.dp).testTag("course-append-readonly")) {
                         Text("复用课程资料", color = terminalText(dark), fontWeight = FontWeight.Black)
@@ -541,10 +547,10 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                     }
                     OutlinedButton(actions.showColorDialog, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp).testTag("course-custom-color"), enabled = !editor.isInFlight, shape = TerminalShape) { Text("自定义颜色：${editor.color}") }
                 }
-                Text("上课安排", Modifier.padding(top = 20.dp), color = terminalText(dark), fontWeight = FontWeight.Bold)
+                Text("02 / 上课安排", Modifier.padding(top = 20.dp), color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
                 editor.visibleSchedules.forEachIndexed { visibleIndex, schedule ->
                     Column(Modifier.fillMaxWidth().padding(top = 10.dp).terminalPanel(dark, QingKeCyan).padding(12.dp).testTag("course-schedule-${schedule.id}")) {
-                        Text("安排 ${visibleIndex + 1}", color = terminalText(dark), fontWeight = FontWeight.Bold)
+                        Text("${"%02d".format(visibleIndex + 3)} / 安排 ${visibleIndex + 1}", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         EditorStepper(weekdayName(schedule.dayOfWeek), schedule.dayOfWeek, 1, 7, { actions.updateCourseDay(schedule.id, it) }, "course-day-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("开始${periodDescription(semester, schedule.startPeriod)}", schedule.startPeriod, 1, periodMaximum, { actions.updateCourseStartPeriod(schedule.id, it) }, "course-start-period-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("结束${periodDescription(semester, schedule.endPeriod)}", schedule.endPeriod, 1, periodMaximum, { actions.updateCourseEndPeriod(schedule.id, it) }, "course-end-period-${schedule.id}", dark, !editor.isInFlight)
@@ -558,6 +564,8 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                 OutlinedButton(actions.addCourseSchedule, Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 48.dp).testTag("course-add-schedule"), shape = TerminalShape, enabled = !editor.isInFlight) { Text("添加上课安排") }
                 editor.validationMessage?.let { Text(it, color = Danger, modifier = Modifier.padding(top = 10.dp).testTag("course-validation")) }
                 Button(actions.saveCourse, Modifier.fillMaxWidth().padding(vertical = 20.dp).heightIn(min = 52.dp).testTag("course-save"), shape = TerminalShape, enabled = !editor.isInFlight, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text(if (editor.isInFlight) "保存中" else "保存课程") }
+                if (editor.mode == CourseEditorMode.EDIT) Column(Modifier.fillMaxWidth().padding(bottom = 20.dp).terminalPanel(dark, Danger).padding(12.dp).testTag("course-danger-zone")) { Text("99 / 危险操作", color = Danger, fontWeight = FontWeight.Black); OutlinedButton(actions.deleteCourse, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp).testTag("course-delete"), enabled = !editor.isInFlight, shape = TerminalShape) { Text("删除课程", color = Danger) } }
+                }
             }
         }
         when (val confirmation = editor.confirmation) {
@@ -570,10 +578,10 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     }
 }
 
-@Composable private fun EditorHeader(title: String, close: () -> Unit, delete: (() -> Unit)?, saving: Boolean, dark: Boolean) = Row(Modifier.fillMaxWidth().background(InverseSurface).drawBehind { drawRect(SignalYellow, size = androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun EditorHeader(title: String, close: () -> Unit, save: (() -> Unit)?, saving: Boolean, dark: Boolean) = Row(Modifier.fillMaxWidth().background(InverseSurface).drawBehind { drawRect(SignalYellow, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), size = androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
     OutlinedButton(close, Modifier.heightIn(min = 44.dp).testTag("course-editor-close"), enabled = !saving, shape = TerminalShape) { Text("取消") }
     Text(title, Modifier.weight(1f).padding(horizontal = 12.dp), color = Color(0xFFF1F5F4), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
-    delete?.let { OutlinedButton(it, Modifier.heightIn(min = 44.dp).testTag("course-delete"), enabled = !saving, shape = TerminalShape) { Text("删除", color = Danger) } }
+    save?.let { Button(it, Modifier.heightIn(min = 44.dp).testTag("course-save-toolbar"), enabled = !saving, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text(if (saving) "保存中" else "保存") } } ?: Spacer(Modifier.width(64.dp))
 }
 
 @Composable private fun EditorStepper(label: String, value: Int, minimum: Int, maximum: Int, update: (Int) -> Unit, tag: String, dark: Boolean, enabled: Boolean) = Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
