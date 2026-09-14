@@ -160,6 +160,17 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-conflict-confirm-backdrop").assertIsDisplayed()
     }
 
+    @Test fun schedulePickerOpensMenuAndSelectsNonAdjacentDay() {
+        val schedule = CourseScheduleFormState("picker", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var selectedDay = 1
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(updateCourseDay = { _, value -> selectedDay = value }), editor = CourseEditorState(CourseEditorMode.CREATE, schedules = listOf(schedule))) }
+        rule.onNodeWithTag("course-schedule-header-picker").performScrollTo()
+        rule.onNodeWithTag("course-day-picker").performClick()
+        rule.onNodeWithTag("course-day-picker-menu").assertIsDisplayed()
+        rule.onNodeWithTag("course-day-picker-option-6").performClick()
+        assertEquals(6, selectedDay)
+    }
+
     @Test fun todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances() {
         var now by mutableStateOf(LocalDateTime.parse("2026-09-01T09:00:00"))
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), now) }
