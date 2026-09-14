@@ -56,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -299,16 +300,15 @@ fun QingKeAppContent(
 }
 
 @Composable private fun TerminalTabBar(selected: MainTab, onSelect: (MainTab) -> Unit, dark: Boolean, modifier: Modifier = Modifier) {
-    val panel = if (dark) DarkSurface else Color(0xDDFBFDFC)
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
-            .background(panel, TerminalShape).border(1.dp, terminalBorder(dark), TerminalShape).padding(6.dp),
+            .terminalPanel(dark, Color.Transparent).padding(6.dp),
     ) {
         listOf(Triple(MainTab.TODAY, "今日", "01"), Triple(MainTab.SCHEDULE, "课表", "02"), Triple(MainTab.SETTINGS, "设置", "03")).forEach { (tab, title, number) ->
             val active = selected == tab
             Column(Modifier.weight(1f).height(62.dp).background(if (active) InverseSurface else Color.Transparent, TerminalShape)
                 .selectable(active, onClick = { onSelect(tab) }, role = Role.Tab).testTag("${tab.name.lowercase()}-tab").semantics { contentDescription = title }) {
-                Row(Modifier.weight(1f).padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f).padding(horizontal = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     TerminalTabIcon(tab, if (active) Color(0xFFF1F5F4) else terminalText(dark), "${tab.name.lowercase()}-tab-icon")
                     Spacer(Modifier.width(8.dp))
                     Column {
@@ -416,11 +416,18 @@ fun QingKeAppContent(
     val key = item.occurrence.key; val accent = if (item.status == CourseStatus.ONGOING) SignalYellow else courseColor(item.occurrence.course.color)
     Text("%02d".format(index + 1), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.width(24.dp).graphicsLayer { rotationZ = -90f }.testTag("today-course-index-${key.courseIndex}-${key.scheduleIndex}")); Column(Modifier.width(66.dp)) { val range = ScheduleDisplayText.timeRange(item.occurrence.schedule, semester).split("–"); Text(range.firstOrNull().orEmpty(), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge); Text(range.getOrNull(1).orEmpty(), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(1.dp).heightIn(min = 52.dp).background(terminalBorder(dark))); Column(Modifier.padding(start = 13.dp).weight(1f)) { Text(statusText(item), color = if (item.status == CourseStatus.ONGOING) InverseSurface else terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall, modifier = Modifier.background(accent).padding(horizontal = 6.dp, vertical = 2.dp).testTag("today-course-status-${key.courseIndex}-${key.scheduleIndex}")); Text(item.occurrence.course.name, color = terminalText(dark), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(courseDetails(item.occurrence), color = terminalSecondary(dark), modifier = Modifier.testTag("today-course-details-${key.courseIndex}-${key.scheduleIndex}"), style = MaterialTheme.typography.labelSmall) }; Box(Modifier.width(3.dp).heightIn(min = 68.dp).background(accent).testTag("today-course-color-${key.courseIndex}-${key.scheduleIndex}").semantics { contentDescription = "课程颜色：${courseColorLabel(item.occurrence.course.color)}" })
 }
-
 private fun terminalText(dark: Boolean) = if (dark) Color(0xFFF1F5F4) else Color(0xFF091113)
 private fun terminalSecondary(dark: Boolean) = if (dark) Color(0xB3F1F5F4) else Color(0xB3091113)
-private fun terminalBorder(dark: Boolean) = if (dark) Color(0x59F1F5F4) else Color(0x57091113)
-private fun Modifier.terminalPanel(dark: Boolean, accent: Color) = background(if (dark) DarkSurface.copy(alpha = .96f) else Color(0xEAFBFDFC), TerminalShape).border(1.dp, terminalBorder(dark), TerminalShape).drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+private fun terminalBorder(dark: Boolean) = if (dark) Color.White.copy(alpha = .28f) else Color.White.copy(alpha = .82f)
+private fun Modifier.terminalPanel(dark: Boolean, accent: Color): Modifier {
+    val surface = if (dark) Color(0xE61A2527) else Color(0xDDFBFEFD)
+    val highlight = if (dark) Color.White.copy(alpha = .10f) else Color.White.copy(alpha = .48f)
+    return this
+        .shadow(if (dark) 7.dp else 4.dp, TerminalShape, ambientColor = Color.Black.copy(alpha = if (dark) .42f else .22f), spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f))
+        .background(Brush.linearGradient(listOf(highlight, surface, surface.copy(alpha = .94f))), TerminalShape)
+        .border(1.dp, terminalBorder(dark), TerminalShape)
+        .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+}
 
 private fun statusText(item: TodayCourseItem): String = when (item.status) {
     CourseStatus.FINISHED -> "COMPLETE"

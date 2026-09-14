@@ -144,6 +144,19 @@ class QingKeAppTest {
         rule.onNodeWithTag("settings-tab").performClick(); rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
     }
 
+    @Test fun terminalTabsExposeCenteredIconTitleAndNumberGroups() {
+        rule.setContent { QingKeAppContent(readyWithSemester(), null, MainTab.TODAY, QingKeAppActions()) }
+        listOf(
+            Triple("today", "今日", "01"),
+            Triple("schedule", "课表", "02"),
+            Triple("settings", "设置", "03"),
+        ).forEach { (id, title, number) ->
+            rule.onNodeWithTag("$id-tab-icon").assertIsDisplayed()
+            rule.onNodeWithText(title).assertIsDisplayed()
+            rule.onNodeWithText(number).assertIsDisplayed()
+        }
+    }
+
     @Test fun systemDateAndTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
         var form by mutableStateOf(defaultForm(expanded = true))
         var dateUpdates = 0; var startUpdates = 0; var endUpdates = 0
@@ -359,6 +372,15 @@ class QingKeAppTest {
         }
         assertTrue(visibleNonCyan.isNotEmpty())
         assertTrue(visibleNonCyan.all { it >= 200 })
+    }
+
+    @Test fun logoResourcesUseIosSizedTrimmedCanvas() {
+        val logo = requireNotNull(BitmapFactory.decodeResource(rule.activity.resources, R.drawable.qingke_logo))
+        val darkLogo = requireNotNull(BitmapFactory.decodeResource(rule.activity.resources, R.drawable.qingke_logo_dark))
+        assertEquals(1300, logo.width)
+        assertEquals(500, logo.height)
+        assertEquals(1300, darkLogo.width)
+        assertEquals(500, darkLogo.height)
     }
 
     @Test fun todayApi37ScreenshotsCoverAllThreeEmptyStates() {
