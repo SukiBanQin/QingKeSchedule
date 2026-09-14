@@ -42,3 +42,9 @@
 - 成功提示正文使用主题对应文字色；Compose 用例验证浅／深主题、主壳 ADD 仍可点击及 2.6 秒自动消失。R2 API 37 ARM64 connected 为 46 tests、0 failures、0 errors、0 skipped。
 - 编辑器改为固定品牌头、inverse 顶栏（底部 signal line）、顶部保存、编号资料／安排分区和仅编辑模式可见的 `99 / 危险操作` 删除区；chooser 使用平衡的顶部栏。节次分别显示其对应的起止时间。
 - R2 `testReleaseUnitTest assembleDebug assembleRelease lintDebug` 返回 `BUILD SUCCESSFUL`；lint 为 0 errors、21 warnings。生产人工 CRUD 全链和规定截图仍未执行，不能宣称设备生产验收。
+
+## R3 结构收口（2026-09-14）
+
+- 编辑器不再复用 TODAY 的 `LOCAL / 01` 品牌头：顶部工具栏在前，chooser 为 `PROFILE / 04` / `course-choice-brand-header`，编辑器为 `CREATE`、`EDIT` 或 `APPEND / 04` / `course-editor-brand-header`。
+- 编号修正为身份 `01`、第一安排 `02`、后续递增、危险区 `99`；开始／结束节次分别显示对应开始／结束时间。新增 Compose 断言覆盖编辑 code、01／02／99 和危险区。
+- 本轮未取得生产 UI 长链或截图证据；不得将此结构收口视为该硬门槛完成。

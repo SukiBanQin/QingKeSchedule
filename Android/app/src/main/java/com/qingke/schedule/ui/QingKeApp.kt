@@ -430,12 +430,12 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun BrandHeader(dark: Boolean) = Row(
+@Composable private fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 12.dp).border(width = 0.dp, color = Color.Transparent)
-        .drawBehind { drawLine(if (dark) Color.White.copy(alpha = .20f) else Color.Black.copy(alpha = .18f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.testTag("today-brand-header"), verticalAlignment = Alignment.CenterVertically,
+        .drawBehind { drawLine(if (dark) Color.White.copy(alpha = .20f) else Color.Black.copy(alpha = .18f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.testTag(tag), verticalAlignment = Alignment.CenterVertically,
 ) {
     androidx.compose.foundation.Image(painterResource(if (dark) R.drawable.qingke_logo_dark else R.drawable.qingke_logo), "青课 QINGKE ACADEMIC TERMINAL", Modifier.width(154.dp).heightIn(min = 54.dp).testTag("today-brand-logo"), contentScale = ContentScale.Fit)
-    Spacer(Modifier.weight(1f)); Text("LOCAL / 01", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+    Spacer(Modifier.weight(1f)); Text(code, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
 }
 
 @Composable private fun TodayHero(now: LocalDateTime, semester: com.qingke.schedule.domain.Semester, presentation: TodaySchedulePresentation, dark: Boolean, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -509,8 +509,8 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     Box(Modifier.fillMaxSize().background(if (dark) Color(0xF2081113) else Color(0xF5E3EBEB)).statusBarsPadding().navigationBarsPadding().testTag("course-editor")) {
         if (editor.mode == CourseEditorMode.CHOOSER) {
             Column(Modifier.fillMaxSize()) {
-                BrandHeader(dark)
                 EditorHeader("添加课程", actions.closeCourseEditor, null, false, dark)
+                BrandHeader(dark, "PROFILE / 04", "course-choice-brand-header")
                 Column(Modifier.weight(1f).padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
                 Text("选择操作", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
                 Button(actions.openNewCourse, Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 52.dp).testTag("course-create-new"), shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = InverseSurface, contentColor = Color.White)) { Text("新建课程") }
@@ -524,8 +524,8 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
             val periodMaximum = semester?.periods?.maxOfOrNull { it.number } ?: 1
             val weekMaximum = semester?.totalWeeks ?: 1
             Column(Modifier.fillMaxSize()) {
-                BrandHeader(dark)
                 EditorHeader(if (editor.isAppend) "追加上课安排" else if (editor.mode == CourseEditorMode.EDIT) "编辑课程" else "新建课程", actions.closeCourseEditor, actions.saveCourse, editor.isInFlight, dark)
+                BrandHeader(dark, "${if (editor.isAppend) "APPEND" else if (editor.mode == CourseEditorMode.EDIT) "EDIT" else "CREATE"} / 04", "course-editor-brand-header")
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
                 Text("01 / 课程资料", Modifier.padding(top = 12.dp), color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
                 if (editor.isAppend) {
@@ -547,13 +547,12 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                     }
                     OutlinedButton(actions.showColorDialog, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp).testTag("course-custom-color"), enabled = !editor.isInFlight, shape = TerminalShape) { Text("自定义颜色：${editor.color}") }
                 }
-                Text("02 / 上课安排", Modifier.padding(top = 20.dp), color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
                 editor.visibleSchedules.forEachIndexed { visibleIndex, schedule ->
                     Column(Modifier.fillMaxWidth().padding(top = 10.dp).terminalPanel(dark, QingKeCyan).padding(12.dp).testTag("course-schedule-${schedule.id}")) {
-                        Text("${"%02d".format(visibleIndex + 3)} / 安排 ${visibleIndex + 1}", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("${"%02d".format(visibleIndex + 2)} / 安排 ${visibleIndex + 1}", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         EditorStepper(weekdayName(schedule.dayOfWeek), schedule.dayOfWeek, 1, 7, { actions.updateCourseDay(schedule.id, it) }, "course-day-${schedule.id}", dark, !editor.isInFlight)
-                        EditorStepper("开始${periodDescription(semester, schedule.startPeriod)}", schedule.startPeriod, 1, periodMaximum, { actions.updateCourseStartPeriod(schedule.id, it) }, "course-start-period-${schedule.id}", dark, !editor.isInFlight)
-                        EditorStepper("结束${periodDescription(semester, schedule.endPeriod)}", schedule.endPeriod, 1, periodMaximum, { actions.updateCourseEndPeriod(schedule.id, it) }, "course-end-period-${schedule.id}", dark, !editor.isInFlight)
+                        EditorStepper("开始${periodDescription(semester, schedule.startPeriod, true)}", schedule.startPeriod, 1, periodMaximum, { actions.updateCourseStartPeriod(schedule.id, it) }, "course-start-period-${schedule.id}", dark, !editor.isInFlight)
+                        EditorStepper("结束${periodDescription(semester, schedule.endPeriod, false)}", schedule.endPeriod, 1, periodMaximum, { actions.updateCourseEndPeriod(schedule.id, it) }, "course-end-period-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("起始周", schedule.startWeek, 1, weekMaximum, { actions.updateCourseStartWeek(schedule.id, it) }, "course-start-week-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("结束周", schedule.endWeek, 1, weekMaximum, { actions.updateCourseEndWeek(schedule.id, it) }, "course-end-week-${schedule.id}", dark, !editor.isInFlight)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { RepeatRule.entries.forEach { rule -> OutlinedButton({ actions.updateCourseRepeat(schedule.id, rule) }, Modifier.weight(1f).heightIn(min = 40.dp).testTag("course-repeat-${schedule.id}-${rule.name}"), enabled = !editor.isInFlight, shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (schedule.repeatRule == rule) QingKeCyan.copy(alpha = .3f) else Color.Transparent)) { Text(if (rule == RepeatRule.EVERY) "每周" else if (rule == RepeatRule.ODD) "单周" else "双周") } } }
@@ -578,7 +577,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     }
 }
 
-@Composable private fun EditorHeader(title: String, close: () -> Unit, save: (() -> Unit)?, saving: Boolean, dark: Boolean) = Row(Modifier.fillMaxWidth().background(InverseSurface).drawBehind { drawRect(SignalYellow, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), size = androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) }.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun EditorHeader(title: String, close: () -> Unit, save: (() -> Unit)?, saving: Boolean, dark: Boolean) = Row(Modifier.fillMaxWidth().background(InverseSurface).drawBehind { drawRect(SignalYellow, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), size = androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) }.padding(horizontal = 10.dp, vertical = 8.dp).testTag("course-editor-toolbar"), verticalAlignment = Alignment.CenterVertically) {
     OutlinedButton(close, Modifier.heightIn(min = 44.dp).testTag("course-editor-close"), enabled = !saving, shape = TerminalShape) { Text("取消") }
     Text(title, Modifier.weight(1f).padding(horizontal = 12.dp), color = Color(0xFFF1F5F4), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
     save?.let { Button(it, Modifier.heightIn(min = 44.dp).testTag("course-save-toolbar"), enabled = !saving, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text(if (saving) "保存中" else "保存") } } ?: Spacer(Modifier.width(64.dp))
@@ -612,9 +611,9 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
 }
 
 private fun weekdayName(value: Int) = listOf("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日").getOrElse(value - 1) { "星期" }
-private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, number: Int): String {
+private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, number: Int, start: Boolean): String {
     val period = semester?.periods?.firstOrNull { it.number == number }
-    return "第 $number 节${period?.let { "（${it.startTime}–${it.endTime}）" } ?: ""}"
+    return "第 $number 节${period?.let { "（${if (start) it.startTime else it.endTime}）" } ?: ""}"
 }
 
 @Composable private fun EditorDialog(title: String, message: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String) = AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message) }, dismissButton = { OutlinedButton(onDismiss, shape = TerminalShape) { Text("返回修改") } }, confirmButton = { Button(onConfirm, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text(confirm) } }, modifier = Modifier.testTag(tag))

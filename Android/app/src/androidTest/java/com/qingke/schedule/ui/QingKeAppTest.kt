@@ -116,6 +116,14 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-add-schedule").assertIsNotEnabled()
     }
 
+    @Test fun editorHeadersUseCourseCodesAndNumberedSections() {
+        val schedule = CourseScheduleFormState("new", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, name = "算法", schedules = listOf(schedule))) }
+        rule.onNodeWithTag("course-editor-toolbar").assertIsDisplayed()
+        rule.onNodeWithTag("course-editor-brand-header").assertTextContains("EDIT / 04")
+        rule.onNodeWithText("01 / 课程资料").assertIsDisplayed(); rule.onNodeWithText("02 / 安排 1").assertIsDisplayed(); rule.onNodeWithTag("course-danger-zone").assertIsDisplayed()
+    }
+
     @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
         var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var addCalls = 0
         rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
