@@ -5,6 +5,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.qingke.schedule.ScheduleAppDependencies
 import com.qingke.schedule.domain.Semester
+import com.qingke.schedule.domain.Course
+import com.qingke.schedule.domain.RepeatRule
+import com.qingke.schedule.domain.ScheduleConflict
+import com.qingke.schedule.draft.CourseDraft
+import com.qingke.schedule.draft.CourseSaveEvaluation
+import com.qingke.schedule.draft.CourseScheduleDraft
 import com.qingke.schedule.draft.SemesterDraft
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.state.ScheduleState
@@ -30,6 +36,35 @@ data class SemesterFormState(
     val validationMessage: String? = null,
 )
 
+enum class CourseEditorMode { CHOOSER, CREATE, EDIT, APPEND }
+
+data class CourseScheduleFormState(
+    val id: String, val dayOfWeek: Int, val startPeriod: Int, val endPeriod: Int,
+    val startWeek: Int, val endWeek: Int, val repeatRule: RepeatRule, val classroom: String,
+)
+
+sealed interface CourseEditorConfirmation {
+    data object Discard : CourseEditorConfirmation
+    data object Delete : CourseEditorConfirmation
+    data class Conflicts(val candidate: Course, val conflicts: List<ScheduleConflict>) : CourseEditorConfirmation
+}
+
+data class CourseEditorState(
+    val mode: CourseEditorMode,
+    val courseId: String? = null,
+    val name: String = "",
+    val teacher: String = "",
+    val color: String = "#287B74",
+    val schedules: List<CourseScheduleFormState> = emptyList(),
+    val originalScheduleCount: Int = 0,
+    val validationMessage: String? = null,
+    val confirmation: CourseEditorConfirmation? = null,
+    val isInFlight: Boolean = false,
+) {
+    val isAppend: Boolean get() = mode == CourseEditorMode.APPEND
+    val visibleSchedules: List<CourseScheduleFormState> get() = if (isAppend) schedules.drop(originalScheduleCount) else schedules
+}
+
 class ScheduleViewModel(
     private val appState: ScheduleAppState,
     private val now: () -> LocalDateTime = LocalDateTime::now,
@@ -43,6 +78,14 @@ class ScheduleViewModel(
     private val mutableCurrentTime = MutableStateFlow(now())
     val currentTime: StateFlow<LocalDateTime> = mutableCurrentTime.asStateFlow()
     private var draft: SemesterDraft? = null
+    private val mutableEditor = MutableStateFlow<CourseEditorState?>(null)
+    val editor: StateFlow<CourseEditorState?> = mutableEditor.asStateFlow()
+    private val mutableCourseSuccess = MutableStateFlow<String?>(null)
+    val courseSuccess: StateFlow<String?> = mutableCourseSuccess.asStateFlow()
+    private var courseDraft: CourseDraft? = null
+    private var editorSourceIndex: Int? = null
+    private var editorFingerprint: Course? = null
+    private var editorInFlight = false
     private var saveRequested = false
     private var loadJob: Job? = null
 
@@ -106,6 +149,130 @@ class ScheduleViewModel(
     }
 
     fun dismissError() = appState.clearError()
+
+    fun consumeCourseSuccess() { mutableCourseSuccess.value = null }
+
+    fun openAddCourse() {
+        if (state.value.data.semester == null || editorInFlight) return
+        if (state.value.data.courses.isEmpty()) openNewCourse() else mutableEditor.value = CourseEditorState(CourseEditorMode.CHOOSER)
+    }
+
+    fun openNewCourse() {
+        val semester = state.value.data.semester ?: return
+        courseDraft = CourseDraft.create(semester, currentTime.value.toLocalDate(), idFactory)
+        editorSourceIndex = null; editorFingerprint = null
+        publishEditor(CourseEditorMode.CREATE)
+    }
+
+    fun openCourseAt(index: Int) {
+        val semester = state.value.data.semester ?: return
+        val course = state.value.data.courses.getOrNull(index) ?: return
+        courseDraft = CourseDraft.edit(course, semester, currentTime.value.toLocalDate(), idFactory = idFactory)
+        editorSourceIndex = index; editorFingerprint = course
+        publishEditor(CourseEditorMode.EDIT)
+    }
+
+    fun appendCourseAt(index: Int) {
+        val semester = state.value.data.semester ?: return
+        val course = state.value.data.courses.getOrNull(index) ?: return
+        courseDraft = CourseDraft.edit(course, semester, currentTime.value.toLocalDate(), appendSchedule = true, idFactory = idFactory)
+        editorSourceIndex = index; editorFingerprint = course
+        publishEditor(CourseEditorMode.APPEND)
+    }
+
+    fun requestCloseEditor() {
+        val current = courseDraft
+        if (editorInFlight) return
+        if (current == null || !current.isDirty) closeEditor() else updateEditor { it.copy(confirmation = CourseEditorConfirmation.Discard, validationMessage = null) }
+    }
+
+    fun dismissEditorConfirmation() = updateEditor { it.copy(confirmation = null) }
+    fun confirmDiscardEditor() { if (!editorInFlight) closeEditor() }
+    fun requestDeleteCourse() { if (editorSourceIndex != null && !editorInFlight) updateEditor { it.copy(confirmation = CourseEditorConfirmation.Delete) } }
+
+    fun updateCourseName(value: String) = editCourse { it.name = value }
+    fun updateCourseTeacher(value: String) = editCourse { it.teacher = value }
+    fun updateCourseColor(value: String) = editCourse { if (value.matches(Regex("^#[0-9A-Fa-f]{6}$"))) it.color = value.uppercase() }
+    fun updateCourseScheduleDay(id: String, value: Int) = editSchedule(id) { it.dayOfWeek = value.coerceIn(1, 7) }
+    fun updateCourseScheduleStartPeriod(id: String, value: Int) = editSchedule(id) { schedule ->
+        schedule.startPeriod = value; if (schedule.endPeriod < value) schedule.endPeriod = value
+    }
+    fun updateCourseScheduleEndPeriod(id: String, value: Int) = editSchedule(id) { schedule ->
+        schedule.endPeriod = value; if (schedule.startPeriod > value) schedule.startPeriod = value
+    }
+    fun updateCourseScheduleStartWeek(id: String, value: Int) = editSchedule(id) { schedule ->
+        val bounded = value.coerceIn(1, state.value.data.semester?.totalWeeks ?: 52); schedule.startWeek = bounded; if (schedule.endWeek < bounded) schedule.endWeek = bounded
+    }
+    fun updateCourseScheduleEndWeek(id: String, value: Int) = editSchedule(id) { schedule ->
+        val bounded = value.coerceIn(1, state.value.data.semester?.totalWeeks ?: 52); schedule.endWeek = bounded; if (schedule.startWeek > bounded) schedule.startWeek = bounded
+    }
+    fun updateCourseScheduleRepeat(id: String, value: RepeatRule) = editSchedule(id) { it.repeatRule = value }
+    fun updateCourseScheduleClassroom(id: String, value: String) = editSchedule(id) { it.classroom = value }
+    fun addCourseSchedule() = editCourse { it.addSchedule() }
+    fun removeCourseSchedule(id: String) = editCourse { it.removeSchedule(id) }
+
+    fun saveCourse() {
+        val current = courseDraft ?: return
+        val semester = state.value.data.semester ?: return
+        if (editorInFlight) return
+        when (val evaluation = current.evaluateSave(semester, state.value.data.courses, editorSourceIndex)) {
+            is CourseSaveEvaluation.Invalid -> updateEditor { it.copy(validationMessage = evaluation.issues.firstOrNull()?.message, confirmation = null) }
+            is CourseSaveEvaluation.Conflicting -> updateEditor { it.copy(validationMessage = null, confirmation = CourseEditorConfirmation.Conflicts(current.course(), evaluation.conflicts)) }
+            CourseSaveEvaluation.Ready -> submitCourse(current.course())
+        }
+    }
+
+    fun confirmSaveDespiteConflicts() {
+        val candidate = (mutableEditor.value?.confirmation as? CourseEditorConfirmation.Conflicts)?.candidate ?: return
+        if (!editorInFlight) submitCourse(candidate)
+    }
+
+    private fun submitCourse(candidate: Course) {
+        if (editorInFlight) return
+        editorInFlight = true
+        updateEditor { it.copy(isInFlight = true, confirmation = null, validationMessage = null) }
+        val source = editorSourceIndex; val fingerprint = editorFingerprint; val mode = mutableEditor.value?.mode
+        viewModelScope.launch {
+            try {
+                val success = if (source == null) appState.saveCourse(candidate) else appState.saveCourseAt(source, requireNotNull(fingerprint), candidate)
+                if (success) {
+                    mutableCourseSuccess.value = if (mode == CourseEditorMode.APPEND) "上课安排添加成功" else if (source == null) "课程添加成功" else "课程修改已保存"
+                    closeEditor()
+                } else updateEditor { it.copy(isInFlight = false) }
+            } catch (error: CancellationException) { throw error
+            } finally { editorInFlight = false; mutableEditor.value?.let { if (it.isInFlight) mutableEditor.value = it.copy(isInFlight = false) } }
+        }
+    }
+
+    fun confirmDeleteCourse() {
+        val source = editorSourceIndex ?: return; val fingerprint = editorFingerprint ?: return
+        if (editorInFlight) return
+        editorInFlight = true
+        updateEditor { it.copy(isInFlight = true, confirmation = null) }
+        viewModelScope.launch {
+            try {
+                if (appState.deleteCourseAt(source, fingerprint)) { mutableCourseSuccess.value = "课程删除成功"; closeEditor() }
+                else updateEditor { it.copy(isInFlight = false) }
+            } catch (error: CancellationException) { throw error
+            } finally { editorInFlight = false; mutableEditor.value?.let { if (it.isInFlight) mutableEditor.value = it.copy(isInFlight = false) } }
+        }
+    }
+
+    private fun editCourse(change: (CourseDraft) -> Unit) {
+        if (editorInFlight) return
+        courseDraft?.let { change(it); publishEditor(mutableEditor.value?.mode ?: return) }
+    }
+    private fun editSchedule(id: String, change: (CourseScheduleDraft) -> Unit) = editCourse { draft -> draft.schedules.firstOrNull { it.id == id }?.let(change) }
+    private fun updateEditor(change: (CourseEditorState) -> CourseEditorState) { mutableEditor.value?.let { mutableEditor.value = change(it) } }
+    private fun publishEditor(mode: CourseEditorMode) {
+        val value = courseDraft ?: return
+        val previous = mutableEditor.value
+        mutableEditor.value = CourseEditorState(mode, value.id, value.name, value.teacher, value.color,
+            value.schedules.map { CourseScheduleFormState(it.id, it.dayOfWeek, it.startPeriod, it.endPeriod, it.startWeek, it.endWeek, it.repeatRule, it.classroom) },
+            originalScheduleCount = if (mode == CourseEditorMode.APPEND) editorFingerprint?.schedules?.size ?: 0 else 0,
+            validationMessage = previous?.validationMessage, confirmation = previous?.confirmation, isInFlight = editorInFlight)
+    }
+    private fun closeEditor() { courseDraft = null; editorSourceIndex = null; editorFingerprint = null; mutableEditor.value = null }
 
     private fun publishForm() { draft?.let { mutableForm.value = snapshot(it) } }
 

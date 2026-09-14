@@ -102,9 +102,12 @@ object ScheduleRules {
             periodRangesOverlap(left, right) &&
             overlappingWeeks(left, right).isNotEmpty()
 
-    fun conflicts(candidate: Course, existingCourses: List<Course>): List<ScheduleConflict> = buildList {
+    fun conflicts(candidate: Course, existingCourses: List<Course>, excludedIndex: Int? = null): List<ScheduleConflict> = buildList {
         candidate.schedules.forEach { candidateSchedule ->
-            existingCourses.filter { it.id != candidate.id }.forEach { existingCourse ->
+            existingCourses.forEachIndexed { courseIndex, existingCourse ->
+                // The default retains the legacy draft API semantics.  Editor routes pass a source
+                // index so a legal duplicate business id remains a conflict with its neighbour.
+                if (if (excludedIndex == null) existingCourse.id == candidate.id else courseIndex == excludedIndex) return@forEachIndexed
                 existingCourse.schedules.forEach { existingSchedule ->
                     val weeks = overlappingWeeks(candidateSchedule, existingSchedule)
                     if (candidateSchedule.dayOfWeek == existingSchedule.dayOfWeek &&

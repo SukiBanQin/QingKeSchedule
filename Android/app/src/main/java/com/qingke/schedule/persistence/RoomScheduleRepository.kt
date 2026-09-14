@@ -51,6 +51,23 @@ class RoomScheduleRepository(
         database.withTransaction { write(next); beforeCommit(); next }
     }
 
+    override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData = mutate { current ->
+        val existing = current.courses.getOrNull(index)
+            ?: throw ScheduleRepositoryException.InconsistentStore("课程已变化，请重新打开后再试")
+        if (existing != expected) throw ScheduleRepositoryException.InconsistentStore("课程已变化，请重新打开后再试")
+        current.copy(courses = current.courses.toMutableList().also { it[index] = course }, updatedAt = now())
+    }
+
+    override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData = mutex.withLock {
+        val current = read()
+        val existing = current.courses.getOrNull(index)
+            ?: throw ScheduleRepositoryException.InconsistentStore("课程已变化，请重新打开后再试")
+        if (existing != expected) throw ScheduleRepositoryException.InconsistentStore("课程已变化，请重新打开后再试")
+        val next = current.copy(courses = current.courses.toMutableList().also { it.removeAt(index) }, updatedAt = now())
+        validate(next)
+        database.withTransaction { write(next); beforeCommit(); next }
+    }
+
     private suspend fun mutate(transform: (ScheduleData) -> ScheduleData): ScheduleData = mutex.withLock {
         val next = transform(read())
         validate(next)

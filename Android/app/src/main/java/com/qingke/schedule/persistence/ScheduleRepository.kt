@@ -10,6 +10,17 @@ interface ScheduleRepository {
     suspend fun saveSemester(semester: Semester): ScheduleData
     suspend fun saveCourse(course: Course): ScheduleData
     suspend fun deleteCourse(id: String): ScheduleData
+
+    /**
+     * P3-04 edits use an occurrence, not a business id: version-1 imports may legally contain
+     * duplicate ids.  Implementations must reject a changed target rather than selecting another
+     * matching id.
+     */
+    suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData =
+        throw ScheduleRepositoryException.InconsistentStore("不支持按课程来源位置保存")
+
+    suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData =
+        throw ScheduleRepositoryException.InconsistentStore("不支持按课程来源位置删除")
 }
 
 sealed class ScheduleRepositoryException(message: String, cause: Throwable? = null) : Exception(message, cause) {

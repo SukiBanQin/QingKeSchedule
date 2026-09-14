@@ -60,6 +60,8 @@ class ScheduleAppState(
     suspend fun saveSemester(semester: Semester) = saveSchedule { repository.saveSemester(semester) }
     suspend fun saveCourse(course: Course) = saveSchedule { repository.saveCourse(course) }
     suspend fun deleteCourse(id: String) = saveSchedule { repository.deleteCourse(id) }
+    suspend fun saveCourseAt(index: Int, expected: Course, course: Course) = saveSchedule { repository.saveCourseAt(index, expected, course) }
+    suspend fun deleteCourseAt(index: Int, expected: Course) = saveSchedule { repository.deleteCourseAt(index, expected) }
     suspend fun savePreferences(preferences: SchedulePreferences) =
         savePreferences { preferencesRepository.save(preferences) }
 
@@ -70,12 +72,12 @@ class ScheduleAppState(
         mutableState.update { it.copy(error = null) }
     }
 
-    private suspend fun saveSchedule(block: suspend () -> ScheduleData) = save(
+    private suspend fun saveSchedule(block: suspend () -> ScheduleData): Boolean = save(
         operation = block,
         publish = { previous, data -> previous.copy(data = data) },
     )
 
-    private suspend fun savePreferences(block: suspend () -> SchedulePreferences) = save(
+    private suspend fun savePreferences(block: suspend () -> SchedulePreferences): Boolean = save(
         operation = block,
         publish = { previous, preferences -> previous.copy(preferences = preferences) },
     )
@@ -83,17 +85,19 @@ class ScheduleAppState(
     private suspend fun <T> save(
         operation: suspend () -> T,
         publish: (ScheduleState, T) -> ScheduleState,
-    ) = operationMutex.withLock {
+    ): Boolean = operationMutex.withLock {
         check(mutableState.value.loadStatus == LoadStatus.READY) { "应用数据尚未加载" }
         val previous = mutableState.value
         mutableState.value = previous.copy(isSaving = true, error = null)
         try {
             mutableState.value = publish(previous, operation()).copy(isSaving = false, error = null)
+            true
         } catch (error: CancellationException) {
             mutableState.value = previous
             throw error
         } catch (error: Throwable) {
             mutableState.value = previous.copy(isSaving = false, error = message(error))
+            false
         }
     }
 

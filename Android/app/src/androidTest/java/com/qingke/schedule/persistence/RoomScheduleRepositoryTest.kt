@@ -79,6 +79,20 @@ class RoomScheduleRepositoryTest {
         assertEquals(listOf("updated", "two", "new"), appended.courses.map { it.name })
     }
 
+    @Test fun preciseDuplicateIdSaveAndDeleteUseSourceIndexAndFingerprint() = runBlocking {
+        val repository = repository(null)
+        val original = data()
+        repository.replace(original)
+        val second = original.courses[1]
+        val updated = repository.saveCourseAt(1, second, second.copy(name = "second-updated"))
+        assertEquals(listOf("one", "second-updated"), updated.courses.map { it.name })
+        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) {
+            runBlocking { repository.deleteCourseAt(1, second) }
+        }
+        val deleted = repository.deleteCourseAt(1, updated.courses[1])
+        assertEquals(listOf("one"), deleted.courses.map { it.name })
+    }
+
     @Test fun deletingMissingCoursePreservesDataAndUpdatedAt() = runBlocking {
         val repository = repository(null)
         val original = data()

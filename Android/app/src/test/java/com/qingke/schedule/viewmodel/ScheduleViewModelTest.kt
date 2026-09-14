@@ -1,6 +1,7 @@
 package com.qingke.schedule.viewmodel
 
 import com.qingke.schedule.domain.Course
+import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.persistence.ScheduleRepository
@@ -165,6 +166,26 @@ class ScheduleViewModelTest {
         assertEquals(1, repository.saveCalls); assertNull(model.state.value.error); assertFalse(model.state.value.isSaving)
     }
 
+    @Test fun courseEditorCreatesSchedulesAndKeepsDirtyDraftUntilDiscarded() = runTest {
+        val repository = FakeScheduleRepository().also {
+            it.data = ScheduleData(1, Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"))), emptyList(), "now")
+        }
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-01T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+        model.openAddCourse()
+        assertEquals(CourseEditorMode.CREATE, model.editor.value!!.mode)
+        val first = model.editor.value!!.schedules.single().id
+        model.updateCourseName("数据结构")
+        model.updateCourseScheduleStartPeriod(first, 9)
+        assertEquals(9, model.editor.value!!.schedules.single().endPeriod)
+        model.addCourseSchedule()
+        assertEquals(2, model.editor.value!!.schedules.size)
+        model.requestCloseEditor()
+        assertTrue(model.editor.value!!.confirmation is CourseEditorConfirmation.Discard)
+        model.confirmDiscardEditor()
+        assertNull(model.editor.value)
+    }
+
     private fun appState(repository: FakeScheduleRepository) = ScheduleAppState(repository, object : SchedulePreferencesRepository {
         override suspend fun load() = SchedulePreferences.defaults
         override suspend fun save(preferences: SchedulePreferences) = preferences
@@ -178,7 +199,11 @@ class ScheduleViewModelTest {
         override suspend fun load(): ScheduleData { loadCalls++; loadGate?.await(); if (failLoad) error("load") ; return data }
         override suspend fun replace(data: ScheduleData) = data
         override suspend fun saveSemester(semester: Semester): ScheduleData { saveCalls++; saveGate?.await(); if (cancelSave) throw CancellationException("cancelled"); if (failSave) error("save"); saved = semester; return data.copy(semester = semester).also { data = it } }
-        override suspend fun saveCourse(course: Course) = data
+        override suspend fun saveCourse(course: Course): ScheduleData {
+            val index = data.courses.indexOfFirst { it.id == course.id }
+            data = data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course })
+            return data
+        }
         override suspend fun deleteCourse(id: String) = data
     }
 

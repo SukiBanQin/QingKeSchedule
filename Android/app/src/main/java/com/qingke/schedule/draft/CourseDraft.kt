@@ -55,7 +55,7 @@ class CourseDraft private constructor(
         ScheduleData(1, semester, listOf(course()), "1970-01-01T00:00:00Z"),
     )
 
-    fun evaluateSave(semester: Semester, existingCourses: List<Course>): CourseSaveEvaluation {
+    fun evaluateSave(semester: Semester, existingCourses: List<Course>, excludedIndex: Int? = null): CourseSaveEvaluation {
         val issues = validationIssues(semester)
         if (issues.isNotEmpty()) return CourseSaveEvaluation.Invalid(issues)
         val candidate = course()
@@ -64,7 +64,7 @@ class CourseDraft private constructor(
                 listOf(ValidationIssue("courses.0.schedules", "该上课安排已存在，请勿重复添加")),
             )
         }
-        val conflicts = com.qingke.schedule.domain.ScheduleRules.conflicts(candidate, existingCourses)
+        val conflicts = com.qingke.schedule.domain.ScheduleRules.conflicts(candidate, existingCourses, excludedIndex)
         return if (conflicts.isEmpty()) CourseSaveEvaluation.Ready else CourseSaveEvaluation.Conflicting(conflicts)
     }
 
