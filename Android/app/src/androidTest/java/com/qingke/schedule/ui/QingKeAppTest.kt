@@ -128,6 +128,32 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-danger-zone").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun editorCloseUsesVisibleInverseInkAcrossThemesAndLargeFont() {
+        val schedule = CourseScheduleFormState("close", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var appearanceMode by mutableStateOf(AppearanceMode.LIGHT)
+        var editorFontScale by mutableStateOf(1f)
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, editorFontScale)) {
+                QingKeAppContent(
+                    readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearanceMode)),
+                    null,
+                    MainTab.TODAY,
+                    QingKeAppActions(),
+                    editor = CourseEditorState(CourseEditorMode.EDIT, name = "算法", schedules = listOf(schedule)),
+                )
+            }
+        }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            listOf(1f, 1.3f).forEach { scale ->
+                appearanceMode = mode
+                editorFontScale = scale
+                rule.waitForIdle()
+                rule.onNodeWithTag("course-editor-close").assertIsDisplayed().assertIsEnabled()
+                assertEditorCloseHasVisibleLightInk(mode, scale)
+            }
+        }
+    }
+
     @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
         var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var addCalls = 0
         rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
@@ -484,6 +510,21 @@ class QingKeAppTest {
         val minimum = with(rule.density) { 48.dp.toPx() }
         assertTrue("$tag width=${bounds.width}", bounds.width >= minimum)
         assertTrue("$tag height=${bounds.height}", bounds.height >= minimum)
+    }
+
+    private fun assertEditorCloseHasVisibleLightInk(appearance: AppearanceMode, fontScale: Float) {
+        val bitmap = rule.onNodeWithTag("course-editor-close").captureToImage().asAndroidBitmap()
+        val lightInk = (bitmap.height / 4 until bitmap.height * 3 / 4).sumOf { y ->
+            (bitmap.width / 4 until bitmap.width * 3 / 4).count { x ->
+                val pixel = bitmap.getPixel(x, y)
+                val alpha = pixel ushr 24 and 0xff
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                alpha > 220 && red >= 220 && green >= 220 && blue >= 220
+            }
+        }
+        assertTrue("$appearance fontScale=$fontScale close text lightInk=$lightInk", lightInk >= 20)
     }
 
     private fun setDate(year: Int, month: Int, day: Int) = object : ViewAction {

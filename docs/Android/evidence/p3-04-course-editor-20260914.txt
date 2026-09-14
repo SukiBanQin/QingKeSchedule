@@ -82,3 +82,16 @@
   `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 的 XML 为 **51 tests、0 failures、0 errors、0 skipped**；
   `./gradlew assembleDebugAndroidTest --no-daemon --console=plain` 与 `git diff --check` 通过。
 - 未改生产代码；生产 APK 的人工 CRUD／重启／日志和截图证据仍是未完成硬门槛，Sol 独立复审和用户验收均未完成。
+
+## 编辑器取消文字对比度修正（2026-09-14）
+
+- 生产 APK 截图发现共享 `EditorHeader` 的取消按钮在浅色主题（含 130% font scale）虽然可点击且无障碍树包含文本，但默认
+  `OutlinedButton` 取浅色主题 `primary = InverseSurface`，使文字与固定深色 toolbar 同色。
+- 取消按钮改为显式 `ButtonDefaults.outlinedButtonColors(contentColor = #F1F5F4)`，匹配 iOS `textOnInverse`；保存按钮原有
+  黄底深字色、回调、尺寸和布局未改。
+- `editorCloseUsesVisibleInverseInkAcrossThemesAndLargeFont` 在浅色／深色、1.0／1.3 font scale 的四个组合中捕捉按钮位图，
+  排除边框后要求实际浅色文字像素存在，并确认按钮显示且可用，避免只凭无障碍文本掩盖同色绘制。
+- 定向测试及最终 `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 均通过；最终 XML 为
+  **52 tests、0 failures、0 errors、0 skipped**。`lintDebug` 为 0 errors、21 warnings，`assembleDebugAndroidTest` 与
+  `testDebugUnitTest`（88 tests、0 failures、0 errors、0 skipped）及 `git diff --check` 通过。生产人工长链与截图仍由 Sol
+  继续，未宣称用户验收。

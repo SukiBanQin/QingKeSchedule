@@ -578,7 +578,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
 }
 
 @Composable private fun EditorHeader(title: String, close: () -> Unit, save: (() -> Unit)?, saving: Boolean, dark: Boolean) = Row(Modifier.fillMaxWidth().background(InverseSurface).drawBehind { drawRect(SignalYellow, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 3.dp.toPx()), size = androidx.compose.ui.geometry.Size(size.width, 3.dp.toPx())) }.padding(horizontal = 10.dp, vertical = 8.dp).testTag("course-editor-toolbar"), verticalAlignment = Alignment.CenterVertically) {
-    OutlinedButton(close, Modifier.heightIn(min = 44.dp).testTag("course-editor-close"), enabled = !saving, shape = TerminalShape) { Text("取消") }
+    OutlinedButton(close, Modifier.heightIn(min = 44.dp).testTag("course-editor-close"), enabled = !saving, shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF1F5F4))) { Text("取消") }
     Text(title, Modifier.weight(1f).padding(horizontal = 12.dp), color = Color(0xFFF1F5F4), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
     save?.let { Button(it, Modifier.heightIn(min = 44.dp).testTag("course-save-toolbar"), enabled = !saving, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text(if (saving) "保存中" else "保存") } } ?: Spacer(Modifier.width(64.dp))
 }

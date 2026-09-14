@@ -1,6 +1,21 @@
 # 安卓项目当前交接状态
 
-## P3-04 connected 测试修正完成，仍待生产硬门槛与 Sol 复审（最新，2026-09-14）
+## P3-04 编辑器取消文字对比度已修正，仍待生产硬门槛与 Sol 复审（最新，2026-09-14）
+
+生产 APK 人工检查发现 CREATE／EDIT／APPEND／PROFILE 共用的编辑器 toolbar 中，左侧“取消”按钮在浅色和 130% 字体截图只剩
+外框、文字不可见。根因是浅色主题的 `primary` 为 `InverseSurface`，而该 `OutlinedButton` 未指定颜色并默认以 `primary` 绘制，
+因而与固定深色 toolbar 同色。本轮只在 `EditorHeader` 的取消按钮显式指定 iOS `textOnInverse` 对应的 `#F1F5F4` 前景；保存
+按钮原有黄底深字色配置未改，回调、尺寸和布局不变。
+
+- 新增 Compose 像素回归测试，在浅色／深色及 1.0／1.3 font scale 下分别捕捉取消按钮图像，排除外框区域后验证至少 20 个
+  实际浅色文字像素，同时保留显示和 enabled 语义断言；它可捕捉本次“语义有文字但视觉同色”的回归。
+- 定向设备测试与最终 `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 均通过；最终 XML 为
+  **52 tests、0 failures、0 errors、0 skipped**。`lintDebug` 为 0 errors、21 warnings，`assembleDebugAndroidTest` 与
+  `testDebugUnitTest`（88 tests、0 failures、0 errors、0 skipped）及 `git diff --check` 通过。
+- 本轮提交编号由交付消息和 Git 历史确认。生产 APK 的其余 CRUD／重启／FATAL-ANR／浅深色和 130% 截图长链仍待 Sol 继续；
+  这项自动化修正不构成 Sol 独立复审或用户验收。
+
+## P3-04 connected 测试修正完成，仍待生产硬门槛与 Sol 复审（2026-09-14）
 
 本轮仅修正 P3-04 的 Android instrumentation 测试，生产代码、Room schema／版本、iOS、Web、`source/` 和共享协议均未改动。
 起始及提交前代码基准均为 `Android` 分支的 `47f02894fcecf9602aa577dfca7f327cfd8cc298`；本轮提交编号由交付消息和 Git
