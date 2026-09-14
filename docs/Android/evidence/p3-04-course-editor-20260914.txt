@@ -143,3 +143,9 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - TODAY 的 ADD 改为 54dp 黄色方形（加号、ADD、内对角折线），空态为 `QUEUE EMPTY` 和 `+ ADD`，课程行改为右侧进入提示并去除末端色条，结束标记居中。Material `AlertDialog` 已改为方角 terminal dialog，覆盖冲突、未保存、删除、应用错误和自定义颜色层。
 - 新增 Compose AndroidTest 覆盖独立编辑器标识、toolbar／section／色样／单一保存入口、chooser 双 section、terminal conflict dialog，以及 TODAY ADD／空态／进入提示／结束标记；原有颜色条语义断言同步改为确认末端色条不存在。
 - 本轮主机 clean 验证：Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 通过；`lintDebug` 为 **0 errors、21 warnings**。API 37 ARM64 的定向 `todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances` 通过；完整 clean connected 回归尚在本轮提交后的收口中，不能将本节记为用户验收或新的生产截图证据。
+
+## B4 后续视觉复审修正（2026-09-14）
+
+- 按 Sol 实际 diff 复审继续修正：CourseEditor 现在在覆盖层首层绘制独立 `TerminalBackdrop`（网格、圆环与同款背景），并有专用 tag；资料字段包入 terminal panel 与分隔线；chooser 新建路径使用 terminal panel、说明与黄色操作；星期／开始节次／结束节次替换为紧凑循环选择控件，周数仍保留 stepper。
+- 空态恢复为 section detail `QUEUE EMPTY`、卡内 `STANDBY` 和完整 ADD 指引；ADD 增加内描边与右上实心折角；课程颜色语义移到左侧实际 accent，原色值验证未移除。dialog 追加 status tag、状态点、按确认类型的次要动作文字，并按浅／深主题渲染。
+- API 37 ARM64 已定向通过编辑器 backdrop／色样／单一保存入口与 TODAY 空态／色值契约的 instrumentation。完整回归与生产截图仍待本轮后续，不得声称视觉验收。

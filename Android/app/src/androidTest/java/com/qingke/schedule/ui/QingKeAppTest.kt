@@ -112,7 +112,7 @@ class QingKeAppTest {
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.APPEND, name = "算法", teacher = "老师", schedules = listOf(schedule), originalScheduleCount = 0, isInFlight = true)) }
         rule.onNodeWithTag("course-append-readonly").assertIsDisplayed()
         rule.onAllNodesWithTag("course-name").assertCountEquals(0)
-        rule.onNodeWithTag("course-day-new-plus").assertIsNotEnabled()
+        rule.onNodeWithTag("course-day-new").assertIsNotEnabled()
         rule.onNodeWithTag("course-repeat-new-EVERY").assertIsNotEnabled()
         rule.onNodeWithTag("course-add-schedule").assertIsNotEnabled()
     }
@@ -132,7 +132,7 @@ class QingKeAppTest {
         val schedule = CourseScheduleFormState("new", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.CREATE, name = "算法", color = "#287B74", schedules = listOf(schedule))) }
         rule.onNodeWithTag("course-editor").assertIsDisplayed()
-        rule.onNodeWithContentDescription("独立课程编辑终端").assertIsDisplayed()
+        rule.onNodeWithTag("course-editor-backdrop").assertIsDisplayed()
         rule.onAllNodesWithTag("today-screen").assertCountEquals(1)
         rule.onNodeWithTag("course-editor-toolbar").assertIsDisplayed()
         rule.onNodeWithText("NEW COURSE", useUnmergedTree = true).assertIsDisplayed()
@@ -165,13 +165,14 @@ class QingKeAppTest {
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), now) }
         rule.onNodeWithTag("today-add-course").assertIsDisplayed()
         rule.onNodeWithText("QUEUE EMPTY", useUnmergedTree = true).assertIsDisplayed()
-        rule.onNodeWithText("+ ADD", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("STANDBY", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("使用右下角 ADD 录入一门新课程。", useUnmergedTree = true).assertIsDisplayed()
         now = LocalDateTime.parse("2026-08-31T09:41:52")
         rule.waitForIdle()
         rule.onNodeWithTag("today-course-enter-0-0", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("today-scroll-content").performScrollToIndex(8)
         rule.onNodeWithTag("today-end-marker").assertIsDisplayed()
-        rule.onAllNodesWithTag("today-course-color-0-0").assertCountEquals(0)
+        rule.onNodeWithTag("today-course-color-0-0", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun editorCloseUsesVisibleInverseInkAcrossThemesAndLargeFont() {
@@ -397,7 +398,9 @@ class QingKeAppTest {
             rule.onNodeWithTag("today-scroll-content").performScrollToIndex(courseIndex + 3)
             rule.onNodeWithTag(course).assertIsDisplayed()
             rule.onNodeWithTag(course.replace("today-course-", "today-course-status-"), useUnmergedTree = true).assertTextContains(status)
-            rule.onAllNodesWithTag(course.replace("today-course-", "today-course-color-"), useUnmergedTree = true).assertCountEquals(0)
+            rule.onNodeWithTag(course.replace("today-course-", "today-course-color-"), useUnmergedTree = true).assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("课程颜色：$color")),
+            )
             when (course) {
                 "today-course-0-0" -> rule.onNodeWithTag("today-course-details-0-0", useUnmergedTree = true).assertTextContains("老师")
                 "today-course-1-0" -> rule.onNodeWithTag("today-course-details-1-0", useUnmergedTree = true).assertTextContains("第 2 节")

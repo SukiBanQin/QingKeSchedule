@@ -6,6 +6,8 @@
 
 已实现但尚待最终全量 API 37 回归：CourseEditor 独立完整 terminal backdrop；58dp 文字顶栏（取消、中文／英文双行、黄色保存）；PROFILE chooser 的 `01 / 创建方式 / COURSE DATA` 与 `02 / 已有课程 / REUSE N`；CREATE／EDIT 的圆形六色样本、卡外安排标题、黄色添加安排、仅顶部保存及 EDIT `99`；TODAY 54dp ADD、`QUEUE EMPTY`、行进入提示、无末端色条、居中结束标记；冲突／未保存／删除／错误／颜色终端 dialog。新增 Compose 用例验证这些结构和原有末端色条语义移除。
 
+复审修正已继续实现但尚未提交：覆盖层首层实际绘制带网格和同心圆的 `TerminalBackdrop`，而非仅填充纯色；课程资料及 chooser 新建路径使用 terminal panel；日／起止节次使用紧凑选择控件，周数才保留 stepper；空态正确分离 section 的 `QUEUE EMPTY` 与卡内 `STANDBY`／完整提示；ADD 有内描边和实心折角；颜色可访问语义保留在左侧 accent；dialog 补 status tag、状态点、主题表面和确认类型对应的次要操作。当前定向 API 37 instrumentation 通过；随后必须完整回归后才可提交此修正。
+
 已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
 
 ## 子 Agent 复用规则补充（2026-09-14）
