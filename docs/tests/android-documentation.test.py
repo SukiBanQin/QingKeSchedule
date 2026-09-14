@@ -1413,7 +1413,8 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("P3-03", contents)
             self.assertIn("今日课表页面与实时刷新", contents)
             self.assertIn("P3-02", contents)
-        self.assertIn("P3-03 及 R1 已实现、测试并通过最终独立复审，尚未用户验收", plan)
+        self.assertIn("P3-03-R2", plan)
+        self.assertIn("获用户视觉验收", plan)
         self.assertIn("开始时刻至结束时刻前进行中", baseline)
         self.assertIn("结束时刻及之后结束", baseline)
         self.assertIn("前台\n  时每秒刷新", baseline)
@@ -1497,9 +1498,9 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, evidence)
 
         for contents in (plan, design, baseline):
-            self.assertIn("P3-03", contents)
-            self.assertIn("通过最终独立复审", contents)
-            self.assertIn("尚未用户验收", contents)
+            self.assertIn("P3-03-R2", contents)
+            self.assertIn("通过 Sol 技术独立复审", contents)
+            self.assertIn("用户视觉验收", contents)
 
     def test_p3_03_r2_visual_alignment_uses_user_assets_and_keeps_p3_04_closed(self):
         analysis_path = DOCS / "p3-03-r2-visual-alignment.md"
@@ -1559,8 +1560,25 @@ class AndroidDocumentationTests(unittest.TestCase):
 
         for contents in (plan, design, baseline):
             self.assertIn("p3-03-r2-visual-alignment.md", contents)
-            self.assertIn("暂不验收", contents)
+            self.assertIn("用户视觉验收", contents)
             self.assertIn("P3-04", contents)
+
+    def test_p3_03_r2_user_visual_acceptance_closes_only_visual_gate(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        evidence = (DOCS / "evidence/p3-03-r2-visual-device-recovery-20260914.txt").read_text()
+        latest = handoff.split(
+            "## P3-03-R2 用户视觉验收通过，下一项待定界（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+
+        for marker in (
+            "P3-03-R2 聚焦视觉修正已通过用户视觉验收",
+            "不扩大为 A02、A07、A11、整个 P3 或完整 App 验收",
+            "P3-04",
+            "A04／A05",
+            "尚未授权实施",
+        ):
+            self.assertIn(marker, latest)
+        self.assertIn("本轮用户视觉验收通过", evidence)
 
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
         path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"
