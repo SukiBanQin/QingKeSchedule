@@ -220,6 +220,35 @@ class ScheduleViewModelTest {
         assertEquals("课程修改已保存", model.courseSuccess.value); assertNull(model.editor.value)
     }
 
+    @Test fun courseInvalidAndDuplicateKeepEditorWithoutWriting() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openAddCourse(); model.saveCourse()
+        assertEquals(0, repository.courseWrites); assertNotNull(model.editor.value!!.validationMessage)
+        model.updateCourseName("课程"); val first = model.editor.value!!.schedules.single(); model.addCourseSchedule(); model.updateCourseScheduleDay(model.editor.value!!.schedules.last().id, first.dayOfWeek)
+        model.saveCourse(); assertEquals(0, repository.courseWrites); assertEquals("该上课安排已存在，请勿重复添加", model.editor.value!!.validationMessage)
+    }
+
+    @Test fun conflictingConfirmationFreezesCandidateAndSaveFailureKeepsDraft() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(testCourse("other", "冲突课", "", 1)), "now") }
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-07T09:00") }, idFactory = ids()); advanceUntilIdle()
+        model.openNewCourse(); model.updateCourseName("冻结名"); model.updateCourseScheduleDay(model.editor.value!!.schedules.single().id, 1); model.saveCourse()
+        assertTrue(model.editor.value!!.confirmation is CourseEditorConfirmation.Conflicts); model.updateCourseName("后来修改"); model.confirmSaveDespiteConflicts(); advanceUntilIdle()
+        assertEquals("冻结名", repository.lastCourse!!.name)
+        repository.courseFail = true; model.openNewCourse(); model.updateCourseName("失败保留"); model.updateCourseScheduleDay(model.editor.value!!.schedules.single().id, 2); model.saveCourse(); advanceUntilIdle()
+        assertNotNull(model.editor.value); assertEquals("失败保留", model.editor.value!!.name); assertNotNull(model.state.value.error)
+    }
+
+    @Test fun deleteCancelSuccessAndStaleFingerprintKeepExactTarget() = runTest {
+        val first = testCourse("same", "第一", "", 1); val second = testCourse("same", "第二", "", 2)
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(first, second), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openCourseAt(1); model.requestDeleteCourse(); model.dismissEditorConfirmation(); assertEquals(0, repository.deleteWrites)
+        model.requestDeleteCourse(); model.confirmDeleteCourse(); advanceUntilIdle(); assertEquals(listOf("第一"), repository.data.courses.map { it.name }); assertEquals("课程删除成功", model.courseSuccess.value)
+        repository.data = repository.data.copy(courses = listOf(first, second.copy(name = "外部更新"))); model.retryLoad(); advanceUntilIdle(); model.openCourseAt(1); repository.data = repository.data.copy(courses = listOf(first, second.copy(name = "再次变化"))); model.updateCourseName("不应写入"); model.saveCourse(); advanceUntilIdle()
+        assertNotNull(model.editor.value); assertEquals("第一", repository.data.courses.first().name)
+    }
+
     private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
     private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
 
@@ -231,21 +260,24 @@ class ScheduleViewModelTest {
 
     private class FakeScheduleRepository : ScheduleRepository {
         var data = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z")
-        var loadCalls = 0; var saveCalls = 0; var failLoad = false; var failSave = false; var cancelSave = false; var saved: Semester? = null
+        var loadCalls = 0; var saveCalls = 0; var courseWrites = 0; var deleteWrites = 0; var courseFail = false; var failLoad = false; var failSave = false; var cancelSave = false; var saved: Semester? = null; var lastCourse: Course? = null
         var loadGate: CompletableDeferred<Unit>? = null; var saveGate: CompletableDeferred<Unit>? = null
         override suspend fun load(): ScheduleData { loadCalls++; loadGate?.await(); if (failLoad) error("load") ; return data }
         override suspend fun replace(data: ScheduleData) = data
         override suspend fun saveSemester(semester: Semester): ScheduleData { saveCalls++; saveGate?.await(); if (cancelSave) throw CancellationException("cancelled"); if (failSave) error("save"); saved = semester; return data.copy(semester = semester).also { data = it } }
         override suspend fun saveCourse(course: Course): ScheduleData {
+            courseWrites++; if (courseFail) error("course") ; lastCourse = course
             val index = data.courses.indexOfFirst { it.id == course.id }
             data = data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course })
             return data
         }
         override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData {
+            courseWrites++; if (courseFail) error("course"); lastCourse = course
             require(data.courses.getOrNull(index) == expected)
             data = data.copy(courses = data.courses.toMutableList().also { it[index] = course }); return data
         }
         override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData {
+            deleteWrites++
             require(data.courses.getOrNull(index) == expected)
             data = data.copy(courses = data.courses.toMutableList().also { it.removeAt(index) }); return data
         }

@@ -1,5 +1,9 @@
 # 安卓项目当前交接状态
 
+## P3-04 B 协调层补测进行中（最新，2026-09-14）
+
+本轮新增 ViewModel 协调测试，实际覆盖无效／重复不写、冲突冻结候选、保存失败保留、删除取消／成功和重复 ID 陈旧指纹行为；Debug JVM 为 86 tests、0 failures／errors／skipped。B 所要求的 Activity 重建、挂起取消、Room cancellation 及完整 Compose 流程尚未全部关闭，C 生产硬门槛也不在本轮范围；准确状态仍为进行中，不得称 P3-04 完成。
+
 ## P3-04 R3 编辑器结构收口，仍待生产设备硬门槛与 Sol 复审（最新，2026-09-14）
 
 R3 已将编辑器品牌头与 TODAY 分离，正确显示 `PROFILE/CREATE/EDIT/APPEND / 04`，并修正工具栏与品牌头顺序、01／02…／99 编号及起止节次时间文案。对应 Compose 测试已加入并完成 Debug JVM／AndroidTest APK 编译。生产 APK 的真实 CRUD 长链、force-stop 重启、无 FATAL／ANR 记录及要求截图仍未取得，属于未关闭硬门槛；不得称为已设备验证或用户验收。

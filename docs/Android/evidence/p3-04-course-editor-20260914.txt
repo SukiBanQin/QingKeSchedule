@@ -48,3 +48,8 @@
 - 编辑器不再复用 TODAY 的 `LOCAL / 01` 品牌头：顶部工具栏在前，chooser 为 `PROFILE / 04` / `course-choice-brand-header`，编辑器为 `CREATE`、`EDIT` 或 `APPEND / 04` / `course-editor-brand-header`。
 - 编号修正为身份 `01`、第一安排 `02`、后续递增、危险区 `99`；开始／结束节次分别显示对应开始／结束时间。新增 Compose 断言覆盖编辑 code、01／02／99 和危险区。
 - 本轮未取得生产 UI 长链或截图证据；不得将此结构收口视为该硬门槛完成。
+
+## B 协调层补测（2026-09-14）
+
+- `ScheduleViewModelTest` 新增可执行协调用例：空名称／完全重复不写、冲突确认冻结候选、失败保留草稿、删除取消／成功、重复 ID 第二项精确删除及陈旧指纹拒绝后保留编辑器。Debug JVM 86 tests、0 failures/errors/skipped。
+- 本轮只处理 B 自动化，尚未关闭所有 Activity recreate、挂起／取消、Room cancellation 与完整 Compose 流程分支；C 生产证据仍未开始。
