@@ -166,7 +166,7 @@ class ScheduleViewModelTest {
         assertEquals(1, repository.saveCalls); assertNull(model.state.value.error); assertFalse(model.state.value.isSaving)
     }
 
-    @Test fun courseEditorCreatesSchedulesAndKeepsDirtyDraftUntilDiscarded() = runTest {
+    @Test fun courseEditorClampsPeriodsCreatesSchedulesAndKeepsDirtyDraftUntilDiscarded() = runTest {
         val repository = FakeScheduleRepository().also {
             it.data = ScheduleData(1, Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"))), emptyList(), "now")
         }
@@ -177,7 +177,8 @@ class ScheduleViewModelTest {
         val first = model.editor.value!!.schedules.single().id
         model.updateCourseName("数据结构")
         model.updateCourseScheduleStartPeriod(first, 9)
-        assertEquals(9, model.editor.value!!.schedules.single().endPeriod)
+        assertEquals(1, model.editor.value!!.schedules.single().startPeriod)
+        assertEquals(1, model.editor.value!!.schedules.single().endPeriod)
         model.addCourseSchedule()
         assertEquals(2, model.editor.value!!.schedules.size)
         model.requestCloseEditor()

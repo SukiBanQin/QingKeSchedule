@@ -195,10 +195,12 @@ class ScheduleViewModel(
     fun updateCourseColor(value: String) = editCourse { if (value.matches(Regex("^#[0-9A-Fa-f]{6}$"))) it.color = value.uppercase() }
     fun updateCourseScheduleDay(id: String, value: Int) = editSchedule(id) { it.dayOfWeek = value.coerceIn(1, 7) }
     fun updateCourseScheduleStartPeriod(id: String, value: Int) = editSchedule(id) { schedule ->
-        schedule.startPeriod = value; if (schedule.endPeriod < value) schedule.endPeriod = value
+        val bounded = value.coerceIn(1, maximumPeriod())
+        schedule.startPeriod = bounded; if (schedule.endPeriod < bounded) schedule.endPeriod = bounded
     }
     fun updateCourseScheduleEndPeriod(id: String, value: Int) = editSchedule(id) { schedule ->
-        schedule.endPeriod = value; if (schedule.startPeriod > value) schedule.startPeriod = value
+        val bounded = value.coerceIn(1, maximumPeriod())
+        schedule.endPeriod = bounded; if (schedule.startPeriod > bounded) schedule.startPeriod = bounded
     }
     fun updateCourseScheduleStartWeek(id: String, value: Int) = editSchedule(id) { schedule ->
         val bounded = value.coerceIn(1, state.value.data.semester?.totalWeeks ?: 52); schedule.startWeek = bounded; if (schedule.endWeek < bounded) schedule.endWeek = bounded
@@ -262,6 +264,7 @@ class ScheduleViewModel(
         if (editorInFlight) return
         courseDraft?.let { change(it); publishEditor(mutableEditor.value?.mode ?: return) }
     }
+    private fun maximumPeriod(): Int = state.value.data.semester?.periods?.maxOfOrNull { it.number } ?: 1
     private fun editSchedule(id: String, change: (CourseScheduleDraft) -> Unit) = editCourse { draft -> draft.schedules.firstOrNull { it.id == id }?.let(change) }
     private fun updateEditor(change: (CourseEditorState) -> CourseEditorState) { mutableEditor.value?.let { mutableEditor.value = change(it) } }
     private fun publishEditor(mode: CourseEditorMode) {

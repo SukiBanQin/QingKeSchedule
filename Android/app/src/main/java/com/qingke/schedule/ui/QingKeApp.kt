@@ -3,6 +3,7 @@ package com.qingke.schedule.ui
 import android.app.Activity
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.widget.Toast
 import android.graphics.Color as AndroidColor
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -162,6 +163,14 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
+    val courseSuccess by viewModel.courseSuccess.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(courseSuccess) {
+        courseSuccess?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.consumeCourseSuccess()
+        }
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -488,7 +497,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     Box(Modifier.fillMaxSize().background(if (dark) Color(0xF2081113) else Color(0xF5E3EBEB)).statusBarsPadding().navigationBarsPadding().testTag("course-editor")) {
         if (editor.mode == CourseEditorMode.CHOOSER) {
             Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) {
-                EditorHeader("添加课程", actions.closeCourseEditor, null, false, actions)
+                EditorHeader("添加课程", actions.closeCourseEditor, null, false)
                 Text("选择操作", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
                 Button(actions.openNewCourse, Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 52.dp).testTag("course-create-new"), shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = InverseSurface, contentColor = Color.White)) { Text("新建课程") }
                 Text("复用已有课程资料并追加一个上课安排", Modifier.padding(top = 24.dp), color = terminalText(dark), fontWeight = FontWeight.Bold)
@@ -497,10 +506,10 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                 }
             }
         } else {
-            val periodMaximum = semester?.periods?.size?.coerceAtLeast(1) ?: 1
+            val periodMaximum = semester?.periods?.maxOfOrNull { it.number } ?: 1
             val weekMaximum = semester?.totalWeeks ?: 1
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-                EditorHeader(if (editor.isAppend) "追加上课安排" else if (editor.mode == CourseEditorMode.EDIT) "编辑课程" else "新建课程", actions.closeCourseEditor, if (editor.mode == CourseEditorMode.EDIT) actions.deleteCourse else null, editor.isInFlight, actions)
+                EditorHeader(if (editor.isAppend) "追加上课安排" else if (editor.mode == CourseEditorMode.EDIT) "编辑课程" else "新建课程", actions.closeCourseEditor, if (editor.mode == CourseEditorMode.EDIT) actions.deleteCourse else null, editor.isInFlight)
                 OutlinedTextField(editor.name, actions.updateCourseName, Modifier.fillMaxWidth().padding(top = 12.dp).testTag("course-name"), label = { Text("课程名称") }, singleLine = true, enabled = !editor.isInFlight, shape = TerminalShape)
                 OutlinedTextField(editor.teacher, actions.updateCourseTeacher, Modifier.fillMaxWidth().padding(top = 10.dp).testTag("course-teacher"), label = { Text("教师（可选）") }, singleLine = true, enabled = !editor.isInFlight, shape = TerminalShape)
                 Text("课程颜色", Modifier.padding(top = 18.dp), color = terminalText(dark), fontWeight = FontWeight.Bold)
@@ -510,6 +519,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                     }
                 }
                 var customColor by remember(editor.courseId) { mutableStateOf(editor.color) }
+                LaunchedEffect(editor.color) { if (customColor != editor.color) customColor = editor.color }
                 OutlinedTextField(customColor, { value -> customColor = value.uppercase(); if (value.matches(Regex("^#[0-9A-Fa-f]{6}$"))) actions.updateCourseColor(value) }, Modifier.fillMaxWidth().padding(top = 8.dp).testTag("course-custom-color"), label = { Text("自定义 #RRGGBB") }, singleLine = true, enabled = !editor.isInFlight, shape = TerminalShape)
                 val rgb = rgbParts(editor.color); val hsv = hsvParts(editor.color)
                 Text("RGB", Modifier.padding(top = 8.dp), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
@@ -548,7 +558,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     }
 }
 
-@Composable private fun EditorHeader(title: String, close: () -> Unit, delete: (() -> Unit)?, saving: Boolean, actions: QingKeAppActions) = Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun EditorHeader(title: String, close: () -> Unit, delete: (() -> Unit)?, saving: Boolean) = Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
     OutlinedButton(close, Modifier.heightIn(min = 44.dp).testTag("course-editor-close"), enabled = !saving, shape = TerminalShape) { Text("取消") }
     Text(title, Modifier.weight(1f).padding(horizontal = 12.dp), color = InverseSurface, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
     delete?.let { OutlinedButton(it, Modifier.heightIn(min = 44.dp).testTag("course-delete"), enabled = !saving, shape = TerminalShape) { Text("删除", color = Danger) } }

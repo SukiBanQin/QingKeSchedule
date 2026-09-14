@@ -1,0 +1,30 @@
+# P3-04（A04/A05）课程 CRUD 验证证据
+
+日期：2026-09-14
+
+## 范围与基准
+
+- 实现提交：`30015f7 feat(android): implement p3-04 course editor`。
+- 本收尾修正提交在本文档写入时尚未产生；交付前由 Git 记录确认。
+- 分支：`Android`；仅修改 `Android/` 与 `docs/Android/`。
+- 合法重复课程 ID 的编辑／删除按“源课程位置＋打开时 `Course` 指纹”定位；未改 iOS、Web、`source/`、共享 schema、Room schema／版本或导入协议。
+
+## 自动化验证
+
+环境：`ANDROID_HOME` 与 `ANDROID_SDK_ROOT` 均为
+`/Users/takagisan/Library/Android/sdk-qingke-api37`，`ANDROID_AVD_HOME` 为
+`/Users/takagisan/.android/qingke-api37-r3-avd`，设备为 `qingke-api37-r3-arm` / `emulator-5554`（API 37、`arm64-v8a`）。
+
+| 命令／报告 | 结果 |
+| --- | --- |
+| `./gradlew testDebugUnitTest testReleaseUnitTest --no-daemon --console=plain` | 通过；Debug／Release 各 8 个 XML，0 failures／errors／skipped。 |
+| `./gradlew assembleDebug assembleRelease lintDebug assembleDebugAndroidTest --no-daemon --console=plain` | 通过；Debug、Release、AndroidTest APK 已生成；`lintDebug` 为 0 errors、21 warnings。 |
+| `./gradlew connectedDebugAndroidTest --no-daemon --console=plain` | 通过；API 37 ARM64 XML 为 42 tests、0 failures、0 errors、0 skipped。 |
+| `git diff --check` | 通过。 |
+
+仪器测试同时覆盖 Room 下重复业务 ID 的精确保存／删除与陈旧指纹拒绝；Compose 回归保留 TODAY 的状态、颜色、详情及 featured 断言。课程行新增可点击语义后，5 处子节点查询改为 `useUnmergedTree = true`，没有降低任何状态、颜色、详情或显示断言。
+
+## 已知验证边界
+
+- 本轮没有把 testhost 截图或固定测试数据称作生产用户验收。
+- 生产 APK 的人工新增／追加／编辑／冲突确认／删除／force-stop 重启和浅色／深色／130% 截图仍待 Sol 独立复审时补做；当前不能据此宣称用户验收。

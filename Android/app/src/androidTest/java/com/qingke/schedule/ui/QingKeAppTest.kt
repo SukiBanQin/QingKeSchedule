@@ -252,13 +252,13 @@ class QingKeAppTest {
         }.forEachIndexed { courseIndex, (course, status, color) ->
             rule.onNodeWithTag("today-scroll-content").performScrollToIndex(courseIndex + 3)
             rule.onNodeWithTag(course).assertIsDisplayed()
-            rule.onNodeWithTag(course.replace("today-course-", "today-course-status-")).assertTextContains(status)
-            rule.onNodeWithTag(course.replace("today-course-", "today-course-color-")).assert(
+            rule.onNodeWithTag(course.replace("today-course-", "today-course-status-"), useUnmergedTree = true).assertTextContains(status)
+            rule.onNodeWithTag(course.replace("today-course-", "today-course-color-"), useUnmergedTree = true).assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("课程颜色：$color")),
             )
             when (course) {
-                "today-course-0-0" -> rule.onNodeWithTag("today-course-details-0-0").assertTextContains("老师")
-                "today-course-1-0" -> rule.onNodeWithTag("today-course-details-1-0").assertTextContains("第 2 节")
+                "today-course-0-0" -> rule.onNodeWithTag("today-course-details-0-0", useUnmergedTree = true).assertTextContains("老师")
+                "today-course-1-0" -> rule.onNodeWithTag("today-course-details-1-0", useUnmergedTree = true).assertTextContains("第 2 节")
             }
         }
         listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onAllNodesWithTag(it).assertCountEquals(1) }
@@ -269,7 +269,7 @@ class QingKeAppTest {
         var now by mutableStateOf(LocalDateTime.parse("2026-08-31T08:50:00"))
         rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(), now) }
         rule.onNodeWithTag("today-featured-course-1-0").assertIsDisplayed()
-        rule.onNodeWithTag("today-featured-status").assertTextContains("NEXT").assertIsDisplayed()
+        rule.onNodeWithTag("today-featured-status", useUnmergedTree = true).assertTextContains("NEXT").assertIsDisplayed()
 
         now = LocalDateTime.parse("2026-08-31T15:00:00")
         rule.waitForIdle()
