@@ -1,5 +1,60 @@
 # 安卓项目当前交接状态
 
+## 切换回官方 Sol 主窗口，P3-04 技术收口未完成（最新，2026-09-14）
+
+用户要求中转站 Sol 主窗口停止继续开发并切换回官方 Sol 主窗口。当前已授权任务仍只有 **P3-04（A04／A05）
+课程新增、编辑与删除**：真实新增、编辑、删除、复用资料追加安排、多个安排、六个预设色与 Android 自定义颜色、
+完全重复门禁、跨课程冲突确认、未保存退出／删除确认、Room 持久化、Activity 重建、生产 TODAY 入口和重启恢复。
+合法重复课程 ID 继续按用户确认的“源课程位置＋打开时 `Course` 指纹”精确修改／删除；业务 ID、导入协议和共享
+schema 不变，iOS 同步未授权。不得扩大到周课表、完整设置、教学日历、通知、导入导出、分享、iOS／Web／
+`source/`、共享协议、P3-04 以外阶段或 `main` 合并。
+
+中转站期间的提交范围为 `80ed71b^..adc366d`，均在 `Android` 分支：
+
+- `80ed71b`：记录 P3-04 授权和重复 ID 决定；`30015f7`：首轮课程 CRUD 实现；
+- `8f1bfda`、`ba24478`、`2e67130`、`03631e0`：验证修正、入口／追加只读／颜色／返回／提示和编辑器结构收口；
+- `751028e`、`8d29ec2`、`328d239`、`adc366d`：无效／重复／冲突／失败／精确删除、single-flight、Activity
+  重建、取消、真实 Back／连续提示与 Room 取消重开测试。
+
+切换前已核对本地 `HEAD`、`origin/Android` 和远程 `refs/heads/Android` 均为
+`adc366d6a9991914542069fa9996ac31abd97a84`，远程地址仍为
+`ssh://git@ssh.github.com:443/SukiBanQin/QingKeSchedule.git`。记录本节前工作区干净；本次只允许更新交接文档及
+对应文档测试，最终交接提交编号由交付消息和 Git 历史确认。没有未提交应用改动，也没有需要抢救或覆盖的文件。
+
+准确完成状态如下：
+
+- **已实施**：P3-04 授权范围的生产代码和 B4 前自动化补测已经提交并推送；TODAY ADD／chooser、CREATE／EDIT／
+  APPEND、多个安排、精确重复 ID 写入、冲突确认、退出／删除确认、成功提示与持久化链路均已接通。
+- **已验证但不是最终完整设备回归**：Sol 已运行
+  `./gradlew clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest --no-daemon --console=plain`，
+  结果为 `BUILD SUCCESSFUL`；Debug／Release JVM 各 88 tests、0 failures／errors／skipped，lint 0 errors、21 warnings，
+  Debug、Release unsigned 和 AndroidTest APK 均生成。较早代码基准分别有 API 37 ARM64 connected 42、45、46 tests
+  全通过；B3 定向 `scenario.recreate()` 为 3 tests 全通过。这些旧结果不能替代 `adc366d` 的完整 connected 回归。
+- **最终 connected 尚未完成**：Sol 在确认 `emulator-5554` 为 SDK 37、`arm64-v8a` 后运行
+  `connectedDebugAndroidTest --rerun-tasks`，模拟器在构建期间退出，Gradle 编译 74 个任务后以
+  `DeviceException: No connected devices!` 结束；这不是仪器测试断言失败，也不能记为 connected 通过。
+- **生产硬门槛尚未完成**：尚缺生产 APK 的清数据建学期→多安排新建→保存→force-stop→重启→ADD chooser→新建／
+  复用资料追加→编辑→完全重复门禁→冲突返回修改／仍然保存→顶部取消／系统返回未保存确认→删除取消／确认长链，
+  以及 FATAL／ANR 检查和浅色、深色、130% 字体、chooser／新建／多安排／append／冲突／删除截图。
+- **审查与验收**：Sol 已完成部分实际 diff 与主机构建核对，但 P3-04 最终技术独立复审尚未关闭；用户已说明会在
+  技术收口后亲自测试，因此用户验收也尚未完成。不得宣称 P3、功能页面整体或完整 App 已验收。
+
+切换时没有运行中的 Gradle、模拟器或连接设备，ADB 列表为空。中转站曾有两个标识：
+`/root/p3_03_r2_visual_fix` 已完成最后的 B4 提交 `adc366d` 并停止写入；误创建的
+`/root/p3_04_course_editor` 已中断，禁止恢复或继续使用。切换前再次查询时中转站工具只返回主窗口本身；确认没有任何运行中的子 Agent。
+当前工具不支持重命名或保证永久删除 Agent，不能把“中断”写成“已删除”。中转站主窗口完成
+本交接提交和推送后停止写入、等待用户明确恢复。
+
+官方 Sol 主窗口下一步须按增量阅读规则先核对 `git status --short --branch`、`git log -n 12`、本节和
+`80ed71b^..adc366d` 实际 diff，不依赖旧聊天中的过时状态，不重复实施已完成内容；同时核对未提交改动，不能只凭
+提交号判断现场。然后保持模拟器进程所在工具会话存活，在唯一 API 37 ARM64 AVD 上串行重跑完整
+`connectedDebugAndroidTest` 并以最终 XML 汇总为准；核对 `adc366d` 新增 Compose／Room／Activity 测试没有放宽断言，
+再完成上述生产长链、日志和截图。发现缺陷时，官方窗口先检查自己的子 Agent 工具；至多使用一个明确
+`gpt-5.6-terra`／`high` 的执行子 Agent，并禁止它再创建子 Agent。官方旧 Terra 若仍可访问且适合本任务，先同步
+`80ed71b^..adc366d` 变化再复用，否则才按需创建新的；不得尝试直接使用中转站
+`/root/p3_03_r2_visual_fix` 或 `/root/p3_04_course_editor` 标识。技术复审完成后再更新证据与交接、运行相关验证、
+提交并推送 `Android`；不自动开始任何未授权阶段。
+
 ## P3-04 B 协调层补测进行中（最新，2026-09-14）
 
 本轮新增 ViewModel 协调测试，实际覆盖无效／重复不写、冲突冻结候选、保存失败保留、删除取消／成功和重复 ID 陈旧指纹行为；Debug JVM 为 86 tests、0 failures／errors／skipped。B 所要求的 Activity 重建、挂起取消、Room cancellation 及完整 Compose 流程尚未全部关闭，C 生产硬门槛也不在本轮范围；准确状态仍为进行中，不得称 P3-04 完成。

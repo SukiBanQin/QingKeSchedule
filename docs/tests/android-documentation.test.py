@@ -1626,6 +1626,40 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, analysis + latest + plan + design + baseline)
         self.assertEqual(missing_links(path, analysis), [])
 
+    def test_return_to_official_sol_handoff_preserves_p3_04_gates_and_stops_writers(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## 切换回官方 Sol 主窗口，P3-04 技术收口未完成（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+
+        for marker in (
+            "P3-04（A04／A05）",
+            "80ed71b^..adc366d",
+            "adc366d6a9991914542069fa9996ac31abd97a84",
+            "Debug／Release JVM 各 88 tests",
+            "0 errors、21 warnings",
+            "DeviceException: No connected devices!",
+            "不能记为 connected 通过",
+            "生产硬门槛尚未完成",
+            "最终技术独立复审尚未关闭",
+            "用户验收也尚未完成",
+            "没有运行中的 Gradle、模拟器或连接设备",
+            "`/root/p3_03_r2_visual_fix` 已完成",
+            "`/root/p3_04_course_editor` 已中断",
+            "没有任何运行中的子 Agent",
+            "不支持重命名或保证永久删除 Agent",
+            "不依赖旧聊天中的过时状态",
+            "不重复实施已完成内容",
+            "至多使用一个",
+            "`gpt-5.6-terra`／`high`",
+            "禁止它再创建子 Agent",
+            "官方旧 Terra 若仍可访问且适合本任务",
+            "不得尝试直接使用中转站",
+            "不自动开始任何未授权阶段",
+        ):
+            self.assertIn(marker, normalized)
+
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
         path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"
         evidence = path.read_text()
