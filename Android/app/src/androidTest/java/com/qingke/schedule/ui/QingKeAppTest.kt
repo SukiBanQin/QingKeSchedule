@@ -133,10 +133,15 @@ class QingKeAppTest {
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.CREATE, name = "算法", color = "#287B74", schedules = listOf(schedule))) }
         rule.onNodeWithTag("course-editor").assertIsDisplayed()
         rule.onNodeWithTag("course-editor-backdrop").assertIsDisplayed()
+        val editorBounds = rule.onNodeWithTag("course-editor", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val backdropBounds = rule.onNodeWithTag("course-editor-backdrop", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals(editorBounds, backdropBounds)
         rule.onAllNodesWithTag("today-screen").assertCountEquals(1)
         rule.onNodeWithTag("course-editor-toolbar").assertIsDisplayed()
         rule.onNodeWithText("NEW COURSE", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-info-section").assertIsDisplayed()
+        rule.onNodeWithTag("course-info-form-section").assertIsDisplayed()
+        rule.onNodeWithTag("course-current-color").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("course-color-#287B74").assertIsDisplayed()
         rule.onNodeWithText("✓", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-schedule-header-new").performScrollTo().assertIsDisplayed()
@@ -157,6 +162,7 @@ class QingKeAppTest {
         rule.waitForIdle()
         rule.onNodeWithTag("course-conflict-confirm").assertIsDisplayed()
         rule.onNodeWithText("WARNING / CONFLICT", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("course-conflict-confirm-status").assertTextContains("SCHEDULE COLLISION")
         rule.onNodeWithTag("course-conflict-confirm-backdrop").assertIsDisplayed()
     }
 

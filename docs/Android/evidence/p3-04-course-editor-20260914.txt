@@ -149,3 +149,9 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - 按 Sol 实际 diff 复审继续修正：CourseEditor 现在在覆盖层首层绘制独立 `TerminalBackdrop`（网格、圆环与同款背景），并有专用 tag；资料字段包入 terminal panel 与分隔线；chooser 新建路径使用 terminal panel、说明与黄色操作；星期／开始节次／结束节次替换为紧凑循环选择控件，周数仍保留 stepper。
 - 空态恢复为 section detail `QUEUE EMPTY`、卡内 `STANDBY` 和完整 ADD 指引；ADD 增加内描边与右上实心折角；课程颜色语义移到左侧实际 accent，原色值验证未移除。dialog 追加 status tag、状态点、按确认类型的次要动作文字，并按浅／深主题渲染。
 - API 37 ARM64 已定向通过编辑器 backdrop／色样／单一保存入口与 TODAY 空态／色值契约的 instrumentation。完整回归与生产截图仍待本轮后续，不得声称视觉验收。
+
+## B4 终端层级复审修正（2026-09-14）
+
+- `01 / 课程资料` 现将名称、教师、课程颜色、圆形六色样本、自定义颜色和当前色值置于同一 terminal panel；名称和教师改为 plain 输入行与 divider，保留原业务 tag 与更新回调。APPEND 改为 `沿用课程资料 / REUSED PROFILE`，并明确仅新增安排；危险区改为独立 `99` header、panel 与不可撤销说明。
+- CourseEditor backdrop 提升到全屏 root，内层内容才应用系统栏 padding；测试断言 backdrop 和 editor root 有相同 bounds。三类 dialog 使用独立有色 status tag、状态点及按 discard/delete/conflict 选择的 tone／文案；浅色标题和正文采用主题文字色。
+- API 37 ARM64 定向 instrumentation 已通过：课程 panel／backdrop bounds、冲突 status tag，以及真实 dropdown 打开并选择非相邻星期。完整主机、connected 与生产截图仍待最终提交基准执行。

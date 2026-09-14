@@ -10,6 +10,8 @@
 
 第二轮复审后，紧凑选择控件已改为方角 `DropdownMenu`，可直接选择任意星期或节次且显式继承应用主题；新增用例实际打开菜单并选择非相邻星期。浅色 dialog 文字改用主题前景，危险／放弃操作使用 danger 色；课程行仅保留一根左侧语义色条。本次仍待定向与完整设备回归。
 
+本轮继续收口（未提交）：01 课程资料完整收进同一 panel，plain 输入行／divider、颜色、圆形样本、自定义入口和当前值均在其中；APPEND、chooser、99 危险区补说明 footer。编辑器 backdrop 已覆盖全屏 root，测试验证与 editor 相同 bounds；dialog 使用独立 status tag、状态点、主题文字和明确的冲突／放弃／不可撤销文案。三项 API 37 定向 UI 测试通过；仍待提交后最终全量验证与生产截图。
+
 已完成的本机验证：固定 API 37 SDK 下 `clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 返回成功；Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**，lint **0 errors、21 warnings**。设备唯一为 `emulator-5554` / API 37 / `arm64-v8a`；新增 TODAY 定向 instrumentation 已通过。此前整类 `QingKeAppTest` 首轮因 5 项旧结构断言失败，已按新结构修正；第二轮仅余 1 项未合并语义树定位，已修正并通过定向测试。此处尚无本轮提交；下一步是 `git diff --check`、提交当前实现／测试／证据／交接并推送 `Android`，然后在相同 API 37 设备执行 `clean connectedDebugAndroidTest`，从 XML 记录完整结果。不得把当前状态写成用户验收或生产人工截图更新。
 
 ## 子 Agent 复用规则补充（2026-09-14）
