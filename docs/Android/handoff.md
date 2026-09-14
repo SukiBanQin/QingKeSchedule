@@ -1,6 +1,25 @@
 # 安卓项目当前交接状态
 
-## 切换回官方 Sol 主窗口，P3-04 技术收口未完成（最新，2026-09-14）
+## P3-04 connected 测试修正完成，仍待生产硬门槛与 Sol 复审（最新，2026-09-14）
+
+本轮仅修正 P3-04 的 Android instrumentation 测试，生产代码、Room schema／版本、iOS、Web、`source/` 和共享协议均未改动。
+起始及提交前代码基准均为 `Android` 分支的 `47f02894fcecf9602aa577dfca7f327cfd8cc298`；本轮提交编号由交付消息和 Git
+历史确认。Room 的 `preciseDeleteFailureAndCancellationReopenOriginalData` 现在显式返回 `Unit`，使 JUnit 实际执行整个
+测试类；Compose 测试改为在未合并语义树验证 `EDIT / 04` 与最新 success message 的文本节点。编辑器编号／危险区继续滚动至
+真实可见位置断言；success message 的重启计时测试移除阻塞 UI 重组的 `SystemClock.sleep`，仍验证替换后的 `B` 在 1.3 秒后
+显示、随后自行过期。
+
+- 三个定向 API 37 ARM64 instrumentation 用例均通过。
+- 最终 `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 使用唯一
+  `qingke-api37-r3-arm` / `emulator-5554`，最终 XML 为 **51 tests、0 failures、0 errors、0 skipped**。
+- `./gradlew assembleDebugAndroidTest --no-daemon --console=plain` 与 `git diff --check` 已通过。文档验证和提交／推送结果
+  以本轮最终交付记录为准。
+- 生产 APK 的真实 CRUD 长链、force-stop 重启、FATAL／ANR 检查及浅色／深色／130% 截图仍未完成；Sol 独立复审和用户验收
+  均未完成，不能据此宣称 P3-04 或完整 App 已验收。
+
+下一步由 Sol 核对本轮实际 diff、最终 XML 与提交范围，并仅在现有 P3-04 授权下安排仍缺的生产硬门槛；不得自动扩展阶段。
+
+## P3-04 技术收口的先前状态（2026-09-14）
 
 用户要求中转站 Sol 主窗口停止继续开发并切换回官方 Sol 主窗口。当前已授权任务仍只有 **P3-04（A04／A05）
 课程新增、编辑与删除**：真实新增、编辑、删除、复用资料追加安排、多个安排、六个预设色与 Android 自定义颜色、

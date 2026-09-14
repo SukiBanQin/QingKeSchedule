@@ -121,8 +121,11 @@ class QingKeAppTest {
         val schedule = CourseScheduleFormState("new", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, name = "算法", schedules = listOf(schedule))) }
         rule.onNodeWithTag("course-editor-toolbar").assertIsDisplayed()
-        rule.onNodeWithTag("course-editor-brand-header").assertTextContains("EDIT / 04")
-        rule.onNodeWithText("01 / 课程资料").assertIsDisplayed(); rule.onNodeWithText("02 / 安排 1").assertIsDisplayed(); rule.onNodeWithTag("course-danger-zone").assertIsDisplayed()
+        rule.onNodeWithTag("course-editor-brand-header").assertIsDisplayed()
+        rule.onNodeWithText("EDIT / 04", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("01 / 课程资料").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("02 / 安排 1").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("course-danger-zone").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
@@ -150,8 +153,15 @@ class QingKeAppTest {
     @Test fun newestSuccessNoticeRestartsItsOwnTimer() {
         var notice by mutableStateOf<String?>("A")
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
-        SystemClock.sleep(1_500); notice = "B"; rule.waitForIdle(); SystemClock.sleep(1_300)
-        rule.onNodeWithTag("course-success-notice").assertTextContains("B")
+        rule.waitForIdle()
+        val firstNoticeStartedAt = SystemClock.elapsedRealtime()
+        rule.waitUntil(1_700) { SystemClock.elapsedRealtime() - firstNoticeStartedAt >= 1_500 }
+        notice = "B"; rule.waitForIdle()
+        rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        rule.onNodeWithText("B", useUnmergedTree = true).assertIsDisplayed()
+        val replacementNoticeStartedAt = SystemClock.elapsedRealtime()
+        rule.waitUntil(1_500) { SystemClock.elapsedRealtime() - replacementNoticeStartedAt >= 1_300 }
+        rule.onNodeWithText("B", useUnmergedTree = true).assertIsDisplayed()
         rule.waitUntil(2_000) { notice == null }; rule.onAllNodesWithTag("course-success-notice").assertCountEquals(0)
     }
 

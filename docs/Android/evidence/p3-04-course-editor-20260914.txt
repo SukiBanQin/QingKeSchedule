@@ -69,3 +69,16 @@
 
 - Compose 增加真实 `onBackPressedDispatcher` 确认层返回、顶部保存／危险删除点击，以及连续 success message 重新计时测试。
 - Room 增加 precise delete 普通失败、`CancellationException`、关闭重开及越界／错误指纹后原数据保持断言。AndroidTest APK 编译通过；完整 connected 回归待本轮收尾执行。
+
+## 本轮 connected 测试修正（2026-09-14）
+
+- `RoomScheduleRepositoryTest.preciseDeleteFailureAndCancellationReopenOriginalData` 在 `runBlocking` 结尾显式返回 `Unit`，修正
+  JUnit 对表达式体测试方法返回类型的拒绝，使该类全部用例实际进入测试体。
+- `QingKeAppTest` 对编辑器 code 和 success message 保留标签可见性断言，并使用未合并语义树的实际 `Text` 节点验证
+  `EDIT / 04` 与 `B`。编号分区和危险区先滚动至可见位置，未删除内容验证。
+- 连续成功提示测试用 `waitUntil` 保持 Compose 重组可运行，取代阻塞测试线程的 `SystemClock.sleep`；仍验证旧计时器不会提前
+  清除 `B`，且 `B` 的 2.6 秒计时会自行结束。
+- 三个定向 API 37 ARM64 instrumentation 用例均通过。最终
+  `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 的 XML 为 **51 tests、0 failures、0 errors、0 skipped**；
+  `./gradlew assembleDebugAndroidTest --no-daemon --console=plain` 与 `git diff --check` 通过。
+- 未改生产代码；生产 APK 的人工 CRUD／重启／日志和截图证据仍是未完成硬门槛，Sol 独立复审和用户验收均未完成。

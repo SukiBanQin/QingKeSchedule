@@ -114,6 +114,7 @@ class RoomScheduleRepositoryTest {
         assertThrows(IllegalStateException::class.java) { runBlocking { repository.deleteCourseAt(1, original.courses[1]) } }; assertEquals(original, repository.load())
         mode = 2; assertThrows(CancellationException::class.java) { runBlocking { repository.deleteCourseAt(1, original.courses[1]) } }; repository.database.close()
         val reopened = repository(file); assertEquals(original, reopened.load()); reopened.database.close(); file.delete()
+        Unit
     }
 
     @Test fun deletingMissingCoursePreservesDataAndUpdatedAt() = runBlocking {
