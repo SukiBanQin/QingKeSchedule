@@ -55,6 +55,9 @@ data class CourseEditorState(
     val name: String = "",
     val teacher: String = "",
     val color: String = "#287B74",
+    /** Raw user input is retained independently so an invalid hexadecimal candidate survives recreation. */
+    val colorInput: String = color,
+    val isColorDialogOpen: Boolean = false,
     val schedules: List<CourseScheduleFormState> = emptyList(),
     val originalScheduleCount: Int = 0,
     val validationMessage: String? = null,
@@ -187,12 +190,28 @@ class ScheduleViewModel(
     }
 
     fun dismissEditorConfirmation() = updateEditor { it.copy(confirmation = null) }
+    /** System back closes a visible confirmation, rather than replacing it with a discard confirmation. */
+    fun onEditorBack() {
+        if (editorInFlight) return
+        if (mutableEditor.value?.confirmation != null) dismissEditorConfirmation() else requestCloseEditor()
+    }
     fun confirmDiscardEditor() { if (!editorInFlight) closeEditor() }
     fun requestDeleteCourse() { if (editorSourceIndex != null && !editorInFlight) updateEditor { it.copy(confirmation = CourseEditorConfirmation.Delete) } }
 
-    fun updateCourseName(value: String) = editCourse { it.name = value }
-    fun updateCourseTeacher(value: String) = editCourse { it.teacher = value }
-    fun updateCourseColor(value: String) = editCourse { if (value.matches(Regex("^#[0-9A-Fa-f]{6}$"))) it.color = value.uppercase() }
+    fun updateCourseName(value: String) = editIdentity { it.name = value }
+    fun updateCourseTeacher(value: String) = editIdentity { it.teacher = value }
+    fun updateCourseColor(value: String) {
+        if (!value.matches(Regex("^#[0-9A-Fa-f]{6}$"))) return
+        editIdentity(colorInput = value.uppercase()) { it.color = value.uppercase() }
+    }
+    fun updateCourseColorInput(value: String) {
+        if (mutableEditor.value?.isAppend == true || editorInFlight) return
+        val input = value.uppercase()
+        updateEditor { it.copy(colorInput = input) }
+        if (input.matches(Regex("^#[0-9A-Fa-f]{6}$"))) updateCourseColor(input)
+    }
+    fun showColorDialog() { if (!editorInFlight && mutableEditor.value?.isAppend == false) updateEditor { it.copy(isColorDialogOpen = true) } }
+    fun dismissColorDialog() = updateEditor { it.copy(isColorDialogOpen = false) }
     fun updateCourseScheduleDay(id: String, value: Int) = editSchedule(id) { it.dayOfWeek = value.coerceIn(1, 7) }
     fun updateCourseScheduleStartPeriod(id: String, value: Int) = editSchedule(id) { schedule ->
         val bounded = value.coerceIn(1, maximumPeriod())
@@ -264,14 +283,20 @@ class ScheduleViewModel(
         if (editorInFlight) return
         courseDraft?.let { change(it); publishEditor(mutableEditor.value?.mode ?: return) }
     }
+    private fun editIdentity(colorInput: String? = null, change: (CourseDraft) -> Unit) {
+        if (mutableEditor.value?.isAppend == true || editorInFlight) return
+        courseDraft?.let { change(it); publishEditor(mutableEditor.value?.mode ?: return, colorInput) }
+    }
     private fun maximumPeriod(): Int = state.value.data.semester?.periods?.maxOfOrNull { it.number } ?: 1
     private fun editSchedule(id: String, change: (CourseScheduleDraft) -> Unit) = editCourse { draft -> draft.schedules.firstOrNull { it.id == id }?.let(change) }
     private fun updateEditor(change: (CourseEditorState) -> CourseEditorState) { mutableEditor.value?.let { mutableEditor.value = change(it) } }
-    private fun publishEditor(mode: CourseEditorMode) {
+    private fun publishEditor(mode: CourseEditorMode, colorInput: String? = null) {
         val value = courseDraft ?: return
         val previous = mutableEditor.value
-        mutableEditor.value = CourseEditorState(mode, value.id, value.name, value.teacher, value.color,
-            value.schedules.map { CourseScheduleFormState(it.id, it.dayOfWeek, it.startPeriod, it.endPeriod, it.startWeek, it.endWeek, it.repeatRule, it.classroom) },
+        mutableEditor.value = CourseEditorState(mode = mode, courseId = value.id, name = value.name, teacher = value.teacher, color = value.color,
+            colorInput = colorInput ?: previous?.colorInput ?: value.color,
+            isColorDialogOpen = previous?.isColorDialogOpen ?: false,
+            schedules = value.schedules.map { CourseScheduleFormState(it.id, it.dayOfWeek, it.startPeriod, it.endPeriod, it.startWeek, it.endWeek, it.repeatRule, it.classroom) },
             originalScheduleCount = if (mode == CourseEditorMode.APPEND) editorFingerprint?.schedules?.size ?: 0 else 0,
             validationMessage = previous?.validationMessage, confirmation = previous?.confirmation, isInFlight = editorInFlight)
     }

@@ -1,5 +1,11 @@
 # 安卓项目当前交接状态
 
+## P3-04 R1 复审返工已完成自动化验证，待 Sol 最终复审（最新，2026-09-14）
+
+首轮复审列出的 TODAY 浮动 ADD、追加只读、排序来源 index、确认层返回、iOS 六色、可访问语义、深色表单、in-flight 禁用、主壳成功提示及测试覆盖问题均已在 P3-04 原授权范围内返工。新增 `ADD` 不再只出现在空状态；chooser 排序不丢失精确编辑来源；追加身份字段在 ViewModel 和 UI 双层禁止修改；自定义颜色的原始输入保存在 ViewModel，成功提示为约 2.6 秒的非阻塞终端层。没有扩展至周表、设置、通知、传输、iOS/Web/source/schema/main。
+
+R1 API 37 ARM64 connected 已通过 45 tests、0 failures／errors／skipped；Debug／Release JVM、构建、lint、AndroidTest APK 与文档验证须以本轮最终命令记录为准。生产 APK 的完整人工新增→重启→编辑→chooser追加→冲突／删除流程以及浅色／深色／130% 截图尚未完成，必须在 Sol 最终复审中如实保留，不得称为用户验收。详见 [P3-04 课程 CRUD 验证证据](evidence/p3-04-course-editor-20260914.txt)。
+
 ## P3-04（A04/A05）课程 CRUD 已实施并完成自动化验证，待 Sol 独立复审（最新，2026-09-14）
 
 `Android` 分支已实现真实课程新建、编辑、删除、复用资料追加安排、多个安排、六个预设色和 `#RRGGBB`／RGB／HSV 自定义色、完全重复门禁、跨课程冲突的“返回修改／仍然保存”、脏草稿退出确认、删除确认、保存失败保留草稿、成功反馈、TODAY 空状态 ADD 与 featured／课程行精确编辑入口。Activity 配置重建继续保留同一 ViewModel 的 editor state。没有进入周课表、完整设置、通知、导入导出、分享、iOS、Web、`source/`、共享 schema、Room schema／版本或 `main`。

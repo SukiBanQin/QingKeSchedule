@@ -28,3 +28,11 @@
 
 - 本轮没有把 testhost 截图或固定测试数据称作生产用户验收。
 - 生产 APK 的人工新增／追加／编辑／冲突确认／删除／force-stop 重启和浅色／深色／130% 截图仍待 Sol 独立复审时补做；当前不能据此宣称用户验收。
+
+## R1 复审返工（2026-09-14）
+
+- TODAY 在安全区的右下角始终提供真实浮动 `ADD`；无课程仍直达新建，有课程进入按课程名称稳定排序、但保留来源 index 的 chooser。
+- 追加模式改为只读复用资料卡；ViewModel 同时拒绝名称、教师、颜色及原始颜色输入的修改。系统返回在确认层存在时只关闭确认层。
+- 预设色改为 iOS 六色：`#287B74 #D96952 #536FAF #9A6AAF #B87928 #46835A`；自定义色改为方角 Compose 对话框，原始输入与候选色由 ViewModel 保持。
+- 成功反馈改为主壳内 2.6 秒非阻塞终端提示，不使用 Android Toast；编辑器表单修正深色可读性、星期／节次时间文案和 in-flight 禁用语义。
+- 新增／扩展 ViewModel、Room、Compose 用例。R1 API 37 ARM64 `connectedDebugAndroidTest`：45 tests、0 failures、0 errors、0 skipped；设备确认 SDK 37、`arm64-v8a`。生产人工长链与截图仍未完成，保持待 Sol 最终复审。

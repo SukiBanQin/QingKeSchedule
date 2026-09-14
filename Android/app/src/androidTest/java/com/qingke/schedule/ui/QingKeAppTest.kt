@@ -54,6 +54,9 @@ import com.qingke.schedule.state.ScheduleState
 import com.qingke.schedule.viewmodel.MainTab
 import com.qingke.schedule.viewmodel.PeriodFormState
 import com.qingke.schedule.viewmodel.SemesterFormState
+import com.qingke.schedule.viewmodel.CourseEditorState
+import com.qingke.schedule.viewmodel.CourseEditorMode
+import com.qingke.schedule.viewmodel.CourseScheduleFormState
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.LocalDateTime
@@ -91,6 +94,26 @@ class QingKeAppTest {
         rule.onNodeWithTag("app-loading").assertIsDisplayed()
         state = readyWithSemester()
         rule.onNodeWithTag("main-shell").assertIsDisplayed()
+    }
+
+    @Test fun todayAddAndChooserUseRealCallbacksAndStableSourceTags() {
+        var addCalls = 0; var appendedIndex = -1
+        var editor by mutableStateOf<CourseEditorState?>(null)
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }, appendCourseAt = { appendedIndex = it }), LocalDateTime.parse("2026-08-31T09:00"), editor) }
+        rule.onNodeWithTag("today-add-course").performClick(); assertEquals(1, addCalls)
+        editor = CourseEditorState(CourseEditorMode.CHOOSER); rule.waitForIdle()
+        rule.onNodeWithTag("course-append-1").performClick(); assertEquals(1, appendedIndex)
+        rule.onNodeWithTag("course-append-0").assertIsDisplayed(); rule.onNodeWithTag("course-append-1").assertIsDisplayed()
+    }
+
+    @Test fun appendOverlayIsReadOnlyAndInFlightScheduleControlsAreDisabled() {
+        val schedule = CourseScheduleFormState("new", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.APPEND, name = "算法", teacher = "老师", schedules = listOf(schedule), originalScheduleCount = 0, isInFlight = true)) }
+        rule.onNodeWithTag("course-append-readonly").assertIsDisplayed()
+        rule.onAllNodesWithTag("course-name").assertCountEquals(0)
+        rule.onNodeWithTag("course-day-new-plus").assertIsNotEnabled()
+        rule.onNodeWithTag("course-repeat-new-EVERY").assertIsNotEnabled()
+        rule.onNodeWithTag("course-add-schedule").assertIsNotEnabled()
     }
 
     @Test fun onboardingDefaultsExpandAndUseMeaningfulControls() {

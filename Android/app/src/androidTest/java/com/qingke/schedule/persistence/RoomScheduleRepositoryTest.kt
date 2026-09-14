@@ -93,6 +93,19 @@ class RoomScheduleRepositoryTest {
         assertEquals(listOf("one"), deleted.courses.map { it.name })
     }
 
+    @Test fun preciseOperationsRejectBadIndexAndFingerprintAndRollbackInjectedWrite() = runBlocking {
+        val original = data(); val repository = repository(null)
+        repository.replace(original)
+        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.saveCourseAt(9, original.courses[0], original.courses[0]) } }
+        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.deleteCourseAt(0, original.courses[1]) } }
+        var failCommit = false
+        val failing = repository(null, beforeCommit = { if (failCommit) error("injected") })
+        failing.replace(original); failCommit = true
+        assertThrows(IllegalStateException::class.java) { runBlocking { failing.saveCourseAt(1, original.courses[1], original.courses[1].copy(name = "will-roll-back")) } }
+        assertEquals(original, failing.load())
+        repository.database.close(); failing.database.close()
+    }
+
     @Test fun deletingMissingCoursePreservesDataAndUpdatedAt() = runBlocking {
         val repository = repository(null)
         val original = data()

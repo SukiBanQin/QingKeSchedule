@@ -187,6 +187,42 @@ class ScheduleViewModelTest {
         assertNull(model.editor.value)
     }
 
+    @Test fun courseAddRoutesToChooserAndAppendKeepsIdentityReadOnly() = runTest {
+        val existing = testCourse("same", "算法", "王老师")
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(existing), "now") }
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-02T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+        model.openAddCourse(); assertEquals(CourseEditorMode.CHOOSER, model.editor.value!!.mode)
+        model.appendCourseAt(0)
+        val schedule = model.editor.value!!.visibleSchedules.single()
+        model.updateCourseName("不应修改"); model.updateCourseTeacher("不应修改"); model.updateCourseColor("#D96952"); model.updateCourseColorInput("#oops")
+        assertEquals("算法", model.editor.value!!.name); assertEquals("王老师", model.editor.value!!.teacher); assertEquals("#287B74", model.editor.value!!.color)
+        model.updateCourseScheduleDay(schedule.id, 3)
+        assertEquals(3, model.editor.value!!.visibleSchedules.single().dayOfWeek)
+    }
+
+    @Test fun editorBackClosesConfirmationBeforeRequestingDiscard() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openAddCourse(); model.updateCourseName("离散数学"); model.requestCloseEditor()
+        assertTrue(model.editor.value!!.confirmation is CourseEditorConfirmation.Discard)
+        model.onEditorBack(); assertNull(model.editor.value!!.confirmation); assertNotNull(model.editor.value)
+        model.onEditorBack(); assertTrue(model.editor.value!!.confirmation is CourseEditorConfirmation.Discard)
+    }
+
+    @Test fun courseSavePublishesSuccessAndEditsSecondDuplicateAtSourceIndex() = runTest {
+        val first = testCourse("same", "第一门", "甲")
+        val second = testCourse("same", "第二门", "乙", day = 2)
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(first, second), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openCourseAt(1); model.updateCourseName("第二门已改"); model.saveCourse(); advanceUntilIdle()
+        assertEquals(listOf("第一门", "第二门已改"), repository.data.courses.map { it.name })
+        assertEquals("课程修改已保存", model.courseSuccess.value); assertNull(model.editor.value)
+    }
+
+    private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
+    private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
+
     private fun appState(repository: FakeScheduleRepository) = ScheduleAppState(repository, object : SchedulePreferencesRepository {
         override suspend fun load() = SchedulePreferences.defaults
         override suspend fun save(preferences: SchedulePreferences) = preferences
@@ -204,6 +240,14 @@ class ScheduleViewModelTest {
             val index = data.courses.indexOfFirst { it.id == course.id }
             data = data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course })
             return data
+        }
+        override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData {
+            require(data.courses.getOrNull(index) == expected)
+            data = data.copy(courses = data.courses.toMutableList().also { it[index] = course }); return data
+        }
+        override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData {
+            require(data.courses.getOrNull(index) == expected)
+            data = data.copy(courses = data.courses.toMutableList().also { it.removeAt(index) }); return data
         }
         override suspend fun deleteCourse(id: String) = data
     }
