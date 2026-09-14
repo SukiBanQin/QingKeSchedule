@@ -155,6 +155,13 @@ class QingKeAppTest {
             rule.onNodeWithText(title).assertIsDisplayed()
             rule.onNodeWithText(number).assertIsDisplayed()
         }
+        listOf("today", "schedule", "settings").forEach { id ->
+            val tab = rule.onNodeWithTag("$id-tab").fetchSemanticsNode().boundsInRoot
+            val content = rule.onNodeWithTag("$id-tab-content").fetchSemanticsNode().boundsInRoot
+            val tabCenter = (tab.left + tab.right) / 2f
+            val contentCenter = (content.left + content.right) / 2f
+            assertTrue("$id content center=$contentCenter tab center=$tabCenter", kotlin.math.abs(contentCenter - tabCenter) <= 1.5f)
+        }
     }
 
     @Test fun systemDateAndTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {

@@ -109,6 +109,7 @@ private val DarkSurface = Color(0xFF182427)
 private val LightSurface = Color(0xFFF1F5F4)
 private val Danger = Color(0xFFE65A4F)
 private val TerminalShape = RoundedCornerShape(0.dp)
+private enum class TerminalSurfaceLevel { STANDARD, ELEVATED }
 
 /** Accept only the persisted six-digit RGB format; malformed legacy data gets the brand fallback. */
 internal fun courseColor(raw: String): Color {
@@ -302,13 +303,13 @@ fun QingKeAppContent(
 @Composable private fun TerminalTabBar(selected: MainTab, onSelect: (MainTab) -> Unit, dark: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
-            .terminalPanel(dark, Color.Transparent).padding(6.dp),
+            .terminalPanel(dark, Color.Transparent, TerminalSurfaceLevel.ELEVATED).padding(6.dp),
     ) {
         listOf(Triple(MainTab.TODAY, "今日", "01"), Triple(MainTab.SCHEDULE, "课表", "02"), Triple(MainTab.SETTINGS, "设置", "03")).forEach { (tab, title, number) ->
             val active = selected == tab
             Column(Modifier.weight(1f).height(62.dp).background(if (active) InverseSurface else Color.Transparent, TerminalShape)
                 .selectable(active, onClick = { onSelect(tab) }, role = Role.Tab).testTag("${tab.name.lowercase()}-tab").semantics { contentDescription = title }) {
-                Row(Modifier.weight(1f).padding(horizontal = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 7.dp).testTag("${tab.name.lowercase()}-tab-content"), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     TerminalTabIcon(tab, if (active) Color(0xFFF1F5F4) else terminalText(dark), "${tab.name.lowercase()}-tab-icon")
                     Spacer(Modifier.width(8.dp))
                     Column {
@@ -418,14 +419,16 @@ fun QingKeAppContent(
 }
 private fun terminalText(dark: Boolean) = if (dark) Color(0xFFF1F5F4) else Color(0xFF091113)
 private fun terminalSecondary(dark: Boolean) = if (dark) Color(0xB3F1F5F4) else Color(0xB3091113)
-private fun terminalBorder(dark: Boolean) = if (dark) Color.White.copy(alpha = .28f) else Color.White.copy(alpha = .82f)
-private fun Modifier.terminalPanel(dark: Boolean, accent: Color): Modifier {
-    val surface = if (dark) Color(0xE61A2527) else Color(0xDDFBFEFD)
-    val highlight = if (dark) Color.White.copy(alpha = .10f) else Color.White.copy(alpha = .48f)
+private fun terminalBorder(dark: Boolean) = if (dark) Color(0x59F1F5F4) else Color(0x57091113)
+private fun terminalPanelEdge(dark: Boolean) = if (dark) Color.White.copy(alpha = .30f) else Color.White.copy(alpha = .76f)
+private fun Modifier.terminalPanel(dark: Boolean, accent: Color, level: TerminalSurfaceLevel = TerminalSurfaceLevel.STANDARD): Modifier {
+    val elevated = level == TerminalSurfaceLevel.ELEVATED
+    val surface = if (dark) (if (elevated) Color(0xF01A2527) else Color(0xE61A2527)) else (if (elevated) Color(0xEAFBFEFD) else Color(0xDDFBFEFD))
+    val highlight = if (dark) Color.White.copy(alpha = if (elevated) .14f else .10f) else Color.White.copy(alpha = if (elevated) .62f else .48f)
     return this
-        .shadow(if (dark) 7.dp else 4.dp, TerminalShape, ambientColor = Color.Black.copy(alpha = if (dark) .42f else .22f), spotColor = Color.Black.copy(alpha = if (dark) .34f else .16f))
+        .shadow(if (elevated) 8.dp else 4.dp, TerminalShape, ambientColor = Color.Black.copy(alpha = if (dark) (if (elevated) .52f else .42f) else (if (elevated) .28f else .22f)), spotColor = Color.Black.copy(alpha = if (dark) (if (elevated) .44f else .34f) else (if (elevated) .22f else .16f)))
         .background(Brush.linearGradient(listOf(highlight, surface, surface.copy(alpha = .94f))), TerminalShape)
-        .border(1.dp, terminalBorder(dark), TerminalShape)
+        .border(1.dp, terminalPanelEdge(dark), TerminalShape)
         .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
 }
 
