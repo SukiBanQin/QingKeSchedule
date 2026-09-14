@@ -1,6 +1,28 @@
 # 安卓项目当前交接状态
 
-## P3-04 编辑器取消文字对比度已修正，仍待生产硬门槛与 Sol 复审（最新，2026-09-14）
+## P3-04 已通过 Sol 技术独立复审，待用户验收（最新，2026-09-14）
+
+官方 Sol 已在唯一 API 37 ARM64 `qingke-api37-r3-arm` / `emulator-5554` 上完成生产入口 APK 人工长链，并审查
+`80ed71b^..7f9137d` 的实际生产、JVM 和 AndroidTest diff。清数据建学期、TODAY 真实 ADD、两安排新建、完全重复门禁、
+保存、force-stop 冷启动恢复、ADD chooser、新建／复用资料追加、课程编辑、预设／自定义颜色、冲突返回修改／仍然保存、
+顶部取消／系统返回未保存确认、删除取消／确认均已实际验证。长链后 logcat 精确检索没有目标应用 FATAL／ANR。
+
+- 最终 API 37 ARM64 connected XML：**52 tests、0 failures、0 errors、0 skipped**。
+- 最新生产修正后的主机验证：Debug／Release JVM 各 88 tests、0 failures／errors／skipped，`lintDebug` 0 errors、
+  21 warnings，Debug／Release APK 与 AndroidTest APK 均构建通过。
+- 生产截图已保存到 `docs/Android/evidence/p3-04/`，覆盖浅色、深色、130% 字体、chooser、CREATE、多个安排、
+  APPEND、冲突、未保存确认、删除确认及重启恢复。完整说明见
+  `docs/Android/evidence/p3-04-course-editor-20260914.txt`。
+- Sol 已核对 Room 的来源 index＋打开时 `Course` 指纹精确写入、重复／冲突规则、single-flight、失败／取消恢复、
+  Activity 重建和真实 Compose 回调；没有剩余 P3-04 代码阻断项。
+- **状态边界**：P3-04 已实施、已自动化验证、已完成生产人工技术验证并通过 Sol 独立复审；用户产品验收尚未完成。
+  不得自动开始周课表、设置或其他阶段，不得自动合并 `main`。
+- 模拟器已恢复浅色、100% 字体并停在 TODAY，暂不关闭，供用户直接查看。
+
+当前代码基准为 `Android` 分支 `7f9137d8757f57f517112ec092f598f1217fc1af`；本次证据／交接提交编号由最终
+交付消息和 Git 历史确认。提交前本地与 `origin/Android` 一致，除本次证据图片与文档外无其他未提交改动。
+
+## P3-04 编辑器取消文字对比度已修正，等待生产收口的先前状态（2026-09-14）
 
 生产 APK 人工检查发现 CREATE／EDIT／APPEND／PROFILE 共用的编辑器 toolbar 中，左侧“取消”按钮在浅色和 130% 字体截图只剩
 外框、文字不可见。根因是浅色主题的 `primary` 为 `InverseSurface`，而该 `OutlinedButton` 未指定颜色并默认以 `primary` 绘制，

@@ -1629,7 +1629,7 @@ class AndroidDocumentationTests(unittest.TestCase):
     def test_return_to_official_sol_handoff_preserves_p3_04_gates_and_stops_writers(self):
         handoff = (DOCS / "handoff.md").read_text()
         latest = handoff.split(
-            "## 切换回官方 Sol 主窗口，P3-04 技术收口未完成（最新，2026-09-14）", 1
+            "## P3-04 技术收口的先前状态（2026-09-14）", 1
         )[1].split("\n## ", 1)[0]
         normalized = re.sub(r"\s+", " ", latest)
 
@@ -1659,6 +1659,50 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不自动开始任何未授权阶段",
         ):
             self.assertIn(marker, normalized)
+
+    def test_p3_04_final_sol_review_records_production_chain_and_user_gate(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## P3-04 已通过 Sol 技术独立复审，待用户验收（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+        evidence = (DOCS / "evidence/p3-04-course-editor-20260914.txt").read_text()
+        normalized = re.sub(r"\s+", " ", latest + evidence)
+
+        for marker in (
+            "80ed71b^..7f9137d",
+            "52 tests、0 failures、0 errors、0 skipped",
+            "Debug／Release JVM 各 88 tests",
+            "force-stop",
+            "ADD chooser",
+            "APPEND",
+            "该上课安排已存在，请勿重复添加",
+            "返回修改",
+            "仍然保存",
+            "FATAL EXCEPTION",
+            "ANR in com.qingke.schedule",
+            "P3-04 已通过 Sol 技术独立复审",
+            "用户产品验收尚未完成",
+            "不得自动开始",
+        ):
+            self.assertIn(marker, normalized)
+
+        for name in (
+            "android-api37-production-empty-light.png",
+            "android-api37-production-after-create.png",
+            "android-api37-production-after-restart.png",
+            "android-api37-production-chooser.png",
+            "android-api37-production-append.png",
+            "android-api37-production-multiple-schedules.png",
+            "android-api37-production-conflict.png",
+            "android-api37-production-dirty-confirm.png",
+            "android-api37-production-delete-confirm.png",
+            "android-api37-production-custom-color.png",
+            "android-api37-production-dark.png",
+            "android-api37-production-create-light-fixed.png",
+            "android-api37-production-create-dark-fixed.png",
+            "android-api37-production-create-font130-fixed.png",
+        ):
+            self.assertTrue((DOCS / "evidence/p3-04" / name).is_file(), name)
 
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
         path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"

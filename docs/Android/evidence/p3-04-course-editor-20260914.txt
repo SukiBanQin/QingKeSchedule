@@ -95,3 +95,43 @@
   **52 tests、0 failures、0 errors、0 skipped**。`lintDebug` 为 0 errors、21 warnings，`assembleDebugAndroidTest` 与
   `testDebugUnitTest`（88 tests、0 failures、0 errors、0 skipped）及 `git diff --check` 通过。生产人工长链与截图仍由 Sol
   继续，未宣称用户验收。
+
+## 官方 Sol 生产 APK 人工长链与最终独立复审（2026-09-14）
+
+设备和入口：唯一 `qingke-api37-r3-arm` / `emulator-5554`，SDK 37、`arm64-v8a`；通过
+`Android/app/build/outputs/apk/debug/app-debug.apk` 安装并启动真实 `com.qingke.schedule/.MainActivity`，没有使用 testhost。
+业务长链在 `fc8e526` 的生产入口 APK 上完成；其后 `7f9137d` 只修正共用 toolbar 的取消文字颜色且最终 connected 全通过，
+并重新安装 `7f9137d` APK 复拍 chooser、APPEND、CREATE 浅色／深色／130% 证据。
+
+- 清除应用数据后完成首次学期保存；空状态 TODAY 显示真实浮动 `ADD`，无课程时直接进入 CREATE。
+- CREATE 中实际输入课程、添加第二条安排；两条完全相同安排保存时显示“该上课安排已存在，请勿重复添加”，修改第二条星期后保存成功。
+- 保存后执行 `am force-stop com.qingke.schedule` 并冷启动；学期、课程和安排恢复，未重新进入首次设置。
+- 有课程时 `ADD` 进入 PROFILE chooser；“新建课程”和按来源课程复用资料追加均可达。APPEND 显示只读课程资料，修改新增安排后保存成功。
+- TODAY 课程行进入 EDIT；预设色修改后保存并在 TODAY 色条语义显示 `#D96952`。自定义颜色对话框显示严格 `#RRGGBB` 输入、RGB 和 HSV 控件。
+- 第二门课程与已有课程同周同节保存时出现冲突详情；“返回修改”保留表单，再次保存并选择“仍然保存”后两门课程同时存在。
+- 顶部“取消”和系统返回均触发未保存确认；确认层“返回修改”保留编辑器。删除先“返回修改”取消，再次确认删除后仅目标课程消失。
+- 长链结束后导出 logcat 并精确检索 `FATAL EXCEPTION`、`ANR in com.qingke.schedule`、目标进程 crash／`am_anr`，均无匹配。
+- 最新生产修正后补跑 Release JVM、Debug／Release APK：Release 与既有 Debug JVM 各 88 tests、0 failures／errors／skipped，
+  `assembleDebug assembleRelease` 通过；首次漏传专用 SDK 环境变量的调用在任务解析阶段退出，补齐固定 API 37 SDK 环境后有效重跑通过。
+- 模拟器系统外观和字体已恢复为 light / `font_scale=1.0`，应用停在 TODAY；模拟器暂不关闭，供用户查看。
+
+生产截图位于 `docs/Android/evidence/p3-04/`：
+
+- `android-api37-production-empty-light.png`
+- `android-api37-production-after-create.png`
+- `android-api37-production-after-restart.png`
+- `android-api37-production-chooser.png`
+- `android-api37-production-append.png`
+- `android-api37-production-multiple-schedules.png`
+- `android-api37-production-conflict.png`
+- `android-api37-production-dirty-confirm.png`
+- `android-api37-production-delete-confirm.png`
+- `android-api37-production-custom-color.png`
+- `android-api37-production-dark.png`
+- `android-api37-production-create-light-fixed.png`
+- `android-api37-production-create-dark-fixed.png`
+- `android-api37-production-create-font130-fixed.png`
+
+Sol 已检查 `80ed71b^..7f9137d` 的实际生产／测试 diff、Room index＋fingerprint 精确写入、冲突与完全重复规则、
+ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity 重建覆盖；未发现剩余 P3-04 代码阻断项。因此可表述为
+**P3-04 已通过 Sol 技术独立复审**。这不等于用户产品验收；用户验收仍待用户亲自在已打开的模拟器中确认，也不得据此开始 P3-04 之外阶段。
