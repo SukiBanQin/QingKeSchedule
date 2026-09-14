@@ -1580,7 +1580,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, latest)
         self.assertIn("本轮用户视觉验收通过", evidence)
 
-    def test_p3_04_course_editor_analysis_is_actionable_and_keeps_duplicate_id_decision_open(self):
+    def test_p3_04_course_editor_decision_and_implementation_authorization_are_recorded(self):
         path = DOCS / "p3-04-course-editor.md"
         analysis = path.read_text()
         handoff = (DOCS / "handoff.md").read_text()
@@ -1588,7 +1588,7 @@ class AndroidDocumentationTests(unittest.TestCase):
         design = (DOCS / "technical-design.md").read_text()
         baseline = (DOCS / "product-baseline.md").read_text()
         latest = handoff.split(
-            "## P3-04 课程 CRUD 分析完成，等待重复 ID 决定与实施授权（最新，2026-09-14）", 1
+            "## P3-04 重复 ID 方案确认并授权实施（最新，2026-09-14）", 1
         )[1].split("\n## ", 1)[0]
 
         for marker in (
@@ -1602,15 +1602,28 @@ class AndroidDocumentationTests(unittest.TestCase):
             "force-stop",
             "connectedDebugAndroidTest",
             "重复课程 ID",
-            "精确操作所选来源（建议）",
-            "尚未授权实施",
+            "精确操作所选来源（已确认）",
+            "应用实施已授权",
             "不得仅添加截图按钮",
         ):
             self.assertIn(marker, analysis + latest)
         for contents in (plan, design, baseline):
             self.assertIn("p3-04-course-editor.md", contents)
-            self.assertIn("重复", contents)
-            self.assertIn("实施授权", contents)
+            self.assertIn("源课程位置", contents)
+            self.assertIn("授权", contents)
+            self.assertIn("实施", contents)
+            self.assertIn("iOS 同步未授权", contents)
+        for marker in (
+            "打开时数据指纹",
+            "业务 ID",
+            "共享 schema",
+            "尚未实现",
+            "用户将在",
+            "亲自测试",
+            "`gpt-5.6-terra`／`high`",
+            "禁止其创建子 Agent",
+        ):
+            self.assertIn(marker, analysis + latest + plan + design + baseline)
         self.assertEqual(missing_links(path, analysis), [])
 
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
