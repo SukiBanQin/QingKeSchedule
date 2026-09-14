@@ -1704,6 +1704,33 @@ class AndroidDocumentationTests(unittest.TestCase):
         ):
             self.assertTrue((DOCS / "evidence/p3-04" / name).is_file(), name)
 
+    def test_p3_04_relay_handoff_preserves_failed_user_visual_gate_and_stopped_runtime(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## 切换至中转站 Sol：P3-04 技术复审已完成，但用户视觉验收未通过（最新，2026-09-14）",
+            1,
+        )[1].split("\n## ", 1)[0]
+        normalized = re.sub(r"\s+", " ", latest)
+
+        for marker in (
+            "TODAY 页面和 ADD／课程编辑相关页面",
+            "用户产品／视觉验收未通过",
+            "不得猜测具体缺陷",
+            "abdb5fc74e1c2a96ace44fcedf16ec20f98af45f",
+            "ADB 设备列表为空",
+            "没有运行中的模拟器",
+            "过时运行状态",
+            "`/root/p3_04_connected_fix`",
+            "`/root/p3_03_r2_visual`",
+            "均为 `completed`",
+            "不能假定跨服务迁移",
+            "`gpt-5.6-terra`／`high`",
+            "禁止其创建子 Agent",
+            "逐项差异",
+            "不得据此启动下一阶段",
+        ):
+            self.assertIn(marker, normalized)
+
     def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
         path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"
         evidence = path.read_text()
