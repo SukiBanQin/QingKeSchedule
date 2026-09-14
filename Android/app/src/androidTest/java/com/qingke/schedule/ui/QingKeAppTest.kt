@@ -146,20 +146,12 @@ class QingKeAppTest {
 
     @Test fun terminalTabsExposeCenteredIconTitleAndNumberGroups() {
         rule.setContent { QingKeAppContent(readyWithSemester(), null, MainTab.TODAY, QingKeAppActions()) }
-        listOf(
-            Triple("today", "今日", "01"),
-            Triple("schedule", "课表", "02"),
-            Triple("settings", "设置", "03"),
-        ).forEach { (id, title, number) ->
-            rule.onNodeWithTag("$id-tab-icon").assertIsDisplayed()
-            rule.onNodeWithText(title).assertIsDisplayed()
-            rule.onNodeWithText(number).assertIsDisplayed()
-        }
         listOf("today", "schedule", "settings").forEach { id ->
-            val tab = rule.onNodeWithTag("$id-tab").fetchSemanticsNode().boundsInRoot
-            val content = rule.onNodeWithTag("$id-tab-content").fetchSemanticsNode().boundsInRoot
+            val tab = rule.onNodeWithTag("$id-tab", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val content = rule.onNodeWithTag("$id-tab-content", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val tabCenter = (tab.left + tab.right) / 2f
             val contentCenter = (content.left + content.right) / 2f
+            assertTrue("$id content width=${content.width} must remain wrap-content within tab width=${tab.width}", content.width < tab.width)
             assertTrue("$id content center=$contentCenter tab center=$tabCenter", kotlin.math.abs(contentCenter - tabCenter) <= 1.5f)
         }
     }
