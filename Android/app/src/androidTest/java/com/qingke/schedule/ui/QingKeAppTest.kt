@@ -177,10 +177,69 @@ class QingKeAppTest {
         var selectedDay = 1
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(updateCourseDay = { _, value -> selectedDay = value }), editor = CourseEditorState(CourseEditorMode.CREATE, schedules = listOf(schedule))) }
         rule.onNodeWithTag("course-schedule-header-picker").performScrollTo()
+        rule.onNodeWithTag("course-day-picker-value", useUnmergedTree = true).assertTextContains("星期一")
+        rule.onNodeWithTag("course-start-period-picker-value", useUnmergedTree = true).assertTextContains("第 1 节 · 08:00")
+        rule.onNodeWithTag("course-end-period-picker-value", useUnmergedTree = true).assertTextContains("第 1 节 · 08:45")
         rule.onNodeWithTag("course-day-picker").performClick()
         rule.onNodeWithTag("course-day-picker-menu").assertIsDisplayed()
         rule.onNodeWithTag("course-day-picker-option-6").performClick()
         assertEquals(6, selectedDay)
+    }
+
+    @Test fun chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales() {
+        val schedule = CourseScheduleFormState("compact", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.CHOOSER))
+        var fontScale by mutableStateOf(1f)
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) {
+                QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(openNewCourse = { editor = CourseEditorState(CourseEditorMode.CREATE, color = "#287B74", schedules = listOf(schedule)) }, showColorDialog = { editor = editor?.copy(isColorDialogOpen = true) }), editor = editor)
+            }
+        }
+        rule.onNodeWithTag("course-choice-create-panel", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("course-create-new").assertIsDisplayed()
+        assertAtLeast48Dp("course-create-new")
+        rule.onNodeWithText("新建一门课程", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("已有课程会复用名称、教师和识别色，只新增一条上课安排。", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithContentDescription("新建一门课程").performClick()
+        rule.waitForIdle()
+        assertEquals(CourseEditorMode.CREATE, editor?.mode)
+        editor = CourseEditorState(CourseEditorMode.CHOOSER)
+        rule.waitForIdle()
+        assertAtLeast48Dp("course-append-0", scroll = true)
+        rule.onNodeWithTag("course-append-rail-0", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        editor = CourseEditorState(CourseEditorMode.CREATE, color = "#287B74", schedules = listOf(schedule))
+        rule.waitForIdle()
+        rule.onNodeWithTag("course-info-section").performScrollTo()
+        rule.onNodeWithText("课程信息", useUnmergedTree = true).assertIsDisplayed()
+        fontScale = 1.3f
+        rule.waitForIdle()
+        listOf("course-name-placeholder", "course-teacher-placeholder").forEach(::assertSingleLineFitsRoot)
+        rule.onNodeWithText("教师（选填）", useUnmergedTree = true).assertIsDisplayed()
+        assertAtLeast48Dp("course-custom-color", scroll = true)
+        rule.onNodeWithTag("course-custom-color").performScrollTo().performClick()
+        rule.onNodeWithTag("course-color-dialog").assertIsDisplayed()
+        editor = editor?.copy(isColorDialogOpen = false)
+        listOf(1f, 1.3f).forEach { scale ->
+            fontScale = scale
+            rule.waitForIdle()
+            rule.onNodeWithTag("course-schedule-header-compact").performScrollTo()
+            listOf("course-day-compact", "course-start-period-compact", "course-end-period-compact").forEach(::assertFitsRootHorizontally)
+            listOf("course-day-compact", "course-start-period-compact", "course-end-period-compact", "course-start-week-compact-minus", "course-start-week-compact-plus").forEach(::assertAtLeast48Dp)
+        }
+    }
+
+    @Test fun appendUsesOriginalScheduleOrdinalAndAllowsRemovingNewSchedule() {
+        val existing = CourseScheduleFormState("existing", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        val newSchedule = CourseScheduleFormState("new", 2, 2, 2, 1, 18, RepeatRule.EVERY, "")
+        var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.APPEND, name = "算法", teacher = "老师", schedules = listOf(existing, newSchedule), originalScheduleCount = 1))
+        var removedId: String? = null
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(removeCourseSchedule = { id -> removedId = id; editor = editor?.copy(schedules = editor!!.schedules.filterNot { it.id == id }) }), editor = editor) }
+        rule.onNodeWithText("上课安排 2", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("course-schedule-header-new-number", useUnmergedTree = true).assertTextContains("03")
+        rule.onNodeWithTag("course-remove-schedule-new").performScrollTo().assertIsDisplayed().assertTextContains("删除这个安排").performClick()
+        assertEquals("new", removedId)
+        assertEquals(listOf("existing"), editor!!.schedules.map { it.id })
+        rule.onAllNodesWithTag("course-remove-schedule-new").assertCountEquals(0)
     }
 
     @Test fun todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances() {
@@ -225,15 +284,26 @@ class QingKeAppTest {
     }
 
     @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
-        var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var addCalls = 0
-        rule.setContent { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
+        var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var fontScale by mutableStateOf(1f); var addCalls = 0
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) } }
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
-        val noticeBounds = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertTrue("success notice must clear ADD: notice=$noticeBounds add=$addBounds", noticeBounds.bottom <= addBounds.top || noticeBounds.right <= addBounds.left || noticeBounds.left >= addBounds.right)
+        fun assertSuccessStack() {
+            val noticeBounds = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val tabBounds = rule.onNodeWithTag("terminal-tab-bar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val minimumGap = 6.dp.value * rule.density.density
+            val maximumGap = 22.dp.value * rule.density.density
+            assertTrue("success notice must be below ADD: add=$addBounds notice=$noticeBounds", addBounds.bottom <= noticeBounds.top)
+            assertTrue("success notice must be above tab bar: notice=$noticeBounds tab=$tabBounds", noticeBounds.bottom <= tabBounds.top)
+            assertTrue("ADD to notice gap must remain visible: add=$addBounds notice=$noticeBounds", noticeBounds.top - addBounds.bottom >= minimumGap)
+            assertTrue("ADD to notice gap must stay compact: add=$addBounds notice=$noticeBounds", noticeBounds.top - addBounds.bottom <= maximumGap)
+            assertTrue("notice to tab gap must stay compact: notice=$noticeBounds tab=$tabBounds", tabBounds.top - noticeBounds.bottom <= maximumGap)
+        }
+        assertSuccessStack()
         rule.onNodeWithTag("today-add-course").performClick(); assertEquals(1, addCalls)
         state = state.copy(preferences = state.preferences.copy(appearanceMode = AppearanceMode.DARK)); rule.waitForIdle()
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        fontScale = 1.3f; rule.waitForIdle(); assertSuccessStack()
         rule.waitUntil(3_200) { notice == null }
         rule.onAllNodesWithTag("course-success-notice").assertCountEquals(0)
     }
@@ -583,6 +653,19 @@ class QingKeAppTest {
         val minimum = with(rule.density) { 48.dp.toPx() }
         assertTrue("$tag width=${bounds.width}", bounds.width >= minimum)
         assertTrue("$tag height=${bounds.height}", bounds.height >= minimum)
+    }
+
+    private fun assertFitsRootHorizontally(tag: String) {
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("$tag left=${bounds.left} root=$root", bounds.left >= root.left)
+        assertTrue("$tag right=${bounds.right} root=$root", bounds.right <= root.right)
+    }
+
+    private fun assertSingleLineFitsRoot(tag: String) {
+        assertFitsRootHorizontally(tag)
+        val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("$tag height=${bounds.height}", bounds.height <= 48.dp.value * rule.density.density)
     }
 
     private fun assertEditorCloseHasVisibleLightInk(appearance: AppearanceMode, fontScale: Float) {

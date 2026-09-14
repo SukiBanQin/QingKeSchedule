@@ -170,3 +170,13 @@ ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity �
 - 复核发现 success notice 与 TODAY 浮动 ADD 发生覆盖。notice 现为 tab 与 ADD 预留 180dp 底部安全区；Compose 回归直接读取两个语义 bounds，要求二者不相交，同时仍验证 notice 下 ADD 可点击与自动消失。
 - 替换了误采的浅色 chooser 文件：`production-chooser-light.png` 现在实际显示 `SELECT PROFILE`、两个 section 与已有课程；`production-conflict.png` 在关闭软键盘后重拍完整 dialog。补拍当前代码的 deep chooser、deep + 130% conflict。生产 logcat 再次筛查无目标 FATAL／ANR，设备最终恢复 light / 1.0。
 - 浅色的 TODAY 空／有课、CREATE、chooser、APPEND、picker、discard、delete、conflict 与深色 chooser、深色+130% conflict 构成当前最小矩阵；它覆盖所有本轮返工结构，但仍等待 Sol 复审与用户验收。
+
+## B4 R2 成功提示安全区与紧凑编辑器复核（2026-09-14）
+
+- iOS 实机复核确认底部视觉顺序为 `ADD → TerminalToast → TerminalTabBar`。Android 改由 `MainShell` 的共享垂直 stack 布局：ADD 在上、success notice 在中、tab bar 在下；notice 的实际内容高度会自然推高 ADD，不再使用互不关联的固定 bottom offset。ADD 与 notice 使用 8dp 明确间距，tab bar 保持自身顶部内边距。
+- `successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires` 现在严格校验 ADD bottom 不高于 notice top、notice bottom 不低于 tab bar top、ADD/notice 的间距在 6–22dp、ADD 仍可点击，并在深色和 130% 字体下重复方向检查；notice 仍在约 2.6 秒后清除。
+- 真实 `ToastProof` 的 EDIT→保存生产复拍使用无文本输入路径。canonical `production-today-success-notice-light.png` 清楚显示 `OK 课程修改已保存`、上方完整 ADD、下方完整 tab bar 和手势导航条；`dumpsys input_method` 为 `mInputShown=false`，没有 Gboard/IME。中间 `-compact-light` 图已删除且不纳入提交。
+- `PlainEditorTextField` 去除了固定 92dp 左侧标签列，空值时以单行全宽 placeholder 显示“课程名称”或“教师（选填）”。API 37 130% 回归验证两个 placeholder 横向不越界、文本高度不超过 48dp，避免教师文案折行。
+- 本轮 canonical 生产图：`production-chooser-light.png`、`production-chooser-dark.png`、`production-create-light.png`、`production-create-dark-font130.png`、`production-append.png`、`production-append-font130.png`、`production-today-success-notice-light.png`。其中 `production-create-light.png` 已在最终代码上重拍并显示“教师（选填）”；深色/130%三图确认新 chooser、CREATE、APPEND 的可见区域无裁切或溢出；截图后设备已恢复 light / `font_scale=1.0`。
+- 最终代码的 Debug／Release JVM 各为 **88 tests、0 failures、0 errors、0 skipped**；`lintDebug` 为 **0 errors、21 warnings**；Debug、Release 和 AndroidTest APK 均构建通过。API 37 ARM64 `emulator-5554` 的完整 `connectedDebugAndroidTest --rerun-tasks` 为 **58 tests、0 failures、0 errors、0 skipped**，其中 `QingKeAppTest` 定向全类为 31 tests 全通过。
+- 生产 Debug APK 在清数据后的真实入口完成首次学期保存、TODAY ADD→CREATE，并核对最终“教师（选填）”；随后 force-stop 冷启动回到 TODAY，ADD 可见，目标 logcat 无 FATAL／ANR。Sol 已完成实际 diff、iOS 基准与证据图独立技术复核；本节仍不构成用户视觉验收。

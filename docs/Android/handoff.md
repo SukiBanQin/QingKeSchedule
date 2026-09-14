@@ -1,5 +1,17 @@
 # 安卓项目当前交接状态
 
+## P3-04 B4 R2 已完成技术收口，待用户视觉验收（最新，2026-09-14）
+
+本轮严格限定在已授权的 TODAY、ADD chooser 与 CourseEditor 视觉对齐；未改 iOS、Web、共享协议、Room 业务规则、周课表、设置、通知、导入导出或 `main`。当前分支为 `Android`，开始基准为 `9eefec1`；交付提交只包含 `QingKeApp.kt`、`QingKeAppTest.kt`、本轮证据说明和 `docs/Android/evidence/p3-04-visual-r1/` 的 canonical 截图。没有运行中的 Gradle 或其他写入者；中转站唯一 Terra `/root/p3_03_r2_visual_fix` 为 `gpt-5.6-terra/high`，已中断并停止写入，工具不保证永久删除。
+
+- 成功提示不再以两个独立 bottom offset 叠放：`MainShell` 以共享底部栈实际测量为 `ADD → success notice → TerminalTabBar`。notice 出现时 ADD 保持可点击并上移；notice 自动 2.6 秒消失后，ADD 回到 tab bar 上方的常规位置。
+- API 37 Compose 回归使用稳定 `terminal-tab-bar` tag 严格验证垂直顺序、ADD 与 notice 的 6–22dp 间距、notice 位于 tab bar 上方、ADD 可点击、深色和 130% 字体以及 2.6 秒自动消失；不再使用任一方向不相交的宽松断言。
+- CREATE 资料字段改为全宽单行 BasicTextField placeholder；空值显示“课程名称”／“教师（选填）”，保留 48dp 高度和 divider。130% 回归验证两个 placeholder 横向不越界且为单行，修正了旧版“教师（可选）”在固定 92dp 标签列折成两行的问题。
+- 已在生产 APK 重新核对浅色/100% 成功提示：从现有 `ToastProof` 课程直接进入 EDIT 后保存，未聚焦文本输入；`uiautomator` 实测 ADD bottom `1962` < notice top `2015` < tab container top `2110`，`dumpsys input_method` 为 `mInputShown=false`。浅色 CREATE 已在最终代码上重拍并显示“教师（选填）”；深色/130%重新核对 chooser、CREATE 与 APPEND，当前可见区域无裁切/溢出；模拟器已恢复 light / `font_scale=1.0`。
+- 最终主机验证：Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**；`lintDebug` **0 errors、21 warnings**；Debug、Release 和 AndroidTest APK 均构建通过。API 37 ARM64 `emulator-5554` 完整 `connectedDebugAndroidTest --rerun-tasks` 为 **58 tests、0 failures、0 errors、0 skipped**，其中 `QingKeAppTest` 31 tests 全通过。
+- 生产 Debug APK 在清数据后的真实入口完成首次学期保存、TODAY ADD→CREATE，随后 force-stop 冷启动恢复 TODAY；ADD 可见，目标 logcat 无 FATAL／ANR。Sol 已核对实际 diff、iOS 当前实现与全部 canonical 截图并完成独立技术复审。这里只能记录“已修正、已测试、已技术审查”；用户视觉验收仍未通过，必须等待用户重新查看确认，不自动开始其他页面或阶段。
+- 文档收口验证：Android 文档测试 **66 tests** 全通过，`documentation.test.sh`、`repository-layout.test.sh` 和 `git diff --check` 均通过。
+
 ## P3-04 B4 后续终端视觉返工进行中（2026-09-14）
 
 本轮在 `Android` 分支、基准 `3eff01c` 上继续用户已明确授权的 TODAY 与 ADD／CourseEditor 视觉对齐；未修改 iOS、Web、`source/`、共享协议、Room 语义、周课表、设置、通知、导入导出或 `main`。工作区只有当前唯一写入者，未创建或恢复子 Agent。
