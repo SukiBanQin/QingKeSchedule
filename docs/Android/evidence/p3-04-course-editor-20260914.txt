@@ -64,3 +64,8 @@
 - `P3R2ActivityRecreationTest.activityRecreationKeepsCourseEditorRouteDraftColorDialogAndConfirmation` 在真实 `scenario.recreate()` 后确认同一 ViewModel 仍保留 CREATE 路由、名称、教师、非法 `colorInput`、颜色对话框、两个安排及放弃确认层；定向 API 37 ARM64 connected 为 3 tests、0 failures/errors/skipped。
 - `courseCancellationAndDeleteFailureKeepEditorWithoutOrdinaryError` 验证 save `CancellationException` 后草稿保留、in-flight 恢复且无普通错误，以及 delete 普通失败保留编辑器并发布错误。Debug JVM 88 tests、0 failures/errors/skipped。
 - B4 的完整 Compose Back／连续消息和 Room cancellation/reopen 仍未完成；C 仍未开始。
+
+## B4 Compose 与 Room 收口（2026-09-14）
+
+- Compose 增加真实 `onBackPressedDispatcher` 确认层返回、顶部保存／危险删除点击，以及连续 success message 重新计时测试。
+- Room 增加 precise delete 普通失败、`CancellationException`、关闭重开及越界／错误指纹后原数据保持断言。AndroidTest APK 编译通过；完整 connected 回归待本轮收尾执行。

@@ -57,6 +57,7 @@ import com.qingke.schedule.viewmodel.SemesterFormState
 import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseScheduleFormState
+import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.LocalDateTime
@@ -133,6 +134,25 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
         rule.waitUntil(3_200) { notice == null }
         rule.onAllNodesWithTag("course-success-notice").assertCountEquals(0)
+    }
+
+    @Test fun editorBackToolbarAndDangerControlsInvokeTheirRealCallbacks() {
+        val schedule = CourseScheduleFormState("back", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.EDIT, name = "课", schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Delete))
+        var saves = 0; var deletes = 0; var backs = 0
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(saveCourse = { saves++ }, deleteCourse = { deletes++ }, editorBack = { backs++; editor = editor?.copy(confirmation = null) }), editor = editor) }
+        rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }; rule.waitForIdle()
+        assertEquals(1, backs); rule.onNodeWithTag("course-editor").assertIsDisplayed(); rule.onAllNodesWithTag("course-delete-confirm").assertCountEquals(0)
+        rule.onNodeWithTag("course-save-toolbar").performClick(); assertEquals(1, saves)
+        rule.onNodeWithTag("course-delete").performScrollTo().performClick(); assertEquals(1, deletes)
+    }
+
+    @Test fun newestSuccessNoticeRestartsItsOwnTimer() {
+        var notice by mutableStateOf<String?>("A")
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), courseSuccess = notice, consumeCourseSuccess = { notice = null }) }
+        SystemClock.sleep(1_500); notice = "B"; rule.waitForIdle(); SystemClock.sleep(1_300)
+        rule.onNodeWithTag("course-success-notice").assertTextContains("B")
+        rule.waitUntil(2_000) { notice == null }; rule.onAllNodesWithTag("course-success-notice").assertCountEquals(0)
     }
 
     @Test fun onboardingDefaultsExpandAndUseMeaningfulControls() {

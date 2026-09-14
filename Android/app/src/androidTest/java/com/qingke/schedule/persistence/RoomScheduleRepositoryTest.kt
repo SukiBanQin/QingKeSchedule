@@ -96,14 +96,24 @@ class RoomScheduleRepositoryTest {
     @Test fun preciseOperationsRejectBadIndexAndFingerprintAndRollbackInjectedWrite() = runBlocking {
         val original = data(); val repository = repository(null)
         repository.replace(original)
-        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.saveCourseAt(9, original.courses[0], original.courses[0]) } }
-        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.deleteCourseAt(0, original.courses[1]) } }
+        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.saveCourseAt(9, original.courses[0], original.courses[0]) } }; assertEquals(original, repository.load())
+        assertThrows(ScheduleRepositoryException.InconsistentStore::class.java) { runBlocking { repository.deleteCourseAt(0, original.courses[1]) } }; assertEquals(original, repository.load())
         var failCommit = false
         val failing = repository(null, beforeCommit = { if (failCommit) error("injected") })
         failing.replace(original); failCommit = true
         assertThrows(IllegalStateException::class.java) { runBlocking { failing.saveCourseAt(1, original.courses[1], original.courses[1].copy(name = "will-roll-back")) } }
         assertEquals(original, failing.load())
         repository.database.close(); failing.database.close()
+    }
+
+    @Test fun preciseDeleteFailureAndCancellationReopenOriginalData() = runBlocking {
+        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-precise-${System.nanoTime()}.db")
+        val original = data(); var mode = 0
+        val repository = repository(file, beforeCommit = { if (mode == 1) error("delete"); if (mode == 2) throw CancellationException("delete") })
+        repository.replace(original); mode = 1
+        assertThrows(IllegalStateException::class.java) { runBlocking { repository.deleteCourseAt(1, original.courses[1]) } }; assertEquals(original, repository.load())
+        mode = 2; assertThrows(CancellationException::class.java) { runBlocking { repository.deleteCourseAt(1, original.courses[1]) } }; repository.database.close()
+        val reopened = repository(file); assertEquals(original, reopened.load()); reopened.database.close(); file.delete()
     }
 
     @Test fun deletingMissingCoursePreservesDataAndUpdatedAt() = runBlocking {
