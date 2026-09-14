@@ -1562,6 +1562,36 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn("暂不验收", contents)
             self.assertIn("P3-04", contents)
 
+    def test_p3_03_r2_final_review_records_device_visual_and_keeps_user_gate(self):
+        path = DOCS / "evidence/p3-03-r2-final-review-20260914.txt"
+        evidence = path.read_text()
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## P3-03-R2 通过最终独立复审，等待用户视觉验收（最新，2026-09-14）", 1
+        )[1].split("\n## ", 1)[0]
+
+        for marker in (
+            "10b92535216b87de2f808e3d5ec392aa6af18321..58ad3b1396ad2e9628c1f9f768bd68e14b745f30",
+            "P3-03-R2 已实施、测试并通过最终独立复审",
+            "0 errors、20 warnings",
+            "39 tests",
+            "青课",
+            "force-stop",
+            "不是用户视觉验收",
+            "不得开始 P3-04",
+        ):
+            self.assertIn(marker, evidence)
+        for marker in (
+            "通过最终独立复审",
+            "等待用户视觉验收",
+            "0 errors、20 warnings",
+            "connected XML 39 项",
+            "p3-03-r2-final-review-20260914.txt",
+            "不得自动开始 P3-04",
+        ):
+            self.assertIn(marker, latest)
+        self.assertEqual(missing_links(path, evidence), [])
+
     def test_p3_01_execution_records_pure_kotlin_fixture_and_review_boundary(self):
         handoff = (DOCS / "handoff.md").read_text()
         evidence = (DOCS / "evidence/p3-01-schedule-presentation-jvm-20260910.txt").read_text()

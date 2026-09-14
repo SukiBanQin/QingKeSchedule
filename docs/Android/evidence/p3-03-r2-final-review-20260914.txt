@@ -1,0 +1,55 @@
+# P3-03-R2 最终独立复审证据（2026-09-14）
+
+## 复审范围与结论
+
+Sol／高在 `Android` 分支独立复审 `10b92535216b87de2f808e3d5ec392aa6af18321..58ad3b1396ad2e9628c1f9f768bd68e14b745f30`。
+首轮实施提交为 `5b18381b22ffe6876868395fce2a446083fe7423`，针对首轮复审问题的修正提交为
+`58ad3b1396ad2e9628c1f9f768bd68e14b745f30`；复审开始时本地 HEAD、`origin/Android` 一致且工作区干净。
+
+实际 diff 只涉及 Android Manifest、今日页／共享主壳 Compose、用户指定素材的 Android 资源、对应 AndroidTest、R2 文档与
+截图证据；未修改 iOS、Web、`source/`、领域／持久化／共享协议或构建工具链，未进入 P3-04。
+
+**结论：P3-03-R2 已实施、测试并通过最终独立复审，没有发现阻断问题。** 这仍不是用户视觉验收，不代表 A02、A07、
+A11、P3 或完整 App 已验收；用户确认前不得开始 P3-04。
+
+## 独立代码与视觉核对
+
+- 深色和 130% 字体截图中的同造型 Logo 使用可读的浅色非青色前景，青色识别块和透明度保留；浅色仍使用用户原图。
+- adaptive foreground 只引用独立 `qingke_cover`，不再回指 `@mipmap/ic_launcher`；Manifest 明确 `icon`、`roundIcon` 和
+  应用名“青课”。在正确 API 37 启动器的应用抽屉中，同一静态帧可见 cover 图标和“青课”标签，主体未异常裁掉。
+- 今日页只有 `PullToRefreshBox(onRefresh = triggerRefresh)` 一条真实下拉路径；`refreshing` 在协程启动前同步置位，测试从
+  `today-scroll-content` 连续真实下拉，确认唯一回调、刷新中不重入和反馈结束。
+- COMPLETE／CURRENT／NEXT／UPCOMING、featured、三类空状态、详情回退、严格颜色回退、重复业务 ID 的 occurrence tag、
+  STARTED tick／停止／恢复／Activity 重建所有权均保留；完整序列截图可见四行旋转序号和 END 标记。
+- Android 浅色、深色、130% 字体、完整序列、三类空状态、生产空状态／下拉／三标签，以及实际 iOS `fc3ddfb8` 导入 fixture
+  后 TODAY 均有截图。品牌头、网格／圆弧、三段 hero、活动条、featured／序列和方形底栏已按 iOS 基准对齐；系统栏、字体
+  栅格和 Android adaptive icon 安全区是已记录的平台差异。未放置尚未接通的 ADD、编辑、详情点击等假入口。
+
+## Sol 独立执行结果
+
+使用：
+
+- `ANDROID_HOME=ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37`
+- `ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd`
+- AVD `qingke-api37-r3-arm`，设备 `emulator-5554`，`SDK 37`、`arm64-v8a`
+
+主机命令带 `--rerun-tasks` 完成，`145 actionable tasks: 145 executed`：
+
+- Debug JVM：8 XML、79 tests、0 failures、0 errors、0 skipped；
+- Release JVM：8 XML、79 tests、0 failures、0 errors、0 skipped；
+- Debug／Release APK 与 AndroidTest APK 成功；
+- `lintDebug`：0 errors、20 warnings。警告分类为 `AndroidGradlePluginVersion` 1、`GradleDependency` 10、
+  `NewerVersionAvailable` 2、`ObsoleteSdkInt` 1、`IconLauncherShape` 2、`MonochromeLauncherIcon` 2、
+  `IconDuplicates` 2；这些不阻断当前彩色图标和 API 37 实际显示，但不再错误声称“0 issues”。
+
+设备命令带 `--rerun-tasks` 完成，`74 actionable tasks: 74 executed`；原始 connected XML 为 1 个、39 tests、
+0 failures、0 errors、0 skipped。随后独立安装生产 Debug APK，保存默认合法学期，切换今日／课表／设置，force-stop 后重启仍
+回到 TODAY 空状态；`topResumedActivity` 为 `com.qingke.schedule/.MainActivity`，相关 logcat 未见 `FATAL EXCEPTION` 或
+`ANR in com.qingke.schedule`。
+
+文档验证为 58 tests、`documentation.test.sh`、`repository-layout.test.sh` 和 `git diff --check` 全部通过。第一次主机复跑因
+命令未显式传入 SDK 路径，在任务执行前以 “SDK location not found” 退出；按项目要求补齐环境变量后的上述正式 clean 结果通过，
+两者没有混淆。
+
+最终 `emulator-5554` 暂时保留在生产 TODAY 空状态，供用户直接查看视觉效果。用户确认前仅等待验收或处理其具体视觉反馈，
+不自动开始 P3-04。

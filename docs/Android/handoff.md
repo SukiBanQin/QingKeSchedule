@@ -1,6 +1,6 @@
 # 安卓项目当前交接状态
 
-## P3-03-R2 首轮复审问题修正进行中，待完整验证与 Sol／高复审（最新，2026-09-14）
+## P3-03-R2 通过最终独立复审，等待用户视觉验收（最新，2026-09-14）
 
 本轮在 `Android` 分支从 `10b92535216b87de2f808e3d5ec392aa6af18321` 实施已授权的 P3-03-R2；开始时
 工作区干净且与 `origin/Android` 一致。应用代码仅改 Android Manifest、资源、`QingKeApp.kt` 和相关
@@ -16,7 +16,7 @@ TODAY。本轮只修正这五项，并未开始 P3-04。Android 现与 `origin/I
 版本（保留青色和透明度）；应用名为“青课”。生产手写下拉已删除，只保留 `PullToRefreshBox`，并在启动协程前同步门禁；
 课程行索引按 iOS 方向旋转。没有放置不可用的 ADD、编辑或详情入口。
 
-已测试：修正后的 clean Debug／Release JVM 各 79 tests／8 XML、0 failures／errors／skipped；lintDebug 0 issues／0 errors，
+已测试：修正后的 clean Debug／Release JVM 各 79 tests／8 XML、0 failures／errors／skipped；`lintDebug` 为 0 errors、20 warnings，
 Debug、Release unsigned 与 AndroidTest APK 均已生成。正确 API 37 ARM64 `connectedDebugAndroidTest` 为 39 tests／1 XML、
 0 failures／errors／skipped；夜间 Logo、资源契约、唯一标准下拉和旋转队列截图都由该轮覆盖。iOS 独立 `fc3ddfb8` 的 fixture
 导入 XCTest 为 1 test／0 failures，并已在实际 Debug App 确认导入后进入 `today-tab`、保存 TODAY 图。所有截图、命令、
@@ -25,9 +25,14 @@ Debug、Release unsigned 与 AndroidTest APK 均已生成。正确 API 37 ARM64 
 关键限制必须如实保留：P3-03 尚未授权课程录入／导入，生产入口只能验证 TODAY 空状态；固定课程、当前 featured、
 完整序列、深浅／130% 与三类空状态由 API 37 connected 测试宿主截图覆盖，文件名均标注 `testhost`，不能当作
 生产课程数据。iOS 旧 onboarding 参考不再作为 TODAY 证据；最新 `ios-fc3ddfb8-today-imported.png` 是实际 fixture 导入确认后的
-TODAY。生产 Debug APK 已重新安装，app drawer 可见 cover 图形，但自动化未取得同一静态帧内同时清楚显示最后一项图标和“青课”
-标签的证据；该项如实留待 Sol 或用户设备人工确认。R2 仍待 Sol／高独立审查，且绝不代表用户验收；不得宣称 A02、A07、P3 或完整 App 验收，
-不得自动开始 P3-04。
+TODAY。Sol／高已独立核对 `10b9253..58ad3b1` 实际 diff、iOS 源码与同状态截图，并用正确 API 37 ARM64
+`emulator-5554` 带 `--rerun-tasks` 重跑：主机 145 个任务全部执行，双变体 JVM 各 79 项，设备 74 个任务全部执行、
+connected XML 39 项，失败／错误／跳过均为 0。启动器应用抽屉的同一静态帧已清楚显示 cover 图标和“青课”标签；生产 APK
+切换三标签、force-stop 后重启正常且无 FATAL／ANR。完整复审见
+[P3-03-R2 最终独立复审证据](evidence/p3-03-r2-final-review-20260914.txt)。
+
+**结论：P3-03-R2 已实施、测试并通过最终独立复审，当前只等待用户视觉验收。** `emulator-5554` 暂时保留在生产 TODAY
+空状态供用户查看；这不代表 A02、A07、A11、P3 或完整 App 已验收，不得自动开始 P3-04。
 
 ## Sol 主 Agent／Terra 执行子 Agent 流程启用（2026-09-14）
 

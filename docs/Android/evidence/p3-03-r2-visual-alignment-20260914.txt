@@ -68,7 +68,7 @@ featured／完整序列或深浅／130% 对照。这些状态由 connected 测�
   将在本文件末尾补记，不能把首轮 37-test 结果称为本轮修正结果。
 - 正确 AVD：`qingke-api37-r3-arm`，显式 `ANDROID_HOME`／`ANDROID_SDK_ROOT` 和
   `ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd`；实际 `emulator-5554`，SDK 37、`arm64-v8a`。
-  `connectedDebugAndroidTest` XML：37 tests，0 failures、0 errors、0 skipped。
+  首轮 `5b18381` 的 `connectedDebugAndroidTest` XML：37 tests，0 failures、0 errors、0 skipped；修正后的最终结果见下节。
 - 生产入口验证保存默认学期、空状态下拉、三标签、force-stop／重启；最后 500 条 app logcat 未见
   `FATAL EXCEPTION` 或 `ANR in com.qingke.schedule`。
 
@@ -78,16 +78,17 @@ Android adaptive icon 受系统安全区裁切。品牌颜色、网格／圆环�
 ## 修正后验证（2026-09-14）
 
 - clean `assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest` 通过；
-  Debug／Release JVM 各 79 tests、8 XML、0 failures／errors／skipped；lintDebug 0 issues／0 errors；Debug、
-  Release unsigned APK 与 AndroidTest APK 已生成。
+  Debug／Release JVM 各 79 tests、8 XML、0 failures／errors／skipped；`lintDebug` 为 0 errors、20 warnings；Debug、
+  Release unsigned APK 与 AndroidTest APK 已生成。20 项警告为依赖／工具版本 13 项、`ObsoleteSdkInt` 1 项，以及用户指定
+  启动器／Logo 资源产生的 `IconLauncherShape` 2 项、`MonochromeLauncherIcon` 2 项、`IconDuplicates` 2 项；没有把警告误写成
+  “0 issues”。
 - 正确 `qingke-api37-r3-arm`（SDK 37、`arm64-v8a`）的最终 `connectedDebugAndroidTest` 为 39 tests、1 XML、
   0 failures、0 errors、0 skipped。新增的资源契约验证独立 foreground cover、应用名、night qualifier 与浅色非青色
   前景；真实 testhost 下拉用例验证唯一标准 PullToRefresh 回调、同步门禁和反馈结束。
 - 最终 API 37 深色截图 `android-api37-today-dark-testhost.png` 可见白色 QINGKE／青课 Logo，130% 版本同样可读；
   `android-api37-course-sequence-testhost.png` 可见四行和 END。
-- 生产 Debug APK 已重新安装并可从 HOME 用 `KEYCODE_ALL_APPS` 打开 launcher app drawer；app drawer 中可见 cover 图形。
-  本轮自动化未能在同一帧同时保留底部最后一个图标与其中文标签“青课”：默认 Pixel launcher 将它排在可视区底缘，
-  后续滚动／搜索会进入动画或键盘状态。保留该截图仅作为图形资源的生产入口证据，**不把它称为已满足“图形加标签同帧”**；
-  需 Sol 或用户在设备上补一次静态 app drawer 人工确认。该限制不影响资源 XML 契约或安装包实际 label。
+- Sol 独立复审重新安装生产 Debug APK，从 HOME 用 `KEYCODE_ALL_APPS` 打开 launcher app drawer、隐藏键盘并滚动到底部；
+  `android-api37-launcher-icon.png` 在同一静态帧中清楚显示由 `cover.png` 派生的图标与中文标签“青课”，主体未异常裁掉。
 
-本轮启动的 API 37 AVD 均在每个验证脚本退出时用 `adb emu kill` 关闭。iOS Simulator 仅用于独立 iOS 只读参考。
+Terra 实施验证启动的 API 37 AVD 均已关闭。Sol 最终复审重新启动的 `emulator-5554` 暂时保留在生产 TODAY 空状态，
+供用户直接进行视觉验收；iOS Simulator 仅用于独立 iOS 只读参考。
