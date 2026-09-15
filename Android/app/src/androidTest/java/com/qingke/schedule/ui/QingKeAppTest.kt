@@ -76,6 +76,7 @@ import org.junit.runner.RunWith
 import org.hamcrest.Matcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
@@ -251,6 +252,13 @@ class QingKeAppTest {
             } }
             assertTrue("$appearance cyan=$cyanPixels", cyanPixels == 0)
             assertTrue("$appearance foreground=$foregroundPixels", foregroundPixels >= 12)
+            val ink = (0 until bitmap.height).flatMap { y -> (0 until bitmap.width).mapNotNull { x ->
+                val pixel = bitmap.getPixel(x, y); val rgb = pixel and 0xffffff
+                if ((pixel ushr 24) > 0 && if (appearance == AppearanceMode.LIGHT) rgb < 0x404040 else rgb > 0xd0d0d0) x to y else null
+            } }
+            val left = ink.minOf { it.first }; val right = ink.maxOf { it.first }; val top = ink.minOf { it.second }; val bottom = ink.maxOf { it.second }
+            assertTrue("$appearance icon horizontal center", kotlin.math.abs(left - (bitmap.width - 1 - right)) <= 1)
+            assertTrue("$appearance icon vertical center", kotlin.math.abs(top - (bitmap.height - 1 - bottom)) <= 1)
         }
     }
 
@@ -315,11 +323,14 @@ class QingKeAppTest {
     }
 
     @Test fun successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires() {
-        var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var fontScale by mutableStateOf(1f); var addCalls = 0
+        var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("SYSTEM // 课程添加成功"); var fontScale by mutableStateOf(1f); var addCalls = 0
         rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) } }
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
         rule.onNodeWithTag("course-success-dot", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-success-check", useUnmergedTree = true).assertIsDisplayed()
+        listOf("SYSTEM // 课程添加成功", "SYSTEM // 添加上课安排成功", "SYSTEM // 课程修改已保存", "SYSTEM // 课程删除成功").forEach { message ->
+            notice = message; rule.waitForIdle(); rule.onNodeWithTag("course-success-message", useUnmergedTree = true).assertTextContains(message)
+        }
         val noticeHeight = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height
         assertTrue("notice height=$noticeHeight", noticeHeight >= 46f)
         fun assertSuccessStack() {
@@ -630,6 +641,24 @@ class QingKeAppTest {
             }
         }
         listOf("today-tab", "schedule-tab", "settings-tab").forEach { rule.onAllNodesWithTag(it).assertCountEquals(1) }
+    }
+
+    @Test fun todayTypographyUsesCondensedIosEquivalentScaleAndFitsAtLargeFont() {
+        assertEquals(74.sp, TodayVisualSpec.dayNumberSize)
+        assertEquals(106.dp, TodayVisualSpec.dayColumnWidth)
+        assertEquals(32.sp, TodayVisualSpec.featuredStartTimeSize)
+        assertEquals(13.sp, TodayVisualSpec.featuredEndTimeSize)
+        assertEquals(82.dp, TodayVisualSpec.featuredTimeColumnWidth)
+        assertEquals(24.sp, TodayVisualSpec.sequenceStartTimeSize)
+        assertEquals(11.sp, TodayVisualSpec.sequenceEndTimeSize)
+        assertEquals(66.dp, TodayVisualSpec.sequenceTimeColumnWidth)
+        assertEquals(17.sp, TodayVisualSpec.sequenceCourseNameSize)
+        var appearance by mutableStateOf(AppearanceMode.LIGHT); var scale by mutableStateOf(1f)
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:41:52")) } }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; scale = 1.3f; rule.waitForIdle()
+            listOf("today-day-number", "today-featured-start-time", "today-featured-end-time", "today-featured-name", "today-course-start-time-0-0", "today-course-end-time-0-0", "today-course-name-0-0").forEach { tag -> rule.onNodeWithTag(tag, useUnmergedTree = true).assertIsDisplayed(); assertFitsRootHorizontally(tag) }
+        }
     }
 
     @Test fun todayApi37MatrixSwitchesFeaturedAndReportsAllThreeEmptyStates() {

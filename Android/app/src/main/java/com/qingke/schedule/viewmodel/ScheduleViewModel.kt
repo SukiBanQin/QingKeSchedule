@@ -257,7 +257,7 @@ class ScheduleViewModel(
             try {
                 val success = if (source == null) appState.saveCourse(candidate) else appState.saveCourseAt(source, requireNotNull(fingerprint), candidate)
                 if (success) {
-                    mutableCourseSuccess.value = if (mode == CourseEditorMode.APPEND) "上课安排添加成功" else if (source == null) "课程添加成功" else "课程修改已保存"
+                    mutableCourseSuccess.value = if (mode == CourseEditorMode.APPEND) "SYSTEM // 添加上课安排成功" else if (source == null) "SYSTEM // 课程添加成功" else "SYSTEM // 课程修改已保存"
                     closeEditor()
                 } else updateEditor { it.copy(isInFlight = false) }
             } catch (error: CancellationException) { throw error
@@ -272,7 +272,7 @@ class ScheduleViewModel(
         updateEditor { it.copy(isInFlight = true, confirmation = null) }
         viewModelScope.launch {
             try {
-                if (appState.deleteCourseAt(source, fingerprint)) { mutableCourseSuccess.value = "课程删除成功"; closeEditor() }
+                if (appState.deleteCourseAt(source, fingerprint)) { mutableCourseSuccess.value = "SYSTEM // 课程删除成功"; closeEditor() }
                 else updateEditor { it.copy(isInFlight = false) }
             } catch (error: CancellationException) { throw error
             } finally { editorInFlight = false; mutableEditor.value?.let { if (it.isInFlight) mutableEditor.value = it.copy(isInFlight = false) } }

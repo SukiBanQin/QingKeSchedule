@@ -217,7 +217,15 @@ class ScheduleViewModelTest {
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
         model.openCourseAt(1); model.updateCourseName("第二门已改"); model.saveCourse(); advanceUntilIdle()
         assertEquals(listOf("第一门", "第二门已改"), repository.data.courses.map { it.name })
-        assertEquals("课程修改已保存", model.courseSuccess.value); assertNull(model.editor.value)
+        assertEquals("SYSTEM // 课程修改已保存", model.courseSuccess.value); assertNull(model.editor.value)
+    }
+
+    @Test fun newCourseSuccessUsesTheExactIosSystemPrefix() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.openNewCourse(); model.updateCourseName("新课程"); model.saveCourse(); advanceUntilIdle()
+        assertEquals("SYSTEM // 课程添加成功", model.courseSuccess.value)
+        assertNull(model.editor.value)
     }
 
     @Test fun courseInvalidAndDuplicateKeepEditorWithoutWriting() = runTest {
@@ -244,7 +252,7 @@ class ScheduleViewModelTest {
         val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(first, second), "now") }
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
         model.openCourseAt(1); model.requestDeleteCourse(); model.dismissEditorConfirmation(); assertEquals(0, repository.deleteWrites)
-        model.requestDeleteCourse(); model.confirmDeleteCourse(); advanceUntilIdle(); assertEquals(listOf("第一"), repository.data.courses.map { it.name }); assertEquals("课程删除成功", model.courseSuccess.value)
+        model.requestDeleteCourse(); model.confirmDeleteCourse(); advanceUntilIdle(); assertEquals(listOf("第一"), repository.data.courses.map { it.name }); assertEquals("SYSTEM // 课程删除成功", model.courseSuccess.value)
         repository.data = repository.data.copy(courses = listOf(first, second.copy(name = "外部更新"))); model.retryLoad(); advanceUntilIdle(); model.openCourseAt(1); repository.data = repository.data.copy(courses = listOf(first, second.copy(name = "再次变化"))); model.updateCourseName("不应写入"); model.saveCourse(); advanceUntilIdle()
         assertNotNull(model.editor.value); assertEquals("第一", repository.data.courses.first().name)
     }
@@ -254,9 +262,9 @@ class ScheduleViewModelTest {
         val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), listOf(existing), "now"); it.courseGate = CompletableDeferred() }
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
         model.appendCourseAt(0); model.saveCourse(); model.saveCourse(); assertEquals(1, repository.courseWrites)
-        repository.courseGate!!.complete(Unit); advanceUntilIdle(); assertEquals("上课安排添加成功", model.courseSuccess.value); assertNull(model.editor.value)
+        repository.courseGate!!.complete(Unit); advanceUntilIdle(); assertEquals("SYSTEM // 添加上课安排成功", model.courseSuccess.value); assertNull(model.editor.value)
         repository.deleteGate = CompletableDeferred(); model.openCourseAt(0); model.requestDeleteCourse(); model.confirmDeleteCourse(); model.confirmDeleteCourse(); assertEquals(1, repository.deleteWrites)
-        repository.deleteGate!!.complete(Unit); advanceUntilIdle(); assertEquals("课程删除成功", model.courseSuccess.value)
+        repository.deleteGate!!.complete(Unit); advanceUntilIdle(); assertEquals("SYSTEM // 课程删除成功", model.courseSuccess.value)
     }
 
     @Test fun courseCancellationAndDeleteFailureKeepEditorWithoutOrdinaryError() = runTest {
