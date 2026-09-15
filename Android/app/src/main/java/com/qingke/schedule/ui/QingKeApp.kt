@@ -11,6 +11,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,14 +76,20 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntSize
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -706,7 +714,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                         CompactPicker("结束节次", periodDescription(semester, schedule.endPeriod, false), schedule.endPeriod, 1..periodMaximum, { periodDescription(semester, it, false) }, { actions.updateCourseEndPeriod(schedule.id, it) }, "course-end-period-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("起始周", schedule.startWeek, 1, weekMaximum, { actions.updateCourseStartWeek(schedule.id, it) }, "course-start-week-${schedule.id}", dark, !editor.isInFlight)
                         EditorStepper("结束周", schedule.endWeek, 1, weekMaximum, { actions.updateCourseEndWeek(schedule.id, it) }, "course-end-week-${schedule.id}", dark, !editor.isInFlight)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { RepeatRule.entries.forEach { rule -> OutlinedButton({ actions.updateCourseRepeat(schedule.id, rule) }, Modifier.weight(1f).heightIn(min = 40.dp).testTag("course-repeat-${schedule.id}-${rule.name}"), enabled = !editor.isInFlight, shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = if (schedule.repeatRule == rule) QingKeCyan.copy(alpha = .3f) else Color.Transparent)) { Text(if (rule == RepeatRule.EVERY) "每周" else if (rule == RepeatRule.ODD) "单周" else "双周") } } }
+                        TerminalRepeatSelector(schedule.repeatRule, { actions.updateCourseRepeat(schedule.id, it) }, "course-repeat-${schedule.id}", dark, !editor.isInFlight)
                         OutlinedTextField(schedule.classroom, { actions.updateCourseClassroom(schedule.id, it) }, Modifier.fillMaxWidth().padding(top = 8.dp).testTag("course-classroom-${schedule.id}"), label = { Text("教室（可选）") }, singleLine = true, enabled = !editor.isInFlight, shape = TerminalShape)
                         if (editor.schedules.size > 1) OutlinedButton({ actions.removeCourseSchedule(schedule.id) }, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp).testTag("course-remove-schedule-${schedule.id}"), enabled = !editor.isInFlight, shape = TerminalShape) { Text("删除这个安排", color = Danger) }
                     }
@@ -764,24 +772,115 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
         Text("⌄", color = QingKeCyan, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 7.dp))
     }
     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(1.dp).background(terminalBorder(dark)))
-    DropdownMenu(expanded, { expanded = false }, modifier = Modifier.testTag("$tag-menu"), shape = TerminalShape) { choices.forEach { choice -> DropdownMenuItem({ Text(choiceLabel(choice)) }, { update(choice); expanded = false }, modifier = Modifier.testTag("$tag-option-$choice")) } }
+    TerminalDropdownMenu(expanded, { expanded = false }, choices, value, choiceLabel, { update(it); expanded = false }, tag, dark)
+}
+
+@Composable private fun TerminalDropdownMenu(expanded: Boolean, dismiss: () -> Unit, choices: IntRange, selected: Int, choiceLabel: (Int) -> String, update: (Int) -> Unit, tag: String, dark: Boolean) = DropdownMenu(
+    expanded = expanded, onDismissRequest = dismiss, modifier = Modifier.widthIn(min = 236.dp).heightIn(max = 280.dp).border(1.dp, terminalBorder(dark), TerminalShape).testTag("$tag-menu"),
+    shape = TerminalShape, containerColor = if (dark) DarkSurface else LightSurface, tonalElevation = 0.dp, shadowElevation = 10.dp,
+) {
+    choices.forEach { choice ->
+        val active = choice == selected
+        DropdownMenuItem(
+            text = { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(choiceLabel(choice), color = if (active) Color.White else terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); if (active) Text("✓", color = SignalYellow, fontWeight = FontWeight.Black) } },
+            onClick = { update(choice) },
+            modifier = Modifier.heightIn(min = 48.dp).background(if (active) InverseSurface else Color.Transparent).drawBehind { drawRect(QingKeCyan, topLeft = Offset(0f, size.height - 1.dp.toPx()), size = Size(size.width, 1.dp.toPx())) }.testTag("$tag-option-$choice"),
+        )
+    }
+}
+
+@Composable private fun TerminalRepeatSelector(value: RepeatRule, update: (RepeatRule) -> Unit, tag: String, dark: Boolean, enabled: Boolean) = Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    RepeatRule.entries.forEach { rule ->
+        val selected = rule == value
+        val label = if (rule == RepeatRule.EVERY) "每周" else if (rule == RepeatRule.ODD) "单周" else "双周"
+        Box(Modifier.weight(1f).heightIn(min = 48.dp).border(1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape).background(if (selected) InverseSurface else Color.Transparent).selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { update(rule) }).testTag("$tag-${rule.name}"), contentAlignment = Alignment.Center) {
+            Row(verticalAlignment = Alignment.CenterVertically) { if (selected) Box(Modifier.size(7.dp).background(SignalYellow, androidx.compose.foundation.shape.CircleShape)); if (selected) Spacer(Modifier.width(5.dp)); Text(label, color = if (selected) Color.White else terminalText(dark), fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 12.sp) }
+        }
+    }
 }
 
 @Composable private fun CourseColorDialog(editor: CourseEditorState, dark: Boolean, actions: QingKeAppActions) {
-    val rgb = rgbParts(editor.color); val hsv = hsvParts(editor.color)
+    var mode by rememberSaveable { mutableStateOf(ColorPickerMode.GRID) }
     TerminalDialog(code = "COLOR / CUSTOM", title = "自定义颜色", confirm = "完成", onConfirm = actions.dismissColorDialog, onDismiss = actions.dismissColorDialog, tag = "course-color-dialog", dark = dark, messageContent = { Column(Modifier.verticalScroll(rememberScrollState())) {
             Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(48.dp).background(courseColor(editor.color), TerminalShape).border(1.dp, terminalBorder(dark), TerminalShape).testTag("course-color-preview")); Spacer(Modifier.width(12.dp)); Text(editor.color, color = terminalText(dark), fontFamily = FontFamily.Monospace) }
-            OutlinedTextField(editor.colorInput, actions.updateCourseColorInput, Modifier.fillMaxWidth().padding(top = 12.dp).testTag("course-custom-color-input"), label = { Text("#RRGGBB") }, singleLine = true, isError = !editor.colorInput.matches(Regex("^#[0-9A-Fa-f]{6}$")), enabled = !editor.isInFlight, shape = TerminalShape)
-            if (!editor.colorInput.matches(Regex("^#[0-9A-Fa-f]{6}$"))) Text("请输入严格的 #RRGGBB", color = Danger, style = MaterialTheme.typography.labelSmall)
-            Text("RGB", Modifier.padding(top = 8.dp), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
-            EditorStepper("R", rgb[0], 0, 255, { actions.updateCourseColor(rgbHex(it, rgb[1], rgb[2])) }, "course-r", dark, !editor.isInFlight)
-            EditorStepper("G", rgb[1], 0, 255, { actions.updateCourseColor(rgbHex(rgb[0], it, rgb[2])) }, "course-g", dark, !editor.isInFlight)
-            EditorStepper("B", rgb[2], 0, 255, { actions.updateCourseColor(rgbHex(rgb[0], rgb[1], it)) }, "course-b", dark, !editor.isInFlight)
-            Text("HSV", Modifier.padding(top = 8.dp), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace)
-            EditorStepper("H", hsv[0], 0, 360, { actions.updateCourseColor(hsvHex(it, hsv[1], hsv[2])) }, "course-h", dark, !editor.isInFlight)
-            EditorStepper("S", hsv[1], 0, 100, { actions.updateCourseColor(hsvHex(hsv[0], it, hsv[2])) }, "course-s", dark, !editor.isInFlight)
-            EditorStepper("V", hsv[2], 0, 100, { actions.updateCourseColor(hsvHex(hsv[0], hsv[1], it)) }, "course-v", dark, !editor.isInFlight)
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).selectableGroup()) { ColorPickerMode.entries.forEach { item -> ColorModeTab(item, mode == item, { mode = item }, dark) } }
+            when (mode) {
+                ColorPickerMode.GRID -> ColorGridPicker(editor.color, { actions.updateCourseColor(it) }, dark, !editor.isInFlight)
+                ColorPickerMode.SPECTRUM -> SpectrumPicker(editor.color, { actions.updateCourseColor(it) }, dark, !editor.isInFlight)
+                ColorPickerMode.SLIDERS -> RgbSliderPicker(editor, actions, dark)
+            }
         } })
+}
+
+internal enum class ColorPickerMode(val label: String) { GRID("网格"), SPECTRUM("光谱"), SLIDERS("滑块") }
+
+/** Deterministic visual contract shared by the grid and its JVM tests. */
+internal object CourseColorVisualSpec {
+    val grid = listOf(
+        "#FFFFFF", "#D1D5DB", "#6B7280", "#111827", "#000000", "#FEE2E2",
+        "#FECACA", "#FB7185", "#E11D48", "#991B1B", "#FED7AA", "#FDBA74",
+        "#F97316", "#C2410C", "#7C2D12", "#FEF3C7", "#FCD34D", "#EAB308",
+        "#A16207", "#713F12", "#DCFCE7", "#86EFAC", "#22C55E", "#15803D",
+        "#14532D", "#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#172554",
+        "#EDE9FE", "#C4B5FD", "#8B5CF6", "#6D28D9", "#3B0764", "#FCE7F3",
+    )
+}
+
+@Composable private fun androidx.compose.foundation.layout.RowScope.ColorModeTab(item: ColorPickerMode, selected: Boolean, click: () -> Unit, dark: Boolean) = Box(
+    Modifier.weight(1f).heightIn(min = 48.dp).border(1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape).background(if (selected) InverseSurface else Color.Transparent).selectable(selected, role = Role.Tab, onClick = click).testTag("course-color-mode-${item.name}"), contentAlignment = Alignment.Center,
+) { Text(item.label, color = if (selected) Color.White else terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) }
+
+@Composable private fun ColorGridPicker(color: String, update: (String) -> Unit, dark: Boolean, enabled: Boolean) = Column(Modifier.padding(top = 10.dp).testTag("course-color-grid")) {
+    Text("COLOR MATRIX", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Black)
+    CourseColorVisualSpec.grid.chunked(6).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { row.forEach { option ->
+        val selected = option.equals(color, true)
+        Box(Modifier.weight(1f).heightIn(min = 36.dp).padding(vertical = 3.dp).clickable(enabled = enabled) { update(option) }.semantics { contentDescription = "网格颜色 $option" }.testTag("course-color-grid-${option.removePrefix("#")}"), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().background(courseColor(option), TerminalShape).border(if (selected) 3.dp else 1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape), contentAlignment = Alignment.Center) { if (selected) Text("✓", color = if (option == "#FFFFFF") InverseSurface else Color.White, fontWeight = FontWeight.Black) }
+        }
+    } } }
+}
+
+@Composable private fun SpectrumPicker(color: String, update: (String) -> Unit, dark: Boolean, enabled: Boolean) {
+    val hsv = hsvParts(color); var areaSize by remember { mutableStateOf(IntSize.Zero) }; var hueSize by remember { mutableStateOf(IntSize.Zero) }
+    fun updateSpectrum(point: Offset) { if (enabled && areaSize.width > 0 && areaSize.height > 0) update(spectrumHexAt(point.x / areaSize.width, point.y / areaSize.height, hsv[0])) }
+    fun updateHue(point: Offset) { if (enabled && hueSize.width > 0) update(hsvHex((point.x / hueSize.width * 360f).toInt(), hsv[1], hsv[2])) }
+    Column(Modifier.padding(top = 10.dp).testTag("course-color-spectrum")) {
+        Text("HSV SPECTRUM", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Canvas(Modifier.fillMaxWidth().height(170.dp).padding(top = 7.dp).onSizeChanged { areaSize = it }.pointerInput(hsv[0], enabled) { detectTapGestures { updateSpectrum(it) } }.pointerInput(hsv[0], enabled, "drag") { detectDragGestures(onDragStart = { updateSpectrum(it) }, onDrag = { change, _ -> updateSpectrum(change.position) }) }.testTag("course-color-spectrum-area")) {
+            val columns = 24; val rows = 14
+            repeat(columns) { x -> repeat(rows) { y -> drawRect(Color(AndroidColor.HSVToColor(floatArrayOf(hsv[0].toFloat(), x.toFloat() / (columns - 1), 1f - y.toFloat() / (rows - 1)))), Offset(x * size.width / columns, y * size.height / rows), Size(size.width / columns + 1f, size.height / rows + 1f)) } }
+            drawCircle(Color.White, radius = 7.dp.toPx(), center = Offset(hsv[1] / 100f * size.width, (1f - hsv[2] / 100f) * size.height), style = Stroke(2.dp.toPx()))
+        }
+        Text("HUE  ${hsv[0]}°", Modifier.padding(top = 8.dp), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+        Canvas(Modifier.fillMaxWidth().height(32.dp).onSizeChanged { hueSize = it }.pointerInput(enabled, hsv[1], hsv[2]) { detectTapGestures { updateHue(it) } }.pointerInput(enabled, hsv[1], hsv[2], "hue-drag") { detectDragGestures(onDragStart = { updateHue(it) }, onDrag = { change, _ -> updateHue(change.position) }) }.testTag("course-color-spectrum-hue")) {
+            repeat(36) { i -> drawRect(Color(AndroidColor.HSVToColor(floatArrayOf(i * 10f, 1f, 1f))), Offset(i * size.width / 36f, 0f), Size(size.width / 36f + 1f, size.height)) }
+            drawLine(Color.White, Offset(hsv[0] / 360f * size.width, 0f), Offset(hsv[0] / 360f * size.width, size.height), 2.dp.toPx())
+        }
+    }
+}
+
+@Composable private fun RgbSliderPicker(editor: CourseEditorState, actions: QingKeAppActions, dark: Boolean) {
+    val rgb = rgbParts(editor.color)
+    Column(Modifier.padding(top = 10.dp).testTag("course-color-sliders")) {
+        Text("RGB SLIDERS", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        RgbChannelSlider("R", rgb[0], Color.Red, { actions.updateCourseColor(rgbHex(it, rgb[1], rgb[2])) }, dark, !editor.isInFlight, "course-r-slider")
+        RgbChannelSlider("G", rgb[1], Color.Green, { actions.updateCourseColor(rgbHex(rgb[0], it, rgb[2])) }, dark, !editor.isInFlight, "course-g-slider")
+        RgbChannelSlider("B", rgb[2], Color.Blue, { actions.updateCourseColor(rgbHex(rgb[0], rgb[1], it)) }, dark, !editor.isInFlight, "course-b-slider")
+        OutlinedTextField(editor.colorInput, actions.updateCourseColorInput, Modifier.fillMaxWidth().padding(top = 10.dp).testTag("course-custom-color-input"), label = { Text("HEX / ADVANCED") }, singleLine = true, isError = !editor.colorInput.matches(Regex("^#[0-9A-Fa-f]{6}$")), enabled = !editor.isInFlight, shape = TerminalShape)
+        if (!editor.colorInput.matches(Regex("^#[0-9A-Fa-f]{6}$"))) Text("请输入严格的 #RRGGBB", color = Danger, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable private fun RgbChannelSlider(label: String, value: Int, tint: Color, update: (Int) -> Unit, dark: Boolean, enabled: Boolean, tag: String) {
+    var trackSize by remember { mutableStateOf(IntSize.Zero) }
+    fun updateAt(point: Offset) { if (enabled && trackSize.width > 0) update((point.x / trackSize.width * 255f).toInt().coerceIn(0, 255)) }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("$label  ${value.toString().padStart(3, '0')}", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, modifier = Modifier.width(58.dp))
+        Canvas(Modifier.weight(1f).height(32.dp).onSizeChanged { trackSize = it }.pointerInput(value, enabled) { detectTapGestures { updateAt(it) } }.pointerInput(value, enabled, "rgb-drag") { detectDragGestures(onDragStart = { updateAt(it) }, onDrag = { change, _ -> updateAt(change.position) }) }.testTag(tag)) {
+            drawRect(Brush.horizontalGradient(listOf(Color.Black, tint)), size = size)
+            drawLine(Color.White, Offset(value / 255f * size.width, 0f), Offset(value / 255f * size.width, size.height), 2.dp.toPx())
+        }
+    }
 }
 
 private fun weekdayName(value: Int) = listOf("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日").getOrElse(value - 1) { "星期" }
@@ -816,17 +915,23 @@ private fun conflictMessage(conflicts: List<com.qingke.schedule.domain.ScheduleC
     return "与${names.joinToString("、").ifEmpty { "已有课程" }}在${summary}存在时间冲突。"
 }
 
-private fun rgbParts(hex: String): IntArray = try {
-    val color = AndroidColor.parseColor(hex)
-    intArrayOf(AndroidColor.red(color), AndroidColor.green(color), AndroidColor.blue(color))
-} catch (_: IllegalArgumentException) { intArrayOf(40, 185, 214) }
+internal fun rgbParts(hex: String): IntArray = if (hex.matches(Regex("^#[0-9A-Fa-f]{6}$"))) intArrayOf(hex.substring(1, 3).toInt(16), hex.substring(3, 5).toInt(16), hex.substring(5, 7).toInt(16)) else intArrayOf(40, 185, 214)
 
-private fun rgbHex(red: Int, green: Int, blue: Int) = "#%02X%02X%02X".format(red, green, blue)
+internal fun rgbHex(red: Int, green: Int, blue: Int) = "#%02X%02X%02X".format(red.coerceIn(0, 255), green.coerceIn(0, 255), blue.coerceIn(0, 255))
 
-private fun hsvParts(hex: String): IntArray {
-    val rgb = rgbParts(hex); val values = FloatArray(3)
-    AndroidColor.RGBToHSV(rgb[0], rgb[1], rgb[2], values)
-    return intArrayOf(values[0].toInt(), (values[1] * 100).toInt(), (values[2] * 100).toInt())
+internal fun hsvParts(hex: String): IntArray {
+    val rgb = rgbParts(hex); val red = rgb[0] / 255f; val green = rgb[1] / 255f; val blue = rgb[2] / 255f
+    val maximum = maxOf(red, green, blue); val minimum = minOf(red, green, blue); val delta = maximum - minimum
+    val hue = if (delta == 0f) 0f else when (maximum) { red -> 60f * (((green - blue) / delta) % 6f); green -> 60f * ((blue - red) / delta + 2f); else -> 60f * ((red - green) / delta + 4f) }
+    return intArrayOf(((hue + 360f) % 360f).toInt(), if (maximum == 0f) 0 else (delta / maximum * 100).toInt(), (maximum * 100).toInt())
 }
 
-private fun hsvHex(hue: Int, saturation: Int, value: Int): String = "#%06X".format(AndroidColor.HSVToColor(floatArrayOf(hue.toFloat(), saturation / 100f, value / 100f)) and 0xFFFFFF)
+internal fun hsvHex(hue: Int, saturation: Int, value: Int): String {
+    val normalizedHue = ((hue % 360) + 360) % 360; val saturationFraction = saturation.coerceIn(0, 100) / 100f; val valueFraction = value.coerceIn(0, 100) / 100f
+    val chroma = valueFraction * saturationFraction; val secondary = chroma * (1f - kotlin.math.abs((normalizedHue / 60f) % 2f - 1f)); val match = valueFraction - chroma
+    val (red, green, blue) = when (normalizedHue) { in 0..59 -> Triple(chroma, secondary, 0f); in 60..119 -> Triple(secondary, chroma, 0f); in 120..179 -> Triple(0f, chroma, secondary); in 180..239 -> Triple(0f, secondary, chroma); in 240..299 -> Triple(secondary, 0f, chroma); else -> Triple(chroma, 0f, secondary) }
+    return rgbHex(((red + match) * 255).toInt(), ((green + match) * 255).toInt(), ((blue + match) * 255).toInt())
+}
+
+/** HSV saturation/value plane: left/right map to 0/100 saturation, top/bottom to 100/0 value. */
+internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String = hsvHex(hue, (xFraction.coerceIn(0f, 1f) * 100).toInt(), ((1f - yFraction.coerceIn(0f, 1f)) * 100).toInt())

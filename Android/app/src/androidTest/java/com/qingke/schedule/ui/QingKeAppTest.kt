@@ -34,6 +34,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click as touchClick
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
@@ -192,6 +193,29 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-day-picker-menu").assertIsDisplayed()
         rule.onNodeWithTag("course-day-picker-option-6").performClick()
         assertEquals(6, selectedDay)
+    }
+
+    @Test fun r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState() {
+        val schedule = CourseScheduleFormState("r5", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.CREATE, color = "#287B74", colorInput = "#287B74", schedules = listOf(schedule), isColorDialogOpen = true))
+        var day = 1; var start = 1; var end = 1; var repeat = RepeatRule.EVERY
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(
+            updateCourseColor = { value -> editor = editor!!.copy(color = value, colorInput = value) },
+            updateCourseDay = { _, value -> day = value }, updateCourseStartPeriod = { _, value -> start = value }, updateCourseEndPeriod = { _, value -> end = value }, updateCourseRepeat = { _, value -> repeat = value },
+        ), editor = editor) }
+        rule.onNodeWithTag("course-color-mode-GRID").assertIsDisplayed()
+        rule.onNodeWithTag("course-color-grid").assertIsDisplayed()
+        rule.onNodeWithTag("course-color-grid-E11D48").performClick(); assertEquals("#E11D48", editor!!.color)
+        rule.onNodeWithTag("course-color-mode-SPECTRUM").performClick(); rule.onNodeWithTag("course-color-spectrum-area").assertIsDisplayed()
+        rule.onNodeWithTag("course-color-spectrum-area").performTouchInput { touchClick(center) }; assertTrue(editor!!.color.matches(Regex("^#[0-9A-F]{6}$")))
+        rule.onNodeWithTag("course-color-mode-SLIDERS").performClick(); rule.onNodeWithTag("course-r-slider").performTouchInput { touchClick(center) }; assertTrue(editor!!.color.matches(Regex("^#[0-9A-F]{6}$")))
+        editor = editor!!.copy(isColorDialogOpen = false); rule.waitForIdle()
+        rule.onNodeWithTag("course-schedule-header-r5").performScrollTo()
+        rule.onNodeWithTag("course-day-r5").performClick(); rule.onNodeWithTag("course-day-r5-menu").assertIsDisplayed(); rule.onNodeWithTag("course-day-r5-option-5").performClick(); assertEquals(5, day)
+        rule.onNodeWithTag("course-start-period-r5").performClick(); rule.onNodeWithTag("course-start-period-r5-option-2").performClick(); assertEquals(2, start)
+        rule.onNodeWithTag("course-end-period-r5").performClick(); rule.onNodeWithTag("course-end-period-r5-option-3").performClick(); assertEquals(3, end)
+        rule.onNodeWithTag("course-repeat-r5-ODD").performClick(); assertEquals(RepeatRule.ODD, repeat)
+        listOf("course-repeat-r5-EVERY", "course-repeat-r5-ODD", "course-repeat-r5-EVEN").forEach(::assertAtLeast48Dp)
     }
 
     @Test fun chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales() {
