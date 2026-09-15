@@ -1640,7 +1640,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "connectedDebugAndroidTest",
             "重复课程 ID",
             "精确操作所选来源（已确认）",
-            "应用实施已授权",
+            "应用代码实施",
             "不得仅添加截图按钮",
         ):
             self.assertIn(marker, analysis + latest)
@@ -1658,10 +1658,37 @@ class AndroidDocumentationTests(unittest.TestCase):
             "用户将在",
             "亲自测试",
             "`gpt-5.6-terra`／`high`",
-            "禁止其创建子 Agent",
+            "禁止其创建",
         ):
             self.assertIn(marker, analysis + latest + plan + design + baseline)
         self.assertEqual(missing_links(path, analysis), [])
+
+    def test_p3_04_user_acceptance_closes_only_current_course_editor_scope(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        baseline = (DOCS / "product-baseline.md").read_text()
+        design = (DOCS / "technical-design.md").read_text()
+        plan = (DOCS / "implementation-plan.md").read_text()
+        analysis = (DOCS / "p3-04-course-editor.md").read_text()
+        latest = handoff.split(
+            "## P3-04 已通过 Sol 技术复审及用户视觉验收（最新，2026-09-15）", 1
+        )[1].split("\n## ", 1)[0]
+
+        current_status = latest + baseline.split("## 对照基准与资料优先级", 1)[0]
+        current_status += design.split("## 建议技术路线", 1)[0]
+        current_status += plan.split("## 模型与思考档位建议", 1)[0]
+        current_status += analysis.split("## 八、当前结论与下一步", 1)[1]
+
+        for marker in (
+            "用户视觉验收",
+            "P3-04／A04／A05",
+            "API 37",
+            "Sol 技术",
+            "整个 P3",
+            "后续阶段未授权",
+        ):
+            self.assertIn(marker, current_status)
+        self.assertNotIn("P3-04 已完成分析并获实施授权，尚未实现", current_status)
+        self.assertNotIn("用户视觉验收仍待进行", latest)
 
     def test_return_to_official_sol_handoff_preserves_p3_04_gates_and_stops_writers(self):
         handoff = (DOCS / "handoff.md").read_text()
