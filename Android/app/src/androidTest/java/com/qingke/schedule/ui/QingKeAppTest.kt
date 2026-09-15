@@ -268,6 +268,7 @@ class QingKeAppTest {
         val expected = 64.dp.value * rule.density.density
         assertTrue("ADD width=${addBounds.width}", kotlin.math.abs(addBounds.width - expected) <= 1f)
         assertTrue("ADD height=${addBounds.height}", kotlin.math.abs(addBounds.height - expected) <= 1f)
+        assertAddChromeIsActuallyDrawn()
         rule.onNodeWithText("QUEUE EMPTY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("STANDBY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("使用右下角 ADD 录入一门新课程。", useUnmergedTree = true).assertIsDisplayed()
@@ -356,6 +357,7 @@ class QingKeAppTest {
             rule.onNodeWithTag("course-validation-icon", useUnmergedTree = true).assertIsDisplayed()
             val validation = rule.onNodeWithTag("course-validation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             assertTrue("validation height=${validation.height}", validation.height >= 52f)
+            assertDangerCardHasCoralIconAndRail()
             rule.onNodeWithTag("course-danger-zone").performScrollTo()
             rule.onNodeWithTag("course-danger-footer").performScrollTo()
             val delete = rule.onNodeWithTag("course-delete", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -375,6 +377,7 @@ class QingKeAppTest {
             val surface = rule.onNodeWithTag("course-delete-confirm", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val backdrop = rule.onNodeWithTag("course-delete-confirm-backdrop", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             assertTrue("surface must be inside backdrop", surface.left >= backdrop.left && surface.right <= backdrop.right)
+            assertModalSurfaceIsOpaque(appearance)
         }
     }
 
@@ -473,7 +476,7 @@ class QingKeAppTest {
         rule.onAllNodesWithTag("semester-start-date-calendar").assertCountEquals(0)
     }
 
-    @Test fun inlineSemesterCalendarRetainsLeapDayAndActivityStateAcrossRecomposition() {
+    @Test fun inlineSemesterCalendarRetainsLeapDayAcrossRecomposition() {
         var form by mutableStateOf(defaultForm().copy(startDate = LocalDate.of(2024, 2, 1)))
         rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(updateStartDate = { form = form.copy(startDate = it) })) }
         rule.onNodeWithTag("semester-start-date").performClick()
@@ -482,6 +485,21 @@ class QingKeAppTest {
         rule.onNodeWithTag("semester-start-date-calendar").assertIsDisplayed()
         rule.onNodeWithTag("semester-calendar-day-2024-02-29").assertIsDisplayed()
         assertEquals(LocalDate.of(2024, 2, 29), form.startDate)
+    }
+
+    @Test fun inlineCalendarChevronIsVisibleAndAccessibleAcrossThemesAndLargeFont() {
+        var state by mutableStateOf(onboarding().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = AppearanceMode.LIGHT)))
+        var scale by mutableStateOf(1f)
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(state, defaultForm(), MainTab.TODAY, QingKeAppActions()) } }
+        rule.onNodeWithTag("semester-start-date").performClick()
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            state = state.copy(preferences = state.preferences.copy(appearanceMode = mode)); scale = 1.3f; rule.waitForIdle()
+            listOf("semester-calendar-previous", "semester-calendar-next").forEach { tag ->
+                rule.onNodeWithTag(tag).assertIsDisplayed()
+                assertAtLeast48Dp(tag)
+                assertCalendarChevronHasSignalPixels(tag)
+            }
+        }
     }
 
     @Test fun systemTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
@@ -747,6 +765,42 @@ class QingKeAppTest {
         assertFitsRootHorizontally(tag)
         val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("$tag height=${bounds.height}", bounds.height <= 48.dp.value * rule.density.density)
+    }
+
+    private fun assertCalendarChevronHasSignalPixels(tag: String) {
+        val bitmap = rule.onNodeWithTag(tag, useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val count = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x ->
+            val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+            red > 215 && green > 155 && blue < 70
+        } }
+        assertTrue("$tag signal pixels=$count", count >= 12)
+    }
+
+    private fun assertAddChromeIsActuallyDrawn() {
+        val bitmap = rule.onNodeWithTag("today-add-visual", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        fun isDark(pixel: Int): Boolean { val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff; return red < 150 && green < 150 && blue < 150 }
+        val borderPixels = ((bitmap.width * .20f).toInt() until (bitmap.width * .70f).toInt()).sumOf { x -> (0 until (bitmap.height * .18f).toInt()).count { y -> isDark(bitmap.getPixel(x, y)) } }
+        val foldPixels = ((bitmap.width * .80f).toInt() until (bitmap.width * .98f).toInt()).sumOf { x -> ((bitmap.height * .04f).toInt() until (bitmap.height * .24f).toInt()).count { y -> isDark(bitmap.getPixel(x, y)) } }
+        assertTrue("ADD inner border pixels=$borderPixels", borderPixels >= 8)
+        assertTrue("ADD fold pixels=$foldPixels", foldPixels >= 12)
+    }
+
+    private fun assertDangerCardHasCoralIconAndRail() {
+        val bitmap = rule.onNodeWithTag("course-validation", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val coralPixels = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x ->
+            val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+            red > 175 && green in 50..125 && blue in 45..125
+        } }
+        assertTrue("validation coral pixels=$coralPixels", coralPixels >= 20)
+    }
+
+    private fun assertModalSurfaceIsOpaque(appearance: AppearanceMode) {
+        val bitmap = rule.onNodeWithTag("course-delete-confirm", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val center = (bitmap.width / 5 until bitmap.width * 4 / 5).sumOf { x -> (bitmap.height / 4 until bitmap.height * 3 / 4).count { y ->
+            val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+            if (appearance == AppearanceMode.LIGHT) red >= 220 && green >= 220 && blue >= 220 else red in 8..55 && green in 15..75 && blue in 15..80
+        } }
+        assertTrue("$appearance opaque modal pixels=$center", center >= 80)
     }
 
     private fun assertEditorCloseHasVisibleLightInk(appearance: AppearanceMode, fontScale: Float) {

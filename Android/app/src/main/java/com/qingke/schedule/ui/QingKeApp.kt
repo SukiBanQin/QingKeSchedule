@@ -335,9 +335,9 @@ fun QingKeAppContent(
 @Composable private fun InlineMonthCalendar(month: YearMonth, selected: LocalDate, dark: Boolean, select: (LocalDate) -> Unit, changeMonth: (Boolean) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).testTag("semester-start-date-calendar")) {
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton({ changeMonth(false) }, Modifier.size(44.dp).testTag("semester-calendar-previous"), shape = TerminalShape) { Text("‹") }
+            CalendarMonthButton("‹", "上一个月", "semester-calendar-previous") { changeMonth(false) }
             Text(month.format(DateTimeFormatter.ofPattern("yyyy年M月", Locale.CHINA)), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,)
-            OutlinedButton({ changeMonth(true) }, Modifier.size(44.dp).testTag("semester-calendar-next"), shape = TerminalShape) { Text("›") }
+            CalendarMonthButton("›", "下一个月", "semester-calendar-next") { changeMonth(true) }
         }
         Row(Modifier.fillMaxWidth()) { listOf("一", "二", "三", "四", "五", "六", "日").forEach { day -> Text(day, Modifier.weight(1f), color = terminalSecondary(dark), fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = androidx.compose.ui.text.style.TextAlign.Center) } }
         SemesterMonthGrid.dates(month).chunked(SemesterMonthGrid.columns).forEach { week ->
@@ -360,6 +360,11 @@ fun QingKeAppContent(
         }
     }
 }
+
+@Composable private fun CalendarMonthButton(symbol: String, label: String, tag: String, action: () -> Unit) = Box(
+    Modifier.size(48.dp).clickable(onClick = action).testTag(tag).semantics { contentDescription = label },
+    contentAlignment = Alignment.Center,
+) { Text(symbol, color = SignalYellow, fontSize = 30.sp, lineHeight = 30.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif) }
 
 @Composable private fun WeekControl(value: Int, update: (Int) -> Unit) = Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
     Text("总周数：$value", Modifier.weight(1f).testTag("semester-total-weeks"))
@@ -498,7 +503,14 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun TodayAddButton(addCourse: () -> Unit) = Button(addCourse, Modifier.size(64.dp).drawBehind { val inset = 3.dp.toPx(); val fold = 13.dp.toPx(); drawRect(InverseSurface.copy(alpha = .78f), topLeft = androidx.compose.ui.geometry.Offset(inset, inset), size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2), style = Stroke(1.dp.toPx())); val path = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - inset - fold, inset); lineTo(size.width - inset, inset); lineTo(size.width - inset, inset + fold); close() }; drawPath(path, InverseSurface.copy(alpha = .86f)); drawLine(InverseSurface.copy(alpha = .78f), androidx.compose.ui.geometry.Offset(size.width - inset - fold, inset), androidx.compose.ui.geometry.Offset(size.width - inset, inset + fold), 1.dp.toPx()) }.testTag("today-add-course").semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("+", fontSize = 25.sp, lineHeight = 22.sp, fontWeight = FontWeight.Light, fontFamily = FontFamily.SansSerif, modifier = Modifier.testTag("today-add-plus")); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
+@Composable private fun TodayAddButton(addCourse: () -> Unit) = Button(addCourse, Modifier.size(64.dp).testTag("today-add-course").semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) {
+    Box(Modifier.fillMaxSize().drawBehind {
+        val inset = 3.dp.toPx(); val fold = 13.dp.toPx()
+        drawRect(InverseSurface.copy(alpha = .82f), topLeft = androidx.compose.ui.geometry.Offset(inset, inset), size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2), style = Stroke(1.dp.toPx()))
+        val path = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - inset - fold, inset); lineTo(size.width - inset, inset); lineTo(size.width - inset, inset + fold); close() }
+        drawPath(path, InverseSurface.copy(alpha = .88f)); drawLine(InverseSurface.copy(alpha = .82f), androidx.compose.ui.geometry.Offset(size.width - inset - fold, inset), androidx.compose.ui.geometry.Offset(size.width - inset, inset + fold), 1.dp.toPx())
+    }.testTag("today-add-visual"), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("+", fontSize = 25.sp, lineHeight = 22.sp, fontWeight = FontWeight.Light, fontFamily = FontFamily.SansSerif, modifier = Modifier.testTag("today-add-plus")); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
+}
 
 @Composable private fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 12.dp).border(width = 0.dp, color = Color.Transparent)
