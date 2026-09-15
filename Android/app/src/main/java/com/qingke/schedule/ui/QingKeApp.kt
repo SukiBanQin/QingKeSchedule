@@ -421,13 +421,13 @@ fun QingKeAppContent(
         TerminalBackdrop(dark)
         when (selected) {
             MainTab.TODAY -> TodayScheduleScreen(state, currentTime, actions.refreshTime, actions.openCourseAt, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
-            MainTab.SCHEDULE -> ShellPlaceholder("课表（壳层）", dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
+            MainTab.SCHEDULE -> WeekScheduleScreen(state, currentTime, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
             MainTab.SETTINGS -> ShellPlaceholder("设置（壳层）", dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            if (selected == MainTab.TODAY) {
+            if (selected == MainTab.TODAY || selected == MainTab.SCHEDULE) {
                 Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp), contentAlignment = Alignment.CenterEnd) {
-                    TodayAddButton(actions.openAddCourse)
+                    TodayAddButton(actions.openAddCourse, if (selected == MainTab.TODAY) "today-add-course" else "week-add-course")
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -438,6 +438,7 @@ fun QingKeAppContent(
         }
     }
 }
+
 
 @Composable private fun TerminalBackdrop(dark: Boolean, tag: String = "terminal-backdrop") = Canvas(
     Modifier.fillMaxSize().clipToBounds().testTag(tag),
@@ -545,7 +546,7 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun TodayAddButton(addCourse: () -> Unit) = Button(addCourse, Modifier.size(64.dp).testTag("today-add-course").semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) {
+@Composable private fun TodayAddButton(addCourse: () -> Unit, tag: String = "today-add-course") = Button(addCourse, Modifier.size(64.dp).testTag(tag).semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) {
     Box(Modifier.fillMaxSize().drawBehind {
         val fold = 13.dp.toPx(); val shadowOffset = 1.dp.toPx(); val frameInset = 3.dp.toPx(); val frameStroke = 1.dp.toPx()
         val shadow = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - fold - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, fold + shadowOffset); close() }

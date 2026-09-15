@@ -543,7 +543,7 @@ class QingKeAppTest {
         var selected by mutableStateOf(MainTab.TODAY)
         rule.setContent { QingKeAppContent(readyWithSemester(), null, selected, QingKeAppActions(selectTab = { selected = it })) }
         rule.onNodeWithTag("today-tab").assertIsEnabled()
-        rule.onNodeWithTag("schedule-tab").performClick(); rule.onNodeWithText("课表（壳层）").assertIsDisplayed()
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.onNodeWithTag("week-schedule").assertIsDisplayed()
         rule.onNodeWithTag("settings-tab").performClick(); rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
     }
 
