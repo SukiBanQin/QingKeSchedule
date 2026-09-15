@@ -4,7 +4,7 @@
 
 本轮严格限定在 P3-04 视觉 R3＋首次设置月历的集中复审返修：修复月历前后按钮的空方框、TODAY ADD 装饰被内容层覆盖、canonical 截图时机不正确，以及确认层仅有 bounds 断言的问题。未改 iOS、Web、`source/`、Room、业务规则、共享协议或其他阶段，未合并 `main`。
 
-- 开始基准为 `2c086dad4416770f9edeef6b526f5af7b2de7fff`，分支 `Android`，开始时工作区干净且 `origin/Android` 同步；本节不预写尚未生成的提交编号。
+- 开始基准为 `2c086dad4416770f9edeef6b526f5af7b2de7fff`，分支 `Android`，开始时工作区干净且 `origin/Android` 同步；应用、测试、证据和本节首版记录已提交为 `c08c61e` 并推送 `origin/Android`。本节后续交接文档提交编号以 Git 历史为准，不在文件中自引用。
 - 月历前后按钮改为无外框的 `48dp` 点击区、黄色 `‹`／`›`，保留 test tag 和中文 content description；新增浅色、深色及 130% 字体的像素／无障碍回归。TODAY ADD 的 3dp 内框、13dp 折角与斜线移至黄色内容层，新增 bitmap 像素回归；校验卡增加 coral 图标／左线像素证明，确认层增加高不透明 surface 像素契约。
 - 以最终生产入口重新拍摄首次设置月历、TODAY、校验、成功、chooser、危险区 footer、浅色删除确认和深色 130% 删除确认；证据清单见 `docs/Android/evidence/p3-04-visual-r3/README.md`。清数据后创建并保留 `VisualR3`，最终设备恢复 light／1.0 并停在 TODAY。
 - 最终验证：Debug／Release JVM 各 **90 tests、0 failures/errors/skipped**；Debug、Release 和 AndroidTest APK 构建通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）最终完整 `connectedDebugAndroidTest --rerun-tasks` **64 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。生产入口与上述截图已核对，目标 logcat 未匹配 FATAL／ANR。
