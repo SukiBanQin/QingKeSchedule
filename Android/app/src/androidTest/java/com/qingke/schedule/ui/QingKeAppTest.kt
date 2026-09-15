@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -197,23 +198,27 @@ class QingKeAppTest {
 
     @Test fun r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState() {
         val schedule = CourseScheduleFormState("r5", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        val baseState = readyToday(); val tenPeriodState = baseState.copy(data = baseState.data.copy(semester = baseState.data.semester!!.copy(periods = (1..10).map { Period(it, "%02d:00".format(7 + it), "%02d:45".format(7 + it)) })))
         var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.CREATE, color = "#287B74", colorInput = "#287B74", schedules = listOf(schedule), isColorDialogOpen = true))
         var day = 1; var start = 1; var end = 1; var repeat = RepeatRule.EVERY
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(
+        rule.setContent { QingKeAppContent(tenPeriodState, null, MainTab.TODAY, QingKeAppActions(
             updateCourseColor = { value -> editor = editor!!.copy(color = value, colorInput = value) },
             updateCourseDay = { _, value -> day = value }, updateCourseStartPeriod = { _, value -> start = value }, updateCourseEndPeriod = { _, value -> end = value }, updateCourseRepeat = { _, value -> repeat = value },
         ), editor = editor) }
         rule.onNodeWithTag("course-color-mode-GRID").assertIsDisplayed()
         rule.onNodeWithTag("course-color-grid").assertIsDisplayed()
-        rule.onNodeWithTag("course-color-grid-E11D48").performClick(); assertEquals("#E11D48", editor!!.color)
+        fun pixels(tag: String, predicate: (Int) -> Boolean) = rule.onNodeWithTag(tag).captureToImage().asAndroidBitmap().let { bitmap -> (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x -> predicate(bitmap.getPixel(x, y)) } } }
+        assertTrue("red grid swatch must paint pixels", pixels("course-color-grid-E11D48") { pixel -> (pixel shr 16 and 0xff) > 160 && (pixel shr 8 and 0xff) < 100 } > 80)
+        assertTrue("green grid swatch must paint pixels", pixels("course-color-grid-22C55E") { pixel -> (pixel shr 8 and 0xff) > 130 && (pixel shr 16 and 0xff) < 80 } > 80)
+        rule.onNodeWithTag("course-color-grid-E11D48").performClick(); assertEquals("#E11D48", editor!!.color); rule.onNodeWithText("✓", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-color-mode-SPECTRUM").performClick(); rule.onNodeWithTag("course-color-spectrum-area").assertIsDisplayed()
-        rule.onNodeWithTag("course-color-spectrum-area").performTouchInput { touchClick(center) }; assertTrue(editor!!.color.matches(Regex("^#[0-9A-F]{6}$")))
-        rule.onNodeWithTag("course-color-mode-SLIDERS").performClick(); rule.onNodeWithTag("course-r-slider").performTouchInput { touchClick(center) }; assertTrue(editor!!.color.matches(Regex("^#[0-9A-F]{6}$")))
+        val gridColor = editor!!.color; rule.onNodeWithTag("course-color-spectrum-area").performTouchInput { touchClick(center) }; val spectrumColor = editor!!.color; assertTrue("spectrum tap must change color", spectrumColor != gridColor); val spectrumHsv = hsvParts(spectrumColor); assertTrue("spectrum center saturation=${spectrumHsv[1]}", spectrumHsv[1] in 35..65); assertTrue("spectrum center value=${spectrumHsv[2]}", spectrumHsv[2] in 35..65)
+        rule.onNodeWithTag("course-color-mode-SLIDERS").performClick(); val beforeRed = rgbParts(editor!!.color)[0]; rule.onNodeWithTag("course-r-slider").performTouchInput { touchClick(Offset(700f, 16f)) }; val afterRed = rgbParts(editor!!.color)[0]; assertTrue("RGB slider must write a changed red channel before=$beforeRed after=$afterRed", beforeRed != afterRed && afterRed in 220..255)
         editor = editor!!.copy(isColorDialogOpen = false); rule.waitForIdle()
         rule.onNodeWithTag("course-schedule-header-r5").performScrollTo()
-        rule.onNodeWithTag("course-day-r5").performClick(); rule.onNodeWithTag("course-day-r5-menu").assertIsDisplayed(); rule.onNodeWithTag("course-day-r5-option-5").performClick(); assertEquals(5, day)
-        rule.onNodeWithTag("course-start-period-r5").performClick(); rule.onNodeWithTag("course-start-period-r5-option-2").performClick(); assertEquals(2, start)
-        rule.onNodeWithTag("course-end-period-r5").performClick(); rule.onNodeWithTag("course-end-period-r5-option-3").performClick(); assertEquals(3, end)
+        rule.onNodeWithTag("course-day-r5").performClick(); rule.onNodeWithTag("course-day-r5-menu").assertIsDisplayed(); rule.onNodeWithTag("course-day-r5-option-7").performScrollTo().performClick(); assertEquals(7, day)
+        rule.onNodeWithTag("course-start-period-r5").performClick(); rule.onNodeWithTag("course-start-period-r5-option-10").performScrollTo().performClick(); assertEquals(10, start)
+        rule.onNodeWithTag("course-end-period-r5").performClick(); rule.onNodeWithTag("course-end-period-r5-option-10").performScrollTo().performClick(); assertEquals(10, end)
         rule.onNodeWithTag("course-repeat-r5-ODD").performClick(); assertEquals(RepeatRule.ODD, repeat)
         listOf("course-repeat-r5-EVERY", "course-repeat-r5-ODD", "course-repeat-r5-EVEN").forEach(::assertAtLeast48Dp)
     }

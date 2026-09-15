@@ -834,8 +834,8 @@ internal object CourseColorVisualSpec {
     Text("COLOR MATRIX", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Black)
     CourseColorVisualSpec.grid.chunked(6).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { row.forEach { option ->
         val selected = option.equals(color, true)
-        Box(Modifier.weight(1f).heightIn(min = 36.dp).padding(vertical = 3.dp).clickable(enabled = enabled) { update(option) }.semantics { contentDescription = "网格颜色 $option" }.testTag("course-color-grid-${option.removePrefix("#")}"), contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize().background(courseColor(option), TerminalShape).border(if (selected) 3.dp else 1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape), contentAlignment = Alignment.Center) { if (selected) Text("✓", color = if (option == "#FFFFFF") InverseSurface else Color.White, fontWeight = FontWeight.Black) }
+        Box(Modifier.weight(1f).height(42.dp).padding(vertical = 3.dp).clickable(enabled = enabled) { update(option) }.semantics { contentDescription = "网格颜色 $option" }.testTag("course-color-grid-${option.removePrefix("#")}"), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(36.dp).background(courseColor(option), TerminalShape).border(if (selected) 3.dp else 1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape), contentAlignment = Alignment.Center) { if (selected) Text("✓", color = if (option == "#FFFFFF") InverseSurface else Color.White, fontWeight = FontWeight.Black) }
         }
     } } }
 }

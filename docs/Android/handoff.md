@@ -1,13 +1,13 @@
 # 安卓项目当前交接状态
 
-## P3-04 视觉 R5 终端表单组件已实施，待 Sol 集中实际 diff 复审／用户视觉验收（最新，2026-09-15）
+## P3-04 视觉 R5 网格色块返修已实施，待 Sol 集中实际 diff 复审／用户视觉验收（最新，2026-09-15）
 
 本轮以 `b636eeddc02ba7cc51ae5bb14c05ed0b6c2a91ec` 为 Android 基准，仅实施用户授权的三模式自定义课程颜色面板、星期／起止节次终端下拉菜单和每周／单周／双周终端分段控件。iOS 工作区 `/Users/takagisan/课表软件-IOS/ios`（只读基准 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`）未修改；未改 Web、Room/schema、共享协议、持久化格式、业务规则、周课表、设置、导入导出、其他阶段或 `main`。
 
-- 实现、测试及 R5 证据提交为 `ba1be75`（`feat(android): add r5 terminal course controls`），已推送 `origin/Android`；本交接更新提交仍待生成，避免在文件中自引用。`CourseColorDialog` 默认“网格”，新增等宽且 48dp 的“网格／光谱／滑块”入口；三页均以既有 ViewModel `editor.color` 为唯一颜色源。网格提供灰阶和 30+ 主色相／明暗单元；光谱为确定的 HSV 饱和度／明度平面加色相拖动条和选择指示器；滑块为 RGB 点击／拖动轨道并保留 `HEX / ADVANCED` 辅助输入。存储和 editor 仍只接收严格 `#RRGGBB`。
+- 实现、测试及 R5 首版证据提交为 `ba1be75`（`feat(android): add r5 terminal course controls`），已推送 `origin/Android`。Sol 目视核对四张首版截图后发现“COLOR MATRIX”标题下没有色块：`ColorGridPicker` 的 `fillMaxSize()` 处在可滚动、无界高度的内容中，实际没有可绘制高度。本次只将网格单元改为明确 `42dp` 外层／`36dp` 色块高度，并以 bitmap 像素回归验证红、绿代表色数量与选中后的 `editor.color`／勾标记；未改颜色持久化或任何业务规则。返修实现提交与本交接提交均待生成，避免在文件中自引用。
 - `TerminalDropdownMenu` 供星期、开始节次、结束节次共用：直角、不透明主题 surface、边框／阴影、青色分隔线、monospace 选项，当前项为 inverse 背景和黄色勾；保留原 choices、回调、disabled 与无障碍。`TerminalRepeatSelector` 取代 Material outlined buttons，三项 48dp、`selectableGroup`/radio 语义、深色反相选中态和黄色状态点，未改 `RepeatRule` 映射。
-- 新增纯 Kotlin 颜色契约覆盖网格代表色、HSV 平面边界／回环、RGB/HSV/HEX 边界；新增 API 37 Compose 用例覆盖三模式切换、网格／光谱／RGB 实时更新、状态保留、三类下拉回调和 repeat 点击。最终 Debug／Release JVM 各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` 完成（0 errors，沿用 21 warnings）；API 37 ARM64 完整 `connectedDebugAndroidTest --rerun-tasks` **67 tests、0 failures/errors/skipped**。文档验证、两个文档脚本和 `git diff --check` 待本轮收口后再次执行。
-- 最终生产入口创建并保存 `VisualR5`，重新打开 EDIT 核对网格 modal；截图在 `docs/Android/evidence/p3-04-visual-r5/`。已实际核对浅色／深色 100% 与深色 130%，目标 logcat 无 FATAL/ANR；设备恢复 light／1.0，停在 `VisualR5` 的 EDIT“网格”面板。**已实现、已测试，待 Sol 集中实际 diff 复审及用户视觉验收；不得据此宣称验收或启动下一阶段。**
+- 新增纯 Kotlin 颜色契约覆盖网格代表色、HSV 平面边界／回环、RGB/HSV/HEX 边界；API 37 Compose 用例覆盖三模式切换、网格像素、网格／光谱／RGB 实时更新、状态保留、三类下拉回调和 repeat 点击。返修后重新执行 Debug／Release JVM，各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` 为 **0 errors、21 warnings**；API 37 ARM64 完整 `connectedDebugAndroidTest --rerun-tasks` 为 **67 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。文档验证、两个文档脚本和 `git diff --check` 待本轮收口后执行。
+- 最终生产入口保留 `VisualR5` 并重新打开 EDIT；返修后已实际核对网格浅色 100%、深色 100%、深色 130%，并新增经目视核验的浅色光谱、滑块、开始节次菜单和 repeat 截图，清单在 `docs/Android/evidence/p3-04-visual-r5/README.md`。目标 logcat 无 FATAL/ANR；设备将恢复为 light／1.0，停在 `VisualR5` 的 EDIT“网格”面板。**Terra 返修已完成、已测试，待 Sol 集中实际 diff 复审及用户视觉验收；不得据此宣称验收或启动下一阶段。**
 
 ## P3-04 视觉 R4 已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
