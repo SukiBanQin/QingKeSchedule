@@ -252,14 +252,16 @@ class QingKeAppTest {
             } }
             assertTrue("$appearance cyan=$cyanPixels", cyanPixels == 0)
             assertTrue("$appearance foreground=$foregroundPixels", foregroundPixels >= 12)
-            val ink = (0 until bitmap.height).flatMap { y -> (0 until bitmap.width).mapNotNull { x ->
-                val pixel = bitmap.getPixel(x, y); val rgb = pixel and 0xffffff
-                if ((pixel ushr 24) > 0 && if (appearance == AppearanceMode.LIGHT) rgb < 0x404040 else rgb > 0xd0d0d0) x to y else null
-            } }
-            val left = ink.minOf { it.first }; val right = ink.maxOf { it.first }; val top = ink.minOf { it.second }; val bottom = ink.maxOf { it.second }
-            assertTrue("$appearance icon horizontal center", kotlin.math.abs(left - (bitmap.width - 1 - right)) <= 1)
-            assertTrue("$appearance icon vertical center", kotlin.math.abs(top - (bitmap.height - 1 - bottom)) <= 1)
+            assertCenteredPlusGeometry(bitmap, appearance)
         }
+        val shiftedPlus = Bitmap.createBitmap(22, 22, Bitmap.Config.ARGB_8888)
+        val paint = android.graphics.Paint().apply { color = android.graphics.Color.BLACK; strokeWidth = 2f; isAntiAlias = false }
+        val shiftedCenter = shiftedPlus.width / 2f + 3f
+        android.graphics.Canvas(shiftedPlus).apply {
+            drawLine(5f, shiftedCenter, 17f, shiftedCenter, paint)
+            drawLine(shiftedCenter, 5f, shiftedCenter, 17f, paint)
+        }
+        assertTrue("three-pixel translated plus must fail the geometry probe", runCatching { assertCenteredPlusGeometry(shiftedPlus, AppearanceMode.LIGHT) }.isFailure)
     }
 
     @Test fun appendUsesOriginalScheduleOrdinalAndAllowsRemovingNewSchedule() {
@@ -649,6 +651,7 @@ class QingKeAppTest {
         assertEquals(32.sp, TodayVisualSpec.featuredStartTimeSize)
         assertEquals(13.sp, TodayVisualSpec.featuredEndTimeSize)
         assertEquals(82.dp, TodayVisualSpec.featuredTimeColumnWidth)
+        assertEquals(20.sp, TodayVisualSpec.featuredCourseNameSize)
         assertEquals(24.sp, TodayVisualSpec.sequenceStartTimeSize)
         assertEquals(11.sp, TodayVisualSpec.sequenceEndTimeSize)
         assertEquals(66.dp, TodayVisualSpec.sequenceTimeColumnWidth)
@@ -831,6 +834,32 @@ class QingKeAppTest {
             red > 215 && green > 155 && blue < 70
         } }
         assertTrue("$tag signal pixels=$count", count >= 12)
+    }
+
+    private fun assertCenteredPlusGeometry(bitmap: Bitmap, appearance: AppearanceMode) {
+        val margin = maxOf(1, (minOf(bitmap.width, bitmap.height) * .15f).toInt())
+        val innerXs = margin until bitmap.width - margin; val innerYs = margin until bitmap.height - margin
+        fun isForeground(x: Int, y: Int): Boolean {
+            val pixel = bitmap.getPixel(x, y); val rgb = pixel and 0xffffff
+            return (pixel ushr 24) > 0 && if (appearance == AppearanceMode.LIGHT) rgb < 0x404040 else rgb > 0xd0d0d0
+        }
+        // Cropping out the square border keeps its symmetric bounds from masking a translated plus.
+        val minimumCoverage = (minOf(innerXs.count(), innerYs.count()) * .7f).toInt()
+        val horizontalRows = innerYs.filter { y -> innerXs.count { x -> isForeground(x, y) } >= minimumCoverage }
+        val verticalColumns = innerXs.filter { x -> innerYs.count { y -> isForeground(x, y) } >= minimumCoverage }
+        assertTrue("$appearance plus horizontal stroke=$horizontalRows", horizontalRows.isNotEmpty())
+        assertTrue("$appearance plus vertical stroke=$verticalColumns", verticalColumns.isNotEmpty())
+        val canvasCenterX = (bitmap.width - 1) / 2f; val canvasCenterY = (bitmap.height - 1) / 2f
+        val horizontalCenterY = (horizontalRows.first() + horizontalRows.last()) / 2f
+        val verticalCenterX = (verticalColumns.first() + verticalColumns.last()) / 2f
+        assertTrue("$appearance plus horizontal center=$horizontalCenterY canvas=$canvasCenterY", kotlin.math.abs(horizontalCenterY - canvasCenterY) <= 1.5f)
+        assertTrue("$appearance plus vertical center=$verticalCenterX canvas=$canvasCenterX", kotlin.math.abs(verticalCenterX - canvasCenterX) <= 1.5f)
+        val horizontalXs = innerXs.filter { x -> horizontalRows.any { y -> isForeground(x, y) } }
+        val verticalYs = innerYs.filter { y -> verticalColumns.any { x -> isForeground(x, y) } }
+        val leftArm = canvasCenterX - horizontalXs.min(); val rightArm = horizontalXs.max() - canvasCenterX
+        val topArm = canvasCenterY - verticalYs.min(); val bottomArm = verticalYs.max() - canvasCenterY
+        assertTrue("$appearance plus left=$leftArm right=$rightArm", kotlin.math.abs(leftArm - rightArm) <= 1.5f)
+        assertTrue("$appearance plus top=$topArm bottom=$bottomArm", kotlin.math.abs(topArm - bottomArm) <= 1.5f)
     }
 
     private fun assertAddChromeIsActuallyDrawn() {
