@@ -200,11 +200,12 @@ class QingKeAppTest {
         val schedule = CourseScheduleFormState("r5", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         val baseState = readyToday(); val tenPeriodState = baseState.copy(data = baseState.data.copy(semester = baseState.data.semester!!.copy(periods = (1..10).map { Period(it, "%02d:00".format(7 + it), "%02d:45".format(7 + it)) })))
         var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.CREATE, color = "#287B74", colorInput = "#287B74", schedules = listOf(schedule), isColorDialogOpen = true))
+        var fontScale by mutableStateOf(1f)
         var day = 1; var start = 1; var end = 1; var repeat = RepeatRule.EVERY
-        rule.setContent { QingKeAppContent(tenPeriodState, null, MainTab.TODAY, QingKeAppActions(
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) { QingKeAppContent(tenPeriodState, null, MainTab.TODAY, QingKeAppActions(
             updateCourseColor = { value -> editor = editor!!.copy(color = value, colorInput = value) },
             updateCourseDay = { _, value -> day = value }, updateCourseStartPeriod = { _, value -> start = value }, updateCourseEndPeriod = { _, value -> end = value }, updateCourseRepeat = { _, value -> repeat = value },
-        ), editor = editor) }
+        ), editor = editor) } }
         rule.onNodeWithTag("course-color-mode-GRID").assertIsDisplayed()
         rule.onNodeWithTag("course-color-grid").assertIsDisplayed()
         fun pixels(tag: String, predicate: (Int) -> Boolean) = rule.onNodeWithTag(tag).captureToImage().asAndroidBitmap().let { bitmap -> (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x -> predicate(bitmap.getPixel(x, y)) } } }
@@ -213,7 +214,23 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-color-grid-E11D48").performClick(); assertEquals("#E11D48", editor!!.color); rule.onNodeWithText("✓", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("course-color-mode-SPECTRUM").performClick(); rule.onNodeWithTag("course-color-spectrum-area").assertIsDisplayed()
         val gridColor = editor!!.color; rule.onNodeWithTag("course-color-spectrum-area").performTouchInput { touchClick(center) }; val spectrumColor = editor!!.color; assertTrue("spectrum tap must change color", spectrumColor != gridColor); val spectrumHsv = hsvParts(spectrumColor); assertTrue("spectrum center saturation=${spectrumHsv[1]}", spectrumHsv[1] in 35..65); assertTrue("spectrum center value=${spectrumHsv[2]}", spectrumHsv[2] in 35..65)
-        rule.onNodeWithTag("course-color-mode-SLIDERS").performClick(); val beforeRed = rgbParts(editor!!.color)[0]; rule.onNodeWithTag("course-r-slider").performTouchInput { touchClick(Offset(700f, 16f)) }; val afterRed = rgbParts(editor!!.color)[0]; assertTrue("RGB slider must write a changed red channel before=$beforeRed after=$afterRed", beforeRed != afterRed && afterRed in 220..255)
+        rule.onNodeWithTag("course-color-mode-SLIDERS").performClick(); val beforeRed = rgbParts(editor!!.color)[0]; rule.onNodeWithTag("course-r-slider").performTouchInput { touchClick(Offset(center.x * 1.8f, center.y)) }; val afterRed = rgbParts(editor!!.color)[0]; assertTrue("RGB slider must write a changed red channel before=$beforeRed after=$afterRed", beforeRed != afterRed && afterRed in 220..255)
+        fun assertRgbRowsStayInline() {
+            listOf("r", "g", "b").forEach { channel ->
+                val label = rule.onNodeWithTag("course-$channel-slider-label", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val value = rule.onNodeWithTag("course-$channel-slider-value", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val slider = rule.onNodeWithTag("course-$channel-slider", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                rule.onNodeWithTag("course-$channel-slider-label", useUnmergedTree = true).assertIsDisplayed()
+                rule.onNodeWithTag("course-$channel-slider-value", useUnmergedTree = true).assertIsDisplayed()
+                assertTrue("$channel label/value order: $label $value", label.right <= value.left)
+                assertTrue("$channel value/track order: $value $slider", value.right <= slider.left)
+                assertTrue("$channel label/value baseline: $label $value", kotlin.math.abs(label.center.y - value.center.y) <= 2f)
+                assertTrue("$channel value/track baseline: $value $slider", kotlin.math.abs(value.center.y - slider.center.y) <= 2f)
+                listOf("course-$channel-slider-label", "course-$channel-slider-value", "course-$channel-slider").forEach(::assertFitsRootHorizontally)
+            }
+        }
+        assertRgbRowsStayInline(); fontScale = 1.3f; rule.waitForIdle(); assertRgbRowsStayInline()
+        fontScale = 1f; rule.waitForIdle()
         editor = editor!!.copy(isColorDialogOpen = false); rule.waitForIdle()
         rule.onNodeWithTag("course-schedule-header-r5").performScrollTo()
         rule.onNodeWithTag("course-day-r5").performClick(); rule.onNodeWithTag("course-day-r5-menu").assertIsDisplayed(); rule.onNodeWithTag("course-day-r5-option-7").performScrollTo().performClick(); assertEquals(7, day)
@@ -282,6 +299,7 @@ class QingKeAppTest {
             assertTrue("$appearance cyan=$cyanPixels", cyanPixels == 0)
             assertTrue("$appearance foreground=$foregroundPixels", foregroundPixels >= 12)
             assertCenteredPlusGeometry(bitmap, appearance)
+            assertRoundedCreateCourseIcon(bitmap, appearance)
         }
         val shiftedPlus = Bitmap.createBitmap(22, 22, Bitmap.Config.ARGB_8888)
         val paint = android.graphics.Paint().apply { color = android.graphics.Color.BLACK; strokeWidth = 2f; isAntiAlias = false }
@@ -685,6 +703,7 @@ class QingKeAppTest {
         assertEquals(11.sp, TodayVisualSpec.sequenceEndTimeSize)
         assertEquals(66.dp, TodayVisualSpec.sequenceTimeColumnWidth)
         assertEquals(17.sp, TodayVisualSpec.sequenceCourseNameSize)
+        assertEquals("date face must request ultra-light weight", 100, TodayVisualSpec.dayNumberTypeface.weight)
         var appearance by mutableStateOf(AppearanceMode.LIGHT); var scale by mutableStateOf(1f)
         rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:41:52")) } }
         listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
@@ -891,13 +910,28 @@ class QingKeAppTest {
         assertTrue("$appearance plus top=$topArm bottom=$bottomArm", kotlin.math.abs(topArm - bottomArm) <= 1.5f)
     }
 
+    private fun assertRoundedCreateCourseIcon(bitmap: Bitmap, appearance: AppearanceMode) {
+        fun isInk(x: Int, y: Int): Boolean {
+            val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+            return if (appearance == AppearanceMode.LIGHT) red < 70 && green < 75 && blue < 80 else red > 185 && green > 190 && blue > 190
+        }
+        val corner = (0 until (bitmap.width * .06f).toInt()).sumOf { x -> (0 until (bitmap.height * .06f).toInt()).count { y -> isInk(x, y) } }
+        val topEdge = ((bitmap.width * .35f).toInt() until (bitmap.width * .65f).toInt()).sumOf { x -> (0 until (bitmap.height * .18f).toInt()).count { y -> isInk(x, y) } }
+        val leftEdge = (0 until (bitmap.width * .18f).toInt()).sumOf { x -> ((bitmap.height * .35f).toInt() until (bitmap.height * .65f).toInt()).count { y -> isInk(x, y) } }
+        assertTrue("$appearance rounded icon corner ink=$corner", corner == 0)
+        assertTrue("$appearance rounded icon top edge ink=$topEdge", topEdge >= 4)
+        assertTrue("$appearance rounded icon left edge ink=$leftEdge", leftEdge >= 4)
+    }
+
     private fun assertAddChromeIsActuallyDrawn() {
         val bitmap = rule.onNodeWithTag("today-add-visual", useUnmergedTree = true).captureToImage().asAndroidBitmap()
-        fun isDark(pixel: Int): Boolean { val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff; return red < 150 && green < 150 && blue < 150 }
-        val borderPixels = ((bitmap.width * .20f).toInt() until (bitmap.width * .70f).toInt()).sumOf { x -> (0 until (bitmap.height * .18f).toInt()).count { y -> isDark(bitmap.getPixel(x, y)) } }
-        val foldPixels = ((bitmap.width * .80f).toInt() until (bitmap.width * .98f).toInt()).sumOf { x -> ((bitmap.height * .04f).toInt() until (bitmap.height * .24f).toInt()).count { y -> isDark(bitmap.getPixel(x, y)) } }
-        assertTrue("ADD inner border pixels=$borderPixels", borderPixels >= 8)
-        assertTrue("ADD fold pixels=$foldPixels", foldPixels >= 12)
+        fun channels(pixel: Int) = intArrayOf(pixel shr 16 and 0xff, pixel shr 8 and 0xff, pixel and 0xff)
+        val blackFramePixels = ((bitmap.width * .20f).toInt() until (bitmap.width * .70f).toInt()).sumOf { x -> (0 until (bitmap.height * .18f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] < 70 && it[1] < 70 && it[2] < 70 } } }
+        val whiteFoldPixels = ((bitmap.width * .80f).toInt() until bitmap.width).sumOf { x -> (0 until (bitmap.height * .24f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] > 245 && it[1] > 225 && it[2] > 160 } } }
+        val shadowPixels = ((bitmap.width * .76f).toInt() until bitmap.width).sumOf { x -> ((bitmap.height * .02f).toInt() until (bitmap.height * .28f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] in 170..245 && it[1] in 120..205 && it[2] < 40 } } }
+        assertTrue("ADD black inner frame pixels=$blackFramePixels", blackFramePixels == 0)
+        assertTrue("ADD translucent white fold pixels=$whiteFoldPixels", whiteFoldPixels >= 12)
+        assertTrue("ADD fold shadow pixels=$shadowPixels", shadowPixels >= 2)
     }
 
     private fun assertDangerCardHasCoralIconAndRail() {

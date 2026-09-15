@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.TimePickerDialog
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,6 +79,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
@@ -134,6 +136,9 @@ private enum class TerminalSurfaceLevel { STANDARD, ELEVATED }
 /** Android's system condensed face is the platform equivalent of iOS's Avenir Next Condensed; missing glyphs use system fallback. */
 internal object TodayVisualSpec {
     val condensed = FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
+    /** API 28+ weight 100 requests the actual condensed ultra-light face; older Android versions use their real thin face safely. */
+    val dayNumberTypeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Typeface.create(Typeface.create("sans-serif-condensed", Typeface.NORMAL), 100, false) else Typeface.create("sans-serif-thin", Typeface.NORMAL)
+    val dayNumber = FontFamily(dayNumberTypeface)
     val dayColumnWidth = 106.dp
     val dayNumberSize = 74.sp
     val featuredTimeColumnWidth = 82.dp
@@ -490,7 +495,7 @@ fun QingKeAppContent(
     val centerX = size.width / 2f
     val centerY = size.height / 2f
     val plusInset = 5.dp.toPx()
-    drawRect(color, androidx.compose.ui.geometry.Offset(inset, inset), androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke), style = Stroke(stroke))
+    drawRoundRect(color, androidx.compose.ui.geometry.Offset(inset, inset), androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke), CornerRadius(3.3.dp.toPx()), style = Stroke(stroke))
     drawLine(color, androidx.compose.ui.geometry.Offset(plusInset, centerY), androidx.compose.ui.geometry.Offset(size.width - plusInset, centerY), stroke)
     drawLine(color, androidx.compose.ui.geometry.Offset(centerX, plusInset), androidx.compose.ui.geometry.Offset(centerX, size.height - plusInset), stroke)
 }
@@ -541,11 +546,12 @@ fun QingKeAppContent(
 
 @Composable private fun TodayAddButton(addCourse: () -> Unit) = Button(addCourse, Modifier.size(64.dp).testTag("today-add-course").semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) {
     Box(Modifier.fillMaxSize().drawBehind {
-        val inset = 3.dp.toPx(); val fold = 13.dp.toPx()
-        drawRect(InverseSurface.copy(alpha = .82f), topLeft = androidx.compose.ui.geometry.Offset(inset, inset), size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2), style = Stroke(1.dp.toPx()))
-        val path = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - inset - fold, inset); lineTo(size.width - inset, inset); lineTo(size.width - inset, inset + fold); close() }
-        drawPath(path, InverseSurface.copy(alpha = .88f)); drawLine(InverseSurface.copy(alpha = .82f), androidx.compose.ui.geometry.Offset(size.width - inset - fold, inset), androidx.compose.ui.geometry.Offset(size.width - inset, inset + fold), 1.dp.toPx())
-    }.testTag("today-add-visual"), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("+", fontSize = 25.sp, lineHeight = 22.sp, fontWeight = FontWeight.Light, fontFamily = FontFamily.SansSerif, modifier = Modifier.testTag("today-add-plus")); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
+        val fold = 13.dp.toPx(); val shadowOffset = 1.dp.toPx()
+        val shadow = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - fold - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, fold + shadowOffset); close() }
+        val foldPath = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - fold, 0f); lineTo(size.width, 0f); lineTo(size.width, fold); close() }
+        drawPath(shadow, InverseSurface.copy(alpha = .16f))
+        drawPath(foldPath, Color.White.copy(alpha = .75f))
+    }.testTag("today-add-visual"), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("+", fontSize = 25.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif, modifier = Modifier.testTag("today-add-plus")); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
 }
 
 @Composable private fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
@@ -559,7 +565,7 @@ fun QingKeAppContent(
 @Composable private fun TodayHero(now: LocalDateTime, semester: com.qingke.schedule.domain.Semester, presentation: TodaySchedulePresentation, dark: Boolean, modifier: Modifier = Modifier) = Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
     Column(Modifier.width(TodayVisualSpec.dayColumnWidth)) {
         Text(now.format(DateTimeFormatter.ofPattern("MMM", Locale.US)).uppercase(Locale.US), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag("today-month-code"))
-        Text(now.format(DateTimeFormatter.ofPattern("dd", Locale.US)), color = terminalText(dark), fontFamily = TodayVisualSpec.condensed, fontWeight = FontWeight.Thin, fontSize = TodayVisualSpec.dayNumberSize, lineHeight = TodayVisualSpec.dayNumberSize, maxLines = 1, modifier = Modifier.testTag("today-day-number"))
+        Text(now.format(DateTimeFormatter.ofPattern("dd", Locale.US)), color = terminalText(dark), fontFamily = TodayVisualSpec.dayNumber, fontWeight = FontWeight.Normal, fontSize = TodayVisualSpec.dayNumberSize, lineHeight = TodayVisualSpec.dayNumberSize, maxLines = 1, modifier = Modifier.testTag("today-day-number"))
         Text(now.format(DateTimeFormatter.ofPattern("yyyy / EEE", Locale.US)).uppercase(Locale.US), color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
     }
     Box(Modifier.width(1.dp).heightIn(min = 116.dp).background(terminalBorder(dark)))
@@ -658,7 +664,7 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                     Box(Modifier.fillMaxWidth().terminalPanel(dark, QingKeCyan).clickable { actions.openNewCourse() }.testTag("course-create-new").semantics { contentDescription = "新建一门课程" }) {
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp).testTag("course-choice-create-panel"), verticalAlignment = Alignment.CenterVertically) {
                             CreateCourseIcon(terminalText(dark))
-                            Text("新建一门课程", color = terminalText(dark), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
+                            Text("新建一门课程", color = terminalText(dark), fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Thin, modifier = Modifier.padding(start = 10.dp))
                         }
                     }
                     Text("已有课程会复用名称、教师和识别色，只新增一条上课安排。", color = terminalSecondary(dark), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 3.dp, top = 8.dp).testTag("course-choice-footer"))
@@ -875,7 +881,9 @@ internal object CourseColorVisualSpec {
     var trackSize by remember { mutableStateOf(IntSize.Zero) }
     fun updateAt(point: Offset) { if (enabled && trackSize.width > 0) update((point.x / trackSize.width * 255f).toInt().coerceIn(0, 255)) }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("$label  ${value.toString().padStart(3, '0')}", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, modifier = Modifier.width(58.dp))
+        Text(label, color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(18.dp).testTag("$tag-label"))
+        Text(value.toString().padStart(3, '0'), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(46.dp).testTag("$tag-value"))
+        Spacer(Modifier.width(4.dp))
         Canvas(Modifier.weight(1f).height(32.dp).onSizeChanged { trackSize = it }.pointerInput(value, enabled) { detectTapGestures { updateAt(it) } }.pointerInput(value, enabled, "rgb-drag") { detectDragGestures(onDragStart = { updateAt(it) }, onDrag = { change, _ -> updateAt(change.position) }) }.testTag(tag)) {
             drawRect(Brush.horizontalGradient(listOf(Color.Black, tint)), size = size)
             drawLine(Color.White, Offset(value / 255f * size.width, 0f), Offset(value / 255f * size.width, size.height), 2.dp.toPx())
