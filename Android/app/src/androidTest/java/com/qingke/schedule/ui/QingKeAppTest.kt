@@ -8,11 +8,18 @@ import android.util.Xml
 import android.view.View
 import android.widget.TimePicker
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -33,6 +40,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.onView
@@ -378,6 +386,26 @@ class QingKeAppTest {
             val backdrop = rule.onNodeWithTag("course-delete-confirm-backdrop", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             assertTrue("surface must be inside backdrop", surface.left >= backdrop.left && surface.right <= backdrop.right)
             assertModalSurfaceIsOpaque(appearance)
+        }
+    }
+
+    @Test fun terminalModalSurfaceDoesNotLeakAHighContrastBackdrop() {
+        var dark by mutableStateOf(false)
+        rule.setContent {
+            Box(Modifier.fillMaxSize().drawBehind {
+                val stripe = 3.dp.toPx()
+                var x = 0f
+                while (x < size.width) {
+                    drawRect(if ((x / stripe).toInt() % 2 == 0) Color.White else Color.Black, topLeft = androidx.compose.ui.geometry.Offset(x, 0f), size = androidx.compose.ui.geometry.Size(stripe, size.height))
+                    x += stripe
+                }
+            }) {
+                Box(Modifier.size(240.dp, 144.dp).terminalModalSurface(dark, Color(0xFFE65A4F)).testTag("modal-opacity-probe"))
+            }
+        }
+        listOf(false, true).forEach { appearance ->
+            dark = appearance; rule.waitForIdle()
+            assertModalProbeRejectsBackdropStripes(appearance)
         }
     }
 
@@ -801,6 +829,16 @@ class QingKeAppTest {
             if (appearance == AppearanceMode.LIGHT) red >= 220 && green >= 220 && blue >= 220 else red in 8..55 && green in 15..75 && blue in 15..80
         } }
         assertTrue("$appearance opaque modal pixels=$center", center >= 80)
+    }
+
+    private fun assertModalProbeRejectsBackdropStripes(dark: Boolean) {
+        val bitmap = rule.onNodeWithTag("modal-opacity-probe", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val y = (bitmap.height * .10f).toInt()
+        val samples = ((bitmap.width * .35f).toInt() until (bitmap.width * .65f).toInt()).map { x -> bitmap.getPixel(x, y) }
+        val largestAdjacentChange = samples.zipWithNext().maxOf { (first, second) ->
+            maxOf(kotlin.math.abs((first shr 16 and 0xff) - (second shr 16 and 0xff)), kotlin.math.abs((first shr 8 and 0xff) - (second shr 8 and 0xff)), kotlin.math.abs((first and 0xff) - (second and 0xff)))
+        }
+        assertTrue("dark=$dark modal must block the 3dp black/white backdrop stripes; adjacent change=$largestAdjacentChange", largestAdjacentChange <= 8)
     }
 
     private fun assertEditorCloseHasVisibleLightInk(appearance: AppearanceMode, fontScale: Float) {

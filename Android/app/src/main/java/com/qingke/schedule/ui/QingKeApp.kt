@@ -570,10 +570,10 @@ private fun Modifier.terminalPanel(dark: Boolean, accent: Color, level: Terminal
         .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
 }
 
-/** A modal-only surface: opaque enough that the scrimmed screen cannot read through it. */
-private fun Modifier.terminalModalSurface(dark: Boolean, accent: Color): Modifier {
-    val surface = if (dark) Color(0xFD142124) else Color(0xFCF7FBFA)
-    val highlight = if (dark) Color.White.copy(alpha = .15f) else Color.White.copy(alpha = .88f)
+/** A modal-only opaque surface: its highlight is color-blended, never alpha-blended with the screen beneath. */
+internal fun Modifier.terminalModalSurface(dark: Boolean, accent: Color): Modifier {
+    val surface = if (dark) Color(0xFF142124) else Color(0xFFF7FBFA)
+    val highlight = if (dark) Color(0xFF29383B) else Color(0xFFFFFFFF)
     return this
         .shadow(18.dp, TerminalShape, ambientColor = Color.Black.copy(alpha = .62f), spotColor = Color.Black.copy(alpha = .52f))
         .background(Brush.linearGradient(listOf(highlight, surface, surface)), TerminalShape)

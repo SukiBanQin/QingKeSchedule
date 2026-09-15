@@ -1,5 +1,13 @@
 # 安卓项目当前交接状态
 
+## P3-04 视觉 R3 删除确认层不透明度返修已实施，待 Sol 复审／用户验收（最新，2026-09-15）
+
+Sol 第二轮集中审查确认旧浅色／深色 130% 删除确认截图的面板内容层仍透出背景星期、节次和周数字体。本轮仅修复 `terminalModalSurface`：渐变高光改用预混合的不透明颜色，保留既有高光、边框和阴影；scrim、确认流程、业务回调和其他视觉项不变，未改 iOS、Web、`source/`、Room、共享协议、其他阶段或 `main`。
+
+- 开始基准为 `66fe7cc5cad81a9e7f6a39c29344f346029dba16`，分支 `Android`，开始时工作区干净且本地、`origin/Android`、远程 Android 一致；本节不预写尚未生成的提交编号。
+- 新增确定性 instrumentation 像素回归：面板下方放置 3dp 黑白高对比条纹，在没有前景内容的采样带检查相邻像素跳变。若 surface 或 highlight 以 alpha 透出底图，条纹会产生大幅跳变并失败；不透明渐变只保留平滑的颜色过渡。既有删除 dialog 的 bounds、主题／130% 和颜色契约继续保留。
+- 已以最终 debug APK 重拍 `delete-modal-light-100.png` 和 `delete-modal-dark-130.png`，肉眼核对确认面板内部没有背景星期、节次或周数字体。最终验证：Debug／Release JVM 各 **90 tests、0 failures/errors/skipped**；Debug、Release 和 AndroidTest APK 构建通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）完整 `connectedDebugAndroidTest --rerun-tasks` **65 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。已重新安装最终 debug APK、创建并保留 `VisualR3`、恢复 light／1.0 且停在 TODAY；目标 logcat 未匹配 FATAL／ANR。文档验证、提交和推送仍待本轮收口；**Sol 技术复审和用户验收均尚未完成。**
+
 ## P3-04 视觉 R3 集中复审返修已完成，待 Sol 再复审／用户验收（最新，2026-09-15）
 
 本轮严格限定在 P3-04 视觉 R3＋首次设置月历的集中复审返修：修复月历前后按钮的空方框、TODAY ADD 装饰被内容层覆盖、canonical 截图时机不正确，以及确认层仅有 bounds 断言的问题。未改 iOS、Web、`source/`、Room、业务规则、共享协议或其他阶段，未合并 `main`。
