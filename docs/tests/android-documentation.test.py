@@ -34,6 +34,27 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_new_sol_handoff_records_p3_04_acceptance_and_keeps_p3_05_unlicensed(self):
+        handoff = (DOCS / "handoff.md").read_text()
+        latest = handoff.split(
+            "## 切换新 Sol 主窗口：P3-04 已验收，下一项待授权（最新，2026-09-15）", 1
+        )[1].split("\n## ", 1)[0]
+
+        for marker in (
+            "62075fe0a2667c603f5c85e8e2e88548bfac1461",
+            "P3-04／A04／A05 当前实现范围的验收门槛已关闭",
+            "没有运行中的 Gradle、模拟器或连接设备",
+            "`/root/p3_04_visual_r3`",
+            "`completed`",
+            "属于完成时的历史状态",
+            "P3-05 周课表 UI（A03）",
+            "尚未明确授权 P3-05 分析或实施",
+            "接手本身不构成授权",
+            "不得自动进入",
+            "合并 `main`",
+        ):
+            self.assertIn(marker, latest)
+
     def test_new_sol_window_handoff_preserves_visual_acceptance_gate_and_stopped_writers(self):
         handoff = (DOCS / "handoff.md").read_text().split("## 切换新 Sol 主窗口：P3-04 B4 R2 等待用户视觉验收", 1)[1].split("## ", 1)[0]
         for marker in (
