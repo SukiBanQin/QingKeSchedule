@@ -1,6 +1,6 @@
 # 安卓项目当前交接状态
 
-## P3-05／A03 周课表 UI 已验证，待 Sol 技术复审与用户视觉验收（2026-09-15）
+## P3-05／A03 周课表 UI 已通过 Sol 技术复审，待用户视觉验收（2026-09-15）
 
 本轮在 `Android` 分支将 `SCHEDULE` 从“课表（壳层）”替换为周课表垂直切片。实现只使用既有
 `WeekSchedulePresentation`、`WeekMatrixPresentation` 和 `ScheduleDisplayText` 读取结果，未复制课程、单双周、停课、调课、冲突或 lane 领域规则；课程矩阵点击按稳定 occurrence 的 `courseIndex` 调用既有 P3-04 `openCourseAt` 路由。
@@ -8,8 +8,9 @@
 - 已接入周前后与当前周控件、七日日期条、矩阵项目/冲突色、跨节高度、午休预留 tag、选中日清单及停课/无课状态；使用 `rememberSaveable` 保存选周/选日，不因时钟刷新重置。
 - 后续复审收口：矩阵现以可用内容宽度减去 44dp TIME 列后均分七日列，课程块按 presentation 的 `startRow`、`rowSpan`、`lane` 和 `laneCount` 定位；午休按 `insertionRow` 与节次标签共享纵轴。周/日跟随状态独立，周页 ADD 复用主壳同一浮动动作。
 - 已完成主机验证：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest --no-daemon --console=plain` BUILD SUCCESSFUL；新增 Compose 契约覆盖 SCHEDULE 真页、七列 TIME 表头、节次、ADD 回调与 occurrence 来源 index。
-- 文档验证已完成：`docs/tests/android-documentation.test.py` 70 tests OK、`documentation.test.sh` passed、`repository-layout.test.sh` passed、`git diff --check` passed（均使用 `DEVELOPER_DIR=/Library/Developer/CommandLineTools`）。API 37 ARM64 `connectedDebugAndroidTest` 已运行，XML 为 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`，全套 68 tests 中 66 passed、2 failures、0 errors、0 skipped；失败为既有 `chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales` 与 `r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`，非 P3-05。定向 `QingKeAppTest#weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource` 通过。
-- 截图与生产入口目视对照尚未完成；准确状态为已实现、已测试、待 Sol 技术复审／用户视觉验收，不能写成完整通过。
+- 文档验证已完成：`docs/tests/android-documentation.test.py` 70 tests OK、`documentation.test.sh` passed、`repository-layout.test.sh` passed、`git diff --check` passed（均使用 `DEVELOPER_DIR=/Library/Developer/CommandLineTools`）。API 37 ARM64 `connectedDebugAndroidTest` XML 为 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`，全套 68 tests 中 66 passed、2 failures、0 errors、0 skipped；失败为既有 `chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales` 与 `r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`，非 P3-05，且单独复跑仍稳定失败。定向 `QingKeAppTest#weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource` 通过。
+- 已完成生产 debug 入口与截图目视核对：API 37 ARM64 真实入口创建 `2026 秋季学期`／`VisualP305`，确认品牌头、周切换／当前周、七日日期条、TIME 轴、周三课程块、午休分隔、悬浮 ADD 与底栏层级；证据截图为 `/tmp/p3-05-week-empty.png`、`/tmp/p3-05-week-course.png`。复核后模拟器已关闭，`adb devices` 为空。
+- Sol 已集中核对 P3-05 实际 diff、布局契约、主机与定向 connected 证据及生产截图，确认技术复审通过。当前准确状态为已实现、已测试、已通过 Sol 技术复审，待用户视觉验收；完整 connected 套件仍受上述两个既有 P3-04 失败影响，不能写成全部测试通过或用户已验收。
 - 修改限定在 Android UI 与本交接；未修改 iOS、Web、Room/schema、DataStore、共享协议、设置/通知/导入导出或 `main`。
 
 ## 切换新 Sol 主窗口：P3-04 已验收，下一项待授权（最新，2026-09-15）
