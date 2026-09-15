@@ -1,13 +1,13 @@
 # 安卓项目当前交接状态
 
-## P3-04 视觉 R7 ADD 白框与细线十字已实施，待 Sol 集中技术复审／用户视觉验收（最新，2026-09-15）
+## P3-04 视觉 R7 ADD 白框与细线十字已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
 本轮以 Android `18dad62d9bacd0a7f8d833ebd68043d156be7970` 为基准，开始时工作区、`origin/Android` 与远程 Android 一致且干净。仅按用户本轮反馈改 TODAY 右下角 ADD 的视觉、对应 instrumentation 回归及 R7 生产证据；iOS `/Users/takagisan/课表软件-IOS/ios` 仅只读参考 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001` 的 `TerminalFloatingAction`，未修改 iOS、Web、Room/schema、共享协议、业务规则、其他 TODAY 字体、chooser、课程编辑、其他阶段或 `main`。
 
 - 黄色 64dp ADD 恢复 iOS 同款约 3dp inset、1dp、75% alpha 的完整白色内框；右上 13dp 白色半透明折角仍在框上层，轻微阴影绘制在折角下方且未恢复黑框。位置、点击区、中文语义及回调均未变。
 - 粗体文本 `+` 已替换为平台无关的 25dp Canvas 细线十字：横竖等长、居中对称、约 1.6dp 圆端笔画；`ADD` 保留 8sp monospace 黑体和既有视觉间距。像素回归覆盖浅／深色及 100%／130%，分别证明四边白框、白角与轻影存在、黑框为零，以及十字尺寸、中心、对称和笔画宽度上限；同时确认 `ADD` 文本存在，能拒绝 R6 的“无白框＋粗文本加号”实现。
-- R7 实现、测试和全新生产证据提交为 `25b44f3`（`fix(android): restore r7 add action frame and plus`），已推送 `origin/Android`。证据位于 `docs/Android/evidence/p3-04-visual-r7/`：浅色 100%、深色 100%、深色 130% 的 TODAY 均逐张目视核对，`VisualR5` 在页面中可见；没有沿用 R6 截图。
-- 验证：Debug／Release JVM 各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` **0 errors、20 warnings**；API 37 ARM64 `connectedDebugAndroidTest --rerun-tasks` **67 tests、0 failures/errors/skipped**。Android 文档 **68 tests**、两个文档脚本与 `git diff --check` 通过；交接提交待生成，避免文件自引用。最终模拟器已恢复为生产 APK、light／`font_scale=1.0`、保留 `VisualR5` 并停在 TODAY；前台为 `MainActivity`，目标 logcat 无 FATAL/ANR。准确状态：**Terra R7 已实施、已测试，待 Sol 集中技术复审及用户视觉验收；不得声称用户已验收或启动下一阶段。**
+- R7 实现、测试和全新生产证据提交为 `25b44f3`（`fix(android): restore r7 add action frame and plus`），Terra 交接提交为 `5171650`（`docs(android): record r7 add visual delivery`），均已推送 `origin/Android`。证据位于 `docs/Android/evidence/p3-04-visual-r7/`：浅色 100%、深色 100%、深色 130% 的 TODAY 均逐张目视核对，`VisualR5` 在页面中可见；没有沿用 R6 截图。
+- 验证：Debug／Release JVM 各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` **0 errors、20 warnings**；API 37 ARM64 `connectedDebugAndroidTest --rerun-tasks` **67 tests、0 failures/errors/skipped**。Android 文档 **68 tests**、两个文档脚本与 `git diff --check` 通过。Sol 已集中核对 R7 完整实际 diff、四边白框与无黑框的正负向像素断言、白角及轻影、细线十字的尺寸／中心／对称／笔画上限，并逐张目视核验浅色 100%、深色 100%、深色 130% 三张生产截图，确认技术复审通过。最终模拟器已恢复为生产 APK、light／`font_scale=1.0`、保留 `VisualR5` 并停在 TODAY；前台为 `MainActivity`，目标 logcat 无 FATAL/ANR。**用户视觉验收仍待进行；不得据此启动下一阶段。**
 
 ## P3-04 视觉 R6 已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
