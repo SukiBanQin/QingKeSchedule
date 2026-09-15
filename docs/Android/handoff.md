@@ -4,7 +4,7 @@
 
 本轮仅实施用户明确授权的七项视觉修正及首次设置日期控件：开始日期从系统 `DatePickerDialog` 改为页面内、周一开头的中文月历（跨月／跨年和闰日）；TODAY ADD 为 64dp；chooser `plus.square` 使用主题正文前景；危险区 footer 移至删除按钮面板外下方；确认层采用高不透明度专用 elevated acrylic；成功通知改为黄色左线／圆点／勾；课程和学期校验改为危险提示卡。未修改周课表、完整设置、通知、导入导出、iOS、Web、`source/`、Room 或共享协议，也未合并 `main`。
 
-- 开始基准为 `951777b9471202aa7502949b074add49b53b4e5f`，分支 `Android`，开始时工作区干净；远程 `origin/Android` 同为该提交。当前实施尚待本轮提交，提交号不得在此处预写。
+- 开始基准为 `951777b9471202aa7502949b074add49b53b4e5f`，分支 `Android`，开始时工作区干净；远程 `origin/Android` 同为该提交。代码、测试和证据提交为 `fa5317ceb069035e06e12243713dc2e60797eed9`，已推送 `origin/Android`；本节后续交接文档提交不在此自引用。
 - 新增 `SemesterMonthGrid` 的 JVM 边界测试，Compose／API 37 回归涵盖月历展开收起、跨年／闰日与受控回调、64dp ADD 与通知垂直栈、chooser 图标浅深像素前景、危险区顺序、modal 表面、toast、浅深／130% 校验卡。
 - 完整验证：Debug／Release JVM 各 **90 tests、0 failures/errors/skipped**；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）完整 `connectedDebugAndroidTest --rerun-tasks` **63 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/`。
 - 生产入口：清数据冷启动显示首次设置，页面内月历已实际展开；保存后进入 TODAY，CREATE／EDIT 保存和成功通知已检查；浅色／深色／130% 复拍在 `docs/Android/evidence/p3-04-visual-r3/`。目标 logcat 未匹配 FATAL／ANR。设备已恢复 light／1.0，生产 App 停在 TODAY，并保留 `VisualR3` 课程供用户查看。
