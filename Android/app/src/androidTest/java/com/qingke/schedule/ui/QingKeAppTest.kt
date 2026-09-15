@@ -1,8 +1,10 @@
 package com.qingke.schedule.ui
 
-import android.os.SystemClock
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Typeface
+import android.os.Build
+import android.os.SystemClock
 import android.content.res.Configuration
 import android.util.Xml
 import android.view.View
@@ -703,7 +705,15 @@ class QingKeAppTest {
         assertEquals(11.sp, TodayVisualSpec.sequenceEndTimeSize)
         assertEquals(66.dp, TodayVisualSpec.sequenceTimeColumnWidth)
         assertEquals(17.sp, TodayVisualSpec.sequenceCourseNameSize)
-        assertEquals("date face must request ultra-light weight", 100, TodayVisualSpec.dayNumberTypeface.weight)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            assertEquals("date face must request ultra-light weight", 100, TodayVisualSpec.dayNumberTypeface.weight)
+        } else {
+            assertTrue(
+                "pre-P fallback must not be bold or italic",
+                TodayVisualSpec.dayNumberTypeface.style != Typeface.BOLD &&
+                    TodayVisualSpec.dayNumberTypeface.style != Typeface.BOLD_ITALIC,
+            )
+        }
         var appearance by mutableStateOf(AppearanceMode.LIGHT); var scale by mutableStateOf(1f)
         rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:41:52")) } }
         listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
