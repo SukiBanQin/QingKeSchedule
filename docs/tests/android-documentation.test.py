@@ -34,6 +34,18 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_complete_execution_and_batched_review_contract(self):
+        rules = (ROOT / "AGENTS.md").read_text().split("# 完整实施与集中审查", 1)[1].split("# 增量阅读", 1)[0]
+        for marker in ("可独立验收", "一次测试失败", "授权范围", "集中列出修正项", "独立验证", "模型与思考档位"):
+            self.assertIn(marker, rules)
+        plan = (DOCS / "implementation-plan.md").read_text()
+        section = plan.split("### 完整实施后集中审查", 1)[1].split("### ", 1)[0]
+        for marker in ("阻塞", "不默认重复全部测试", "同一个 Terra", "用户新反馈"):
+            self.assertIn(marker, section)
+        self.assertIn("完整交付边界与提前回报的阻塞条件：", plan)
+        self.assertIn("协作调整：完整实施后集中审查", (DOCS / "handoff.md").read_text())
+
+
     def test_sol_main_and_single_terra_subagent_contract(self):
         rules = (ROOT / "AGENTS.md").read_text()
         plan = (DOCS / "implementation-plan.md").read_text()
