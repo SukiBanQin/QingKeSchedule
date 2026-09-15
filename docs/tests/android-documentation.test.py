@@ -34,6 +34,20 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_new_sol_window_handoff_preserves_visual_acceptance_gate_and_stopped_writers(self):
+        handoff = (DOCS / "handoff.md").read_text().split("## 切换新 Sol 主窗口：P3-04 B4 R2 等待用户视觉验收", 1)[1].split("## ", 1)[0]
+        for marker in (
+            "用户尚未在最新结果上完成视觉验收",
+            "不得把现有技术证据解释为用户认可",
+            "不重复实施 `cccbb26`",
+            "没有运行中的 Gradle、模拟器或其他写入者",
+            "不得假定可直接使用旧标识",
+            "完整实施后由 Sol 集中审查",
+            "不自动启动新阶段",
+        ):
+            self.assertIn(marker, handoff)
+
+
     def test_complete_execution_and_batched_review_contract(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 完整实施与集中审查", 1)[1].split("# 增量阅读", 1)[0]
         for marker in ("可独立验收", "一次测试失败", "授权范围", "集中列出修正项", "独立验证", "模型与思考档位"):

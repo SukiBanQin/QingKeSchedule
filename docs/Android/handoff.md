@@ -1,5 +1,15 @@
 # 安卓项目当前交接状态
 
+## 切换新 Sol 主窗口：P3-04 B4 R2 等待用户视觉验收（最新，2026-09-15）
+
+用户因当前窗口上下文较长，要求保存现场并切换到新的 Sol 主窗口。当前仓库为 `/Users/takagisan/课表软件`，分支 `Android`；交接前代码与流程基准为 `b85e6df`，其中 `cccbb26` 是 TODAY／ADD chooser／CourseEditor 视觉返工及验证提交，`b85e6df` 是“完整实施与集中审查”协作规则提交。二者均已推送 `origin/Android`，不合并 `main`。
+
+- 当前任务已经完成实施、自动化、生产入口验证和 Sol 独立技术审查；用户尚未在最新结果上完成视觉验收。新窗口先等待并接收用户实际查看 TODAY、chooser、CREATE／EDIT／APPEND、确认弹窗、浅色／深色／130% 字体后的反馈，不得把现有技术证据解释为用户认可。
+- 若用户确认通过，只更新用户视觉验收状态及对应验证，提交并推送 `Android`；再说明可选后续阶段并等待明确授权。若用户报告问题，先形成可验证的问题清单并限定在本轮 TODAY／ADD／课程编辑范围内，再实施修正；不自动扩展到周课表、完整设置、通知、导入导出、iOS、Web、`source/`、共享协议、其他 P3 阶段或 `main`。
+- 本轮最终证据：Debug／Release JVM 各 88 tests 全通过；`lintDebug` 0 errors、21 warnings；三类 APK 构建通过；API 37 ARM64 完整 connected 58 tests 全通过；生产首次设置、TODAY ADD→CREATE、force-stop 冷启动和 FATAL／ANR 检查通过；Android 文档测试 66 tests、两个文档脚本和 `git diff --check` 通过。canonical 截图位于 `docs/Android/evidence/p3-04-visual-r1/`。
+- 当前工作区干净，没有未提交改动；没有运行中的 Gradle、模拟器或其他写入者。当前子 Agent 工具只显示主窗口；旧中转站 Terra `/root/p3_03_r2_visual_fix` 曾为 `gpt-5.6-terra/high`，现不在列表中且已停止写入。新窗口不得假定可直接使用旧标识；先查询自己的 Agent 列表。同一修正至多一个 `gpt-5.6-terra/high`，禁止它创建子 Agent，并按新规则让 Terra 完整实施后由 Sol 集中审查。
+- 新窗口按增量阅读先核对 `git status --short --branch`、`git log -n 12`、远程 `Android` 和本节；仅在收到用户反馈或明确恢复后补读相关代码与证据，不重复实施 `cccbb26`，不自动启动新阶段。
+
 ## 协作调整：完整实施后集中审查（2026-09-15）
 
 用户根据账单分析授权调整：Sol 开始时明确目标和约束，Terra 完成独立任务的实施、自测、普通失败修复及交付记录后，Sol 集中审查。普通进度不触发逐段检查，真正阻塞才提前回报；修正集中反馈给同一个 Terra。模型与思考档位保持原约定，增量阅读、Agent 复用、单写入者和关键独立验证继续适用，详见根规则与实施计划。
