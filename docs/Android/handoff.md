@@ -8,6 +8,7 @@
 - 已接入周前后与当前周控件、七日日期条、矩阵项目/冲突色、跨节高度、午休预留 tag、选中日清单及停课/无课状态；使用 `rememberSaveable` 保存选周/选日，不因时钟刷新重置。
 - 后续复审收口：矩阵现以可用内容宽度减去 44dp TIME 列后均分七日列，课程块按 presentation 的 `startRow`、`rowSpan`、`lane` 和 `laneCount` 定位；午休按 `insertionRow` 与节次标签共享纵轴。周/日跟随状态独立，周页 ADD 复用主壳同一浮动动作。
 - 已运行 `./gradlew :app:compileDebugKotlin`，通过（仅有既有 Android deprecated status/navigation bar warnings）。本轮尚未完成 JVM、lint、APK、API 37 connected 测试、截图/XML 或文档脚本，不能声称完整验证、技术审查或用户验收；后续须补齐。
+- 已补主机验证：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest --no-daemon --console=plain` 通过；新增 Compose 契约覆盖 SCHEDULE 真页、七列 TIME 表头、节次、ADD 回调与 occurrence 来源 index。connected、截图/XML 尚未运行；文档脚本仍需在可用 Xcode license 环境复跑。
 - 修改限定在 Android UI 与本交接；未修改 iOS、Web、Room/schema、DataStore、共享协议、设置/通知/导入导出或 `main`。
 
 ## 切换新 Sol 主窗口：P3-04 已验收，下一项待授权（最新，2026-09-15）

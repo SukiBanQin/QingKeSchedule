@@ -120,7 +120,7 @@ class QingKeAppTest {
     }
 
     @Test fun weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource() {
-        var selected = MainTab.TODAY
+        var selected by mutableStateOf(MainTab.TODAY)
         var adds = 0
         val opened = mutableListOf<Int>()
         rule.setContent {

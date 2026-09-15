@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -91,7 +92,9 @@ fun WeekScheduleScreen(
     }
 
     PullToRefreshBox(refreshing, ::refresh, modifier.fillMaxSize().testTag("week-refresh-container")) {
-        Column(Modifier.statusBarsPadding().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()).testTag("week-schedule")) {
+        Column(Modifier.statusBarsPadding().testTag("week-schedule")) {
+            BrandHeader(dark, code = "MATRIX / 02", tag = "week-brand-header")
+            Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
             WeekHeader(schedule, semester.name, selectedWeek, semester.totalWeeks, dark,
                 previous = { selectedWeek--; followsCurrentWeek = false },
                 next = { selectedWeek++; followsCurrentWeek = false },
@@ -108,6 +111,7 @@ fun WeekScheduleScreen(
             }
             WeekManifest(schedule, selectedDay, dark, actions.openCourseAt)
             Spacer(Modifier.height(100.dp))
+            }
         }
     }
 }
@@ -115,19 +119,19 @@ fun WeekScheduleScreen(
 @Composable private fun WeekHeader(schedule: WeekSchedulePresentation, semesterName: String, week: Int, totalWeeks: Int, dark: Boolean, previous: () -> Unit, next: () -> Unit, current: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("MATRIX / 02", color = WeekCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.testTag("week-brand"))
-            Text("周课表", color = weekForeground(dark), fontSize = 26.sp, fontWeight = FontWeight.Black)
+            Text("SCHEDULE :// WEEK MATRIX", color = WeekCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.testTag("week-brand"))
+            Text("%02d".format(week), color = weekForeground(dark), fontSize = 38.sp, fontWeight = FontWeight.Black)
             Text(semesterName, color = weekSecondary(dark), fontSize = 11.sp, modifier = Modifier.testTag("week-semester-name"))
         }
-        Text("‹", color = if (week > 1) WeekSignal else weekSecondary(dark), fontSize = 28.sp, modifier = Modifier.width(38.dp).then(if (week > 1) Modifier.clickable(onClick = previous) else Modifier).testTag("week-previous").semantics { contentDescription = if (week > 1) "上一周" else "已到第一周" })
+        Text("‹", color = if (week > 1) WeekSignal else weekSecondary(dark), fontSize = 28.sp, modifier = Modifier.width(48.dp).height(48.dp).then(if (week > 1) Modifier.clickable(onClick = previous) else Modifier).testTag("week-previous").semantics { contentDescription = if (week > 1) "上一周" else "已到第一周"; if (week <= 1) disabled() })
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("第 $week 周", color = weekForeground(dark), fontWeight = FontWeight.Bold, modifier = Modifier.testTag("week-title"))
             Text(if (week % 2 == 0) "双周" else "单周", color = WeekCyan, fontSize = 10.sp)
         }
-        Text("›", color = if (week < totalWeeks) WeekSignal else weekSecondary(dark), fontSize = 28.sp, modifier = Modifier.width(38.dp).then(if (week < totalWeeks) Modifier.clickable(onClick = next) else Modifier).testTag("week-next").semantics { contentDescription = if (week < totalWeeks) "下一周" else "已到最后一周" })
+        Text("›", color = if (week < totalWeeks) WeekSignal else weekSecondary(dark), fontSize = 28.sp, modifier = Modifier.width(48.dp).height(48.dp).then(if (week < totalWeeks) Modifier.clickable(onClick = next) else Modifier).testTag("week-next").semantics { contentDescription = if (week < totalWeeks) "下一周" else "已到最后一周"; if (week >= totalWeeks) disabled() })
     }
     val canReturn = schedule.currentWeek != null
-    Text(if (canReturn) "返回当前周" else "当前日期在学期外", color = if (canReturn) WeekCyan else weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp).then(if (canReturn) Modifier.clickable(onClick = current) else Modifier).testTag("week-current").semantics { contentDescription = if (canReturn) "返回当前周" else "当前日期在学期外" })
+    Text(if (canReturn) "返回当前周" else "当前日期在学期外", color = if (canReturn) WeekCyan else weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().height(48.dp).padding(top = 4.dp).then(if (canReturn) Modifier.clickable(onClick = current) else Modifier).testTag("week-current").semantics { contentDescription = if (canReturn) "返回当前周" else "当前日期在学期外"; if (!canReturn) disabled() })
 }
 
 @Composable private fun WeekDayStrip(schedule: WeekSchedulePresentation, selectedDay: Int, dark: Boolean, select: (Int) -> Unit) = Row(Modifier.fillMaxWidth().testTag("week-date-strip")) {
@@ -179,4 +183,5 @@ fun WeekScheduleScreen(
         val key = item.occurrence.key
         Row(Modifier.fillMaxWidth().padding(top = 6.dp).background(if (dark) Color(0xDD1A2527) else Color(0xDDFBFEFD)).border(1.dp, weekSecondary(dark).copy(alpha = .35f)).clickable { open(key.courseIndex) }.testTag("week-list-${key.courseIndex}-${key.scheduleIndex}").semantics { contentDescription = "${item.occurrence.course.name}，${ScheduleDisplayText.periodRange(item.occurrence.schedule)}${if (item.isConflicting) "，冲突" else ""}" }) { Box(Modifier.width(4.dp).height(60.dp).background(if (item.isConflicting) Color(0xFFDF695F) else courseColor(item.occurrence.course.color))); Column(Modifier.padding(10.dp).weight(1f)) { Text(item.occurrence.course.name, color = weekForeground(dark), fontWeight = FontWeight.Bold); Text("${ScheduleDisplayText.periodRange(item.occurrence.schedule)} · ${ScheduleDisplayText.compactCourseDetails(item.occurrence.course, item.occurrence.schedule)}", color = weekSecondary(dark), fontSize = 11.sp); if (item.isConflicting) Text("CONFLICT", color = Color(0xFFDF695F), fontFamily = FontFamily.Monospace, fontSize = 9.sp) } }
     }
+    if (day.items.isNotEmpty()) Text("END OF MANIFEST // ${day.items.last().occurrence.schedule.endPeriod}", color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("week-end-marker"))
 }

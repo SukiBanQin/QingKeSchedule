@@ -566,7 +566,7 @@ fun QingKeAppContent(
     drawLine(color, Offset(center.x, inset), Offset(center.x, size.height - inset), stroke, StrokeCap.Round)
 }
 
-@Composable private fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
+@Composable internal fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 12.dp).border(width = 0.dp, color = Color.Transparent)
         .drawBehind { drawLine(if (dark) Color.White.copy(alpha = .20f) else Color.Black.copy(alpha = .18f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.testTag(tag), verticalAlignment = Alignment.CenterVertically,
 ) {
