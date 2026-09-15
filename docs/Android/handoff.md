@@ -1,6 +1,6 @@
 # 安卓项目当前交接状态
 
-## P3-04 视觉 R4 复审反馈测试修正已实施，待 Sol 再复审／用户视觉验收（最新，2026-09-15）
+## P3-04 视觉 R4 已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
 本轮仅按用户明确授权对齐三组最新版 iOS 基准：chooser“新建一门课程”图标、四类课程成功通知和 TODAY 日期／featured／课程序列字体层级。iOS 工作区 `/Users/takagisan/课表软件-IOS/ios` 仅作只读参考，未修改或提交；未改 Web、Room、共享协议、业务规则、周课表、设置、导入导出、其他阶段或 `main`。
 
@@ -8,7 +8,7 @@
 - Sol 集中复审指出原 chooser 像素测试把方框与十字合并取包围盒，可能由对称方框掩盖内部十字偏移。本次以 `db2465892e23054e0a2103eb202f4c365cf36c75` 为基准，仅修正该测试：裁掉外框带后分别识别横、竖十字，校验其中心接近画布中心及上下／左右臂长度对称；三像素平移会触发断言。另补齐 `TodayVisualSpec.featuredCourseNameSize == 20.sp` 的规格断言，未改生产 Canvas、通知、字体或既有截图。
 - chooser 继续以 Android Canvas 绘制 22dp 方框＋十字，所有笔画以同一中心计算，不使用或复制 Apple SF Symbol；保留现有点击区、中文无障碍语义、回调和正文前景。像素回归继续检查浅／深色前景和非 cyan。
 - ViewModel 成功文案精确统一为 `SYSTEM // 课程添加成功`、`SYSTEM // 添加上课安排成功`、`SYSTEM // 课程修改已保存`、`SYSTEM // 课程删除成功`；黄色左线、圆点、勾、2.6 秒计时及 ADD／tab 堆叠未变。JVM／UI 回归覆盖四句精确文本和浅／深／130% 通知布局。
-- `TodayVisualSpec` 固化 iOS 对齐的 74sp thin 日期／106dp 列、featured 32/13sp 与 82dp、sequence 24/11sp 与 66dp，以及 20sp featured 课程名；Android 使用 `sans-serif-condensed` 系统映射，缺失字形由系统 fallback（包括中文）渲染。最终 production evidence 在 `docs/Android/evidence/p3-04-visual-r4/`。既有最终验证：Debug／Release JVM 各 **91 tests、0 failures/errors/skipped**；Debug、Release 和 AndroidTest APK 构建通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）完整 `connectedDebugAndroidTest --rerun-tasks` **66 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。本次复审修正后，Debug／AndroidTest APK 编译通过，API 37 ARM64 分别定向执行 `chooserPlusSquareUsesThemeForegroundInsteadOfCyan` 与 `todayTypographyUsesCondensedIosEquivalentScaleAndFitsAtLargeFont`，均通过；测试修正提交为 `87ba031`（`test(android): tighten r4 plus geometry probe`），已推送至 `origin/Android`。生产入口已实测浅色／深色／130%，目标 logcat 未匹配 FATAL／ANR；设备恢复 light／1.0 且停在 TODAY。Android 文档 68 tests、两个文档脚本和 `git diff --check` 已通过。**Sol 再复审及用户视觉验收均尚未完成。**
+- `TodayVisualSpec` 固化 iOS 对齐的 74sp thin 日期／106dp 列、featured 32/13sp 与 82dp、sequence 24/11sp 与 66dp，以及 20sp featured 课程名；Android 使用 `sans-serif-condensed` 系统映射，缺失字形由系统 fallback（包括中文）渲染。最终 production evidence 在 `docs/Android/evidence/p3-04-visual-r4/`。既有最终验证：Debug／Release JVM 各 **91 tests、0 failures/errors/skipped**；Debug、Release 和 AndroidTest APK 构建通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）完整 `connectedDebugAndroidTest --rerun-tasks` **66 tests、0 failures/errors/skipped**。本次复审修正后，Debug／AndroidTest APK 编译通过，API 37 ARM64 分别定向执行 `chooserPlusSquareUsesThemeForegroundInsteadOfCyan` 与 `todayTypographyUsesCondensedIosEquivalentScaleAndFitsAtLargeFont`，均通过；测试修正提交为 `87ba031`（`test(android): tighten r4 plus geometry probe`），已推送至 `origin/Android`。Sol 随后独立复跑上述两项 connected 测试，均通过，并集中核对完整实际 diff、负向像素证明、四条通知文案及浅色／深色／130% 最终截图，确认技术复审通过。生产入口已实测浅色／深色／130%，目标 logcat 未匹配 FATAL／ANR；设备恢复 light／1.0 且停在 TODAY。Android 文档 68 tests、两个文档脚本和 `git diff --check` 已通过；**用户视觉验收仍待进行。** 不得据此启动下一阶段。
 
 ## P3-04 视觉 R3 删除确认层不透明度返修已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
