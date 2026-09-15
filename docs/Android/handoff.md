@@ -1,8 +1,10 @@
 # 安卓项目当前交接状态
 
-## P3-04 视觉 R6 已实施，待 Sol 集中技术复审／用户视觉验收（最新，2026-09-15）
+## P3-04 视觉 R6 测试兼容返修已实施，待 Sol 集中技术复审／用户视觉验收（最新，2026-09-15）
 
 本轮从 Android `5d271835cf44d4a9535925a426177b99c180522b` 开始，工作区、`origin/Android` 和远程 Android 一致且干净。仅实施用户已授权的 TODAY 日期与 ADD、ADD chooser 及 CourseEditor RGB 滑块；iOS 工作区 `/Users/takagisan/课表软件-IOS/ios`（只读 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`）未修改，未改 Web、Room/schema、共享协议、业务规则、周课表、设置、导入导出、其他阶段或 `main`。
+
+- 本轮仅修复 Android instrumentation 测试兼容性：`QingKeAppTest` 只在 API 28+ 读取 `Typeface.weight` 并保持 weight 100 的精确断言；API 26–27 改为不调用该 API 的 fallback 非粗体／非斜体断言。未改 R6 生产实现、截图或原有完整 67 项 connected 测试证据。测试修正提交为 `dc6d973`（`test(android): guard r6 date typeface assertion`），已推送 `origin/Android`；`assembleDebugAndroidTest`、`lintDebug` 通过，API 37 ARM64 定向 typography instrumentation **1 test、0 failures/errors/skipped**。
 
 - RGB 每行现在为同一基线的 `R [三位值] [滑轨]`、`G`、`B`：值使用等宽单行文本，滑轨保留原实时写回、严格 `#RRGGBB`、disabled 与触控。Compose/API 37 回归在 100%／130% 检查三个标签、值、轨道顺序与同基线，并验证拖动红通道确实变化。
 - TODAY ADD 保持 64dp、位置、语义和回调；移除了旧黑色内框／包裹线，将右上 13dp 折角替换为黄色底层上的 75% 白色折角和轻微偏移阴影，`+` 与 `ADD` 均为粗体。像素回归负向断言旧黑框为零，正向验证白角与阴影。
