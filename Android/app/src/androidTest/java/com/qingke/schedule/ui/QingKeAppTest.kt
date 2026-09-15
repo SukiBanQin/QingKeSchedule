@@ -119,6 +119,26 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-append-0").assertIsDisplayed(); rule.onNodeWithTag("course-append-1").assertIsDisplayed()
     }
 
+    @Test fun weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource() {
+        var selected = MainTab.TODAY
+        var adds = 0
+        val opened = mutableListOf<Int>()
+        rule.setContent {
+            QingKeAppContent(readyToday(), null, selected,
+                QingKeAppActions(selectTab = { selected = it }, openAddCourse = { adds++ }, openCourseAt = { opened += it }),
+                LocalDateTime.parse("2026-08-31T09:00"))
+        }
+        rule.onNodeWithTag("schedule-tab").performClick()
+        rule.onNodeWithTag("week-schedule").assertIsDisplayed()
+        (1..7).forEach { rule.onNodeWithTag("week-column-header-$it").assertIsDisplayed() }
+        rule.onNodeWithTag("week-time-header").assertIsDisplayed()
+        rule.onNodeWithTag("week-period-1").assertIsDisplayed()
+        rule.onNodeWithTag("week-add-course").performClick()
+        assertEquals(1, adds)
+        rule.onNodeWithTag("week-item-0:0:0").performClick()
+        assertEquals(listOf(0), opened)
+    }
+
     @Test fun appendOverlayIsReadOnlyAndInFlightScheduleControlsAreDisabled() {
         val schedule = CourseScheduleFormState("new", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.APPEND, name = "算法", teacher = "老师", schedules = listOf(schedule), originalScheduleCount = 0, isInFlight = true)) }
