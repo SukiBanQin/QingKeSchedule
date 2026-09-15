@@ -329,13 +329,23 @@ class QingKeAppTest {
 
     @Test fun todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances() {
         var now by mutableStateOf(LocalDateTime.parse("2026-09-01T09:00:00"))
-        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), now) }
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var fontScale by mutableStateOf(1f)
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), now) } }
         rule.onNodeWithTag("today-add-course").assertIsDisplayed()
         val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val expected = 64.dp.value * rule.density.density
         assertTrue("ADD width=${addBounds.width}", kotlin.math.abs(addBounds.width - expected) <= 1f)
         assertTrue("ADD height=${addBounds.height}", kotlin.math.abs(addBounds.height - expected) <= 1f)
-        assertAddChromeIsActuallyDrawn()
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            listOf(1f, 1.3f).forEach { scale ->
+                appearance = mode; fontScale = scale; rule.waitForIdle()
+                assertAddChromeIsActuallyDrawn(mode)
+                assertTodayAddPlusIsThinAndCentered()
+                rule.onNodeWithTag("today-add-label", useUnmergedTree = true).assertTextContains("ADD")
+            }
+        }
+        appearance = AppearanceMode.LIGHT; fontScale = 1f; rule.waitForIdle()
         rule.onNodeWithText("QUEUE EMPTY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("STANDBY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("使用右下角 ADD 录入一门新课程。", useUnmergedTree = true).assertIsDisplayed()
@@ -933,15 +943,58 @@ class QingKeAppTest {
         assertTrue("$appearance rounded icon left edge ink=$leftEdge", leftEdge >= 4)
     }
 
-    private fun assertAddChromeIsActuallyDrawn() {
+    private fun assertAddChromeIsActuallyDrawn(appearance: AppearanceMode) {
         val bitmap = rule.onNodeWithTag("today-add-visual", useUnmergedTree = true).captureToImage().asAndroidBitmap()
         fun channels(pixel: Int) = intArrayOf(pixel shr 16 and 0xff, pixel shr 8 and 0xff, pixel and 0xff)
-        val blackFramePixels = ((bitmap.width * .20f).toInt() until (bitmap.width * .70f).toInt()).sumOf { x -> (0 until (bitmap.height * .18f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] < 70 && it[1] < 70 && it[2] < 70 } } }
+        fun isWhiteFrame(pixel: Int) = channels(pixel).let { it[0] > 245 && it[1] > 225 && it[2] > 160 }
+        fun isBlack(pixel: Int) = channels(pixel).let { it[0] < 70 && it[1] < 70 && it[2] < 70 }
+        fun framePixels(xs: IntRange, ys: IntRange, predicate: (Int) -> Boolean) = xs.sumOf { x -> ys.count { y -> predicate(bitmap.getPixel(x, y)) } }
         val whiteFoldPixels = ((bitmap.width * .80f).toInt() until bitmap.width).sumOf { x -> (0 until (bitmap.height * .24f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] > 245 && it[1] > 225 && it[2] > 160 } } }
         val shadowPixels = ((bitmap.width * .76f).toInt() until bitmap.width).sumOf { x -> ((bitmap.height * .02f).toInt() until (bitmap.height * .28f).toInt()).count { y -> channels(bitmap.getPixel(x, y)).let { it[0] in 170..245 && it[1] in 120..205 && it[2] < 40 } } }
-        assertTrue("ADD black inner frame pixels=$blackFramePixels", blackFramePixels == 0)
-        assertTrue("ADD translucent white fold pixels=$whiteFoldPixels", whiteFoldPixels >= 12)
-        assertTrue("ADD fold shadow pixels=$shadowPixels", shadowPixels >= 2)
+        val inset = (3.dp.value * rule.density.density).toInt(); val tolerance = (1.dp.value * rule.density.density).toInt()
+        val topXs = (bitmap.width / 6)..(bitmap.width * 2 / 3); val topYs = (inset - tolerance)..(inset + tolerance)
+        val bottomXs = (bitmap.width / 6)..(bitmap.width * 2 / 3); val bottomYs = (bitmap.height - inset - tolerance)..(bitmap.height - inset + tolerance)
+        val leftXs = (inset - tolerance)..(inset + tolerance); val leftYs = (bitmap.height / 5)..(bitmap.height * 3 / 4)
+        val rightXs = (bitmap.width - inset - tolerance)..(bitmap.width - inset + tolerance); val rightYs = (bitmap.height / 3)..(bitmap.height * 3 / 4)
+        val topFrame = framePixels(topXs, topYs, ::isWhiteFrame); val bottomFrame = framePixels(bottomXs, bottomYs, ::isWhiteFrame)
+        val leftFrame = framePixels(leftXs, leftYs, ::isWhiteFrame); val rightFrame = framePixels(rightXs, rightYs, ::isWhiteFrame)
+        val blackFramePixels = framePixels(topXs, topYs, ::isBlack) + framePixels(bottomXs, bottomYs, ::isBlack) + framePixels(leftXs, leftYs, ::isBlack) + framePixels(rightXs, rightYs, ::isBlack)
+        assertTrue("$appearance ADD black inner frame pixels=$blackFramePixels", blackFramePixels == 0)
+        assertTrue("$appearance ADD top white inner frame pixels=$topFrame", topFrame >= 20)
+        assertTrue("$appearance ADD bottom white inner frame pixels=$bottomFrame", bottomFrame >= 20)
+        assertTrue("$appearance ADD left white inner frame pixels=$leftFrame", leftFrame >= 20)
+        assertTrue("$appearance ADD right white inner frame pixels=$rightFrame", rightFrame >= 20)
+        assertTrue("$appearance ADD translucent white fold pixels=$whiteFoldPixels", whiteFoldPixels >= 12)
+        assertTrue("$appearance ADD fold shadow pixels=$shadowPixels", shadowPixels >= 2)
+    }
+
+    private fun assertTodayAddPlusIsThinAndCentered() {
+        val bounds = rule.onNodeWithTag("today-add-plus", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val expected = 25.dp.value * rule.density.density
+        assertTrue("ADD plus width=${bounds.width}", kotlin.math.abs(bounds.width - expected) <= 1f)
+        assertTrue("ADD plus height=${bounds.height}", kotlin.math.abs(bounds.height - expected) <= 1f)
+        val bitmap = rule.onNodeWithTag("today-add-plus", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        fun isDarkInk(x: Int, y: Int): Boolean {
+            val pixel = bitmap.getPixel(x, y)
+            return (pixel shr 16 and 0xff) < 70 && (pixel shr 8 and 0xff) < 70 && (pixel and 0xff) < 70
+        }
+        val horizontalRows = (0 until bitmap.height).filter { y -> (0 until bitmap.width).count { x -> isDarkInk(x, y) } >= bitmap.width * .45f }
+        val verticalColumns = (0 until bitmap.width).filter { x -> (0 until bitmap.height).count { y -> isDarkInk(x, y) } >= bitmap.height * .45f }
+        assertTrue("ADD plus horizontal stroke=$horizontalRows", horizontalRows.isNotEmpty())
+        assertTrue("ADD plus vertical stroke=$verticalColumns", verticalColumns.isNotEmpty())
+        val centerX = (bitmap.width - 1) / 2f; val centerY = (bitmap.height - 1) / 2f
+        val horizontalCenter = (horizontalRows.first() + horizontalRows.last()) / 2f
+        val verticalCenter = (verticalColumns.first() + verticalColumns.last()) / 2f
+        assertTrue("ADD plus horizontal center=$horizontalCenter expected=$centerY", kotlin.math.abs(horizontalCenter - centerY) <= 1.5f)
+        assertTrue("ADD plus vertical center=$verticalCenter expected=$centerX", kotlin.math.abs(verticalCenter - centerX) <= 1.5f)
+        assertTrue("ADD plus horizontal width=${horizontalRows.size}", horizontalRows.size <= 2.2f * rule.density.density + 1f)
+        assertTrue("ADD plus vertical width=${verticalColumns.size}", verticalColumns.size <= 2.2f * rule.density.density + 1f)
+        val horizontalXs = (0 until bitmap.width).filter { x -> horizontalRows.any { y -> isDarkInk(x, y) } }
+        val verticalYs = (0 until bitmap.height).filter { y -> verticalColumns.any { x -> isDarkInk(x, y) } }
+        val leftArm = centerX - horizontalXs.min(); val rightArm = horizontalXs.max() - centerX
+        val topArm = centerY - verticalYs.min(); val bottomArm = verticalYs.max() - centerY
+        assertTrue("ADD plus left=$leftArm right=$rightArm", kotlin.math.abs(leftArm - rightArm) <= 1.5f)
+        assertTrue("ADD plus top=$topArm bottom=$bottomArm", kotlin.math.abs(topArm - bottomArm) <= 1.5f)
     }
 
     private fun assertDangerCardHasCoralIconAndRail() {

@@ -69,6 +69,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -546,12 +547,22 @@ fun QingKeAppContent(
 
 @Composable private fun TodayAddButton(addCourse: () -> Unit) = Button(addCourse, Modifier.size(64.dp).testTag("today-add-course").semantics { contentDescription = "添加课程" }, shape = TerminalShape, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) {
     Box(Modifier.fillMaxSize().drawBehind {
-        val fold = 13.dp.toPx(); val shadowOffset = 1.dp.toPx()
+        val fold = 13.dp.toPx(); val shadowOffset = 1.dp.toPx(); val frameInset = 3.dp.toPx(); val frameStroke = 1.dp.toPx()
         val shadow = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - fold - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, shadowOffset); lineTo(size.width - shadowOffset, fold + shadowOffset); close() }
         val foldPath = androidx.compose.ui.graphics.Path().apply { moveTo(size.width - fold, 0f); lineTo(size.width, 0f); lineTo(size.width, fold); close() }
         drawPath(shadow, InverseSurface.copy(alpha = .16f))
         drawPath(foldPath, Color.White.copy(alpha = .75f))
-    }.testTag("today-add-visual"), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("+", fontSize = 25.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif, modifier = Modifier.testTag("today-add-plus")); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
+        drawRect(Color.White.copy(alpha = .75f), topLeft = Offset(frameInset + frameStroke / 2f, frameInset + frameStroke / 2f), size = Size(size.width - frameInset * 2f - frameStroke, size.height - frameInset * 2f - frameStroke), style = Stroke(frameStroke))
+    }.testTag("today-add-visual"), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) { TodayAddPlus(InverseSurface); Text("ADD", fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("today-add-label")) } }
+}
+
+/** A 25dp light-weight plus keeps the ADD control independent of platform font glyph shapes. */
+@Composable private fun TodayAddPlus(color: Color) = Canvas(Modifier.size(25.dp).testTag("today-add-plus")) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val inset = 4.dp.toPx()
+    val stroke = 1.6.dp.toPx()
+    drawLine(color, Offset(inset, center.y), Offset(size.width - inset, center.y), stroke, StrokeCap.Round)
+    drawLine(color, Offset(center.x, inset), Offset(center.x, size.height - inset), stroke, StrokeCap.Round)
 }
 
 @Composable private fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
