@@ -1,16 +1,16 @@
 # 安卓项目当前交接状态
 
-## P3-04 视觉 R6 测试兼容返修已实施，待 Sol 集中技术复审／用户视觉验收（最新，2026-09-15）
+## P3-04 视觉 R6 已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
 本轮从 Android `5d271835cf44d4a9535925a426177b99c180522b` 开始，工作区、`origin/Android` 和远程 Android 一致且干净。仅实施用户已授权的 TODAY 日期与 ADD、ADD chooser 及 CourseEditor RGB 滑块；iOS 工作区 `/Users/takagisan/课表软件-IOS/ios`（只读 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`）未修改，未改 Web、Room/schema、共享协议、业务规则、周课表、设置、导入导出、其他阶段或 `main`。
 
-- 本轮仅修复 Android instrumentation 测试兼容性：`QingKeAppTest` 只在 API 28+ 读取 `Typeface.weight` 并保持 weight 100 的精确断言；API 26–27 改为不调用该 API 的 fallback 非粗体／非斜体断言。未改 R6 生产实现、截图或原有完整 67 项 connected 测试证据。测试修正提交为 `dc6d973`（`test(android): guard r6 date typeface assertion`），已推送 `origin/Android`；`assembleDebugAndroidTest`、`lintDebug` 通过，API 37 ARM64 定向 typography instrumentation **1 test、0 failures/errors/skipped**。
+- Sol 首次集中复审发现 Android instrumentation 测试无条件读取 API 28 才提供的 `Typeface.weight`，与 minSdk 26 不相容；生产实现和截图不受影响。本轮仅修复该测试兼容性：`QingKeAppTest` 只在 API 28+ 读取 `Typeface.weight` 并保持 weight 100 的精确断言；API 26–27 改为不调用该 API 的 fallback 非粗体／非斜体断言。测试修正提交为 `dc6d973`（`test(android): guard r6 date typeface assertion`），交接提交为 `b7f15c6`（`docs(android): record r6 typeface test compatibility fix`），均已推送 `origin/Android`；`assembleDebugAndroidTest`、`lintDebug` 通过，API 37 ARM64 定向 typography instrumentation **1 test、0 failures/errors/skipped**。
 
 - RGB 每行现在为同一基线的 `R [三位值] [滑轨]`、`G`、`B`：值使用等宽单行文本，滑轨保留原实时写回、严格 `#RRGGBB`、disabled 与触控。Compose/API 37 回归在 100%／130% 检查三个标签、值、轨道顺序与同基线，并验证拖动红通道确实变化。
 - TODAY ADD 保持 64dp、位置、语义和回调；移除了旧黑色内框／包裹线，将右上 13dp 折角替换为黄色底层上的 75% 白色折角和轻微偏移阴影，`+` 与 `ADD` 均为粗体。像素回归负向断言旧黑框为零，正向验证白角与阴影。
 - 日期数字独立使用 Android `sans-serif-condensed` 的 weight 100 Typeface，不再以 NORMAL 基础 Typeface 配合 Thin hint；只影响日期数字，中文继续由系统 fallback。chooser 的 22dp 外框改为约 3.3dp 圆角、内部加号继续严格居中，“新建一门课程”改为细体；像素回归验证圆角角点无墨、边缘有墨及既有加号中心负向探针。
-- 生产证据在 `docs/Android/evidence/p3-04-visual-r6/`，README 列出浅色／深色／130% TODAY、chooser 及 RGB 滑块 100%／130% 的逐张核验结果。返修后完整 Debug／Release JVM 各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` **0 errors、20 warnings**；API 37 ARM64 完整 `connectedDebugAndroidTest --rerun-tasks` **67 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。Android 文档 **68 tests**、两个文档脚本和 `git diff --check` 均通过。实现、测试、R6 证据与 README 提交为 `3e9f1ea`（`fix(android): refine r6 terminal course surfaces`），已推送 `origin/Android`；本交接状态提交待生成，避免在文件中自引用。
-- 最终 debug APK 已生产冷启动，重新创建并保留 `VisualR5`，恢复 light／`font_scale=1.0` 且停在 TODAY；目标 logcat 无 FATAL/ANR。准确状态：**Terra R6 已实施、已测试，待 Sol 集中技术复审及用户视觉验收；不得声称用户已验收或启动下一阶段。**
+- 生产证据在 `docs/Android/evidence/p3-04-visual-r6/`，README 列出浅色／深色／130% TODAY、chooser 及 RGB 滑块 100%／130% 的逐张核验结果。返修后完整 Debug／Release JVM 各 **92 tests、0 failures/errors/skipped**；Debug、Release、AndroidTest APK 构建通过；`lintDebug` **0 errors、20 warnings**；API 37 ARM64 完整 `connectedDebugAndroidTest --rerun-tasks` **67 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml`。Android 文档 **68 tests**、两个文档脚本和 `git diff --check` 均通过。实现、测试、R6 证据与 README 提交为 `3e9f1ea`（`fix(android): refine r6 terminal course surfaces`），首次交接提交为 `eaeb240`（`docs(android): record r6 visual delivery`），均已推送 `origin/Android`。
+- 最终 debug APK 已生产冷启动，重新创建并保留 `VisualR5`，恢复 light／`font_scale=1.0` 且停在 TODAY；目标 logcat 无 FATAL/ANR。Sol 已集中核对 R6 完整实际 diff、API 26–27 字体 fallback 与测试保护、ADD 正负向像素证明、chooser 圆角及加号中心探针、RGB 实时写回和 100%／130% 单行布局，并逐张目视核验 6 张生产截图，确认技术复审通过。**用户视觉验收仍待进行；不得据此启动下一阶段。**
 
 ## P3-04 视觉 R5 已通过 Sol 技术复审，待用户视觉验收（最新，2026-09-15）
 
