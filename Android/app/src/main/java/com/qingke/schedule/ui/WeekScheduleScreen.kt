@@ -109,7 +109,7 @@ fun WeekScheduleScreen(
                 Text("刷新中", color = weekForeground(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f)); Text("SYNC / LOCAL", color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
             }
-            WeekManifest(schedule, selectedDay, dark, actions.openCourseAt)
+            WeekManifest(schedule, semester, selectedDay, dark, actions.openCourseAt)
             Spacer(Modifier.height(100.dp))
             }
         }
@@ -173,7 +173,7 @@ fun WeekScheduleScreen(
     }
 }
 
-@Composable private fun WeekManifest(schedule: WeekSchedulePresentation, selectedDay: Int, dark: Boolean, open: (Int) -> Unit) {
+@Composable private fun WeekManifest(schedule: WeekSchedulePresentation, semester: com.qingke.schedule.domain.Semester, selectedDay: Int, dark: Boolean, open: (Int) -> Unit) {
     val day = schedule.days.first { it.dayOfWeek == selectedDay }
     Text("02 / DAY MANIFEST", color = WeekCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(top = 16.dp).testTag("week-manifest-header"))
     Text("${ScheduleDisplayText.weekdayName(selectedDay)} · ${day.date}", color = weekForeground(dark), fontWeight = FontWeight.Bold, modifier = Modifier.testTag("selected-day-title"))
@@ -183,5 +183,5 @@ fun WeekScheduleScreen(
         val key = item.occurrence.key
         Row(Modifier.fillMaxWidth().padding(top = 6.dp).background(if (dark) Color(0xDD1A2527) else Color(0xDDFBFEFD)).border(1.dp, weekSecondary(dark).copy(alpha = .35f)).clickable { open(key.courseIndex) }.testTag("week-list-${key.courseIndex}-${key.scheduleIndex}").semantics { contentDescription = "${item.occurrence.course.name}，${ScheduleDisplayText.periodRange(item.occurrence.schedule)}${if (item.isConflicting) "，冲突" else ""}" }) { Box(Modifier.width(4.dp).height(60.dp).background(if (item.isConflicting) Color(0xFFDF695F) else courseColor(item.occurrence.course.color))); Column(Modifier.padding(10.dp).weight(1f)) { Text(item.occurrence.course.name, color = weekForeground(dark), fontWeight = FontWeight.Bold); Text("${ScheduleDisplayText.periodRange(item.occurrence.schedule)} · ${ScheduleDisplayText.compactCourseDetails(item.occurrence.course, item.occurrence.schedule)}", color = weekSecondary(dark), fontSize = 11.sp); if (item.isConflicting) Text("CONFLICT", color = Color(0xFFDF695F), fontFamily = FontFamily.Monospace, fontSize = 9.sp) } }
     }
-    if (day.items.isNotEmpty()) Text("END OF MANIFEST // ${day.items.last().occurrence.schedule.endPeriod}", color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("week-end-marker"))
+    if (day.items.isNotEmpty()) Text("END OF MANIFEST // ${ScheduleDisplayText.timeRange(day.items.last().occurrence.schedule, semester).substringAfter('–')}", color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("week-end-marker"))
 }
