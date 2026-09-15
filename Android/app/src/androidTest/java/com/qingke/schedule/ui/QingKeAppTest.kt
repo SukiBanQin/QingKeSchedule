@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.content.res.Configuration
 import android.util.Xml
 import android.view.View
-import android.widget.DatePicker
 import android.widget.TimePicker
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
@@ -228,6 +227,25 @@ class QingKeAppTest {
         }
     }
 
+    @Test fun chooserPlusSquareUsesThemeForegroundInsteadOfCyan() {
+        var mode by mutableStateOf(AppearanceMode.LIGHT)
+        rule.setContent { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = mode)), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.CHOOSER)) }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { appearance ->
+            mode = appearance; rule.waitForIdle()
+            val bitmap = rule.onNodeWithTag("course-create-new-icon", useUnmergedTree = true).captureToImage().asAndroidBitmap()
+            val cyanPixels = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x ->
+                val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+                red < 80 && green > 125 && blue > 150
+            } }
+            val foregroundPixels = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x ->
+                val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+                if (appearance == AppearanceMode.LIGHT) red < 45 && green < 55 && blue < 60 else red > 210 && green > 215 && blue > 215
+            } }
+            assertTrue("$appearance cyan=$cyanPixels", cyanPixels == 0)
+            assertTrue("$appearance foreground=$foregroundPixels", foregroundPixels >= 12)
+        }
+    }
+
     @Test fun appendUsesOriginalScheduleOrdinalAndAllowsRemovingNewSchedule() {
         val existing = CourseScheduleFormState("existing", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         val newSchedule = CourseScheduleFormState("new", 2, 2, 2, 1, 18, RepeatRule.EVERY, "")
@@ -246,6 +264,10 @@ class QingKeAppTest {
         var now by mutableStateOf(LocalDateTime.parse("2026-09-01T09:00:00"))
         rule.setContent { QingKeAppContent(readyToday(), null, MainTab.TODAY, QingKeAppActions(), now) }
         rule.onNodeWithTag("today-add-course").assertIsDisplayed()
+        val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val expected = 64.dp.value * rule.density.density
+        assertTrue("ADD width=${addBounds.width}", kotlin.math.abs(addBounds.width - expected) <= 1f)
+        assertTrue("ADD height=${addBounds.height}", kotlin.math.abs(addBounds.height - expected) <= 1f)
         rule.onNodeWithText("QUEUE EMPTY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("STANDBY", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("使用右下角 ADD 录入一门新课程。", useUnmergedTree = true).assertIsDisplayed()
@@ -287,6 +309,10 @@ class QingKeAppTest {
         var state by mutableStateOf(readyToday()); var notice by mutableStateOf<String?>("课程添加成功"); var fontScale by mutableStateOf(1f); var addCalls = 0
         rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) { QingKeAppContent(state, null, MainTab.TODAY, QingKeAppActions(openAddCourse = { addCalls++ }), LocalDateTime.parse("2026-08-31T09:00"), courseSuccess = notice, consumeCourseSuccess = { notice = null }) } }
         rule.onNodeWithTag("course-success-notice").assertIsDisplayed()
+        rule.onNodeWithTag("course-success-dot", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("course-success-check", useUnmergedTree = true).assertIsDisplayed()
+        val noticeHeight = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height
+        assertTrue("notice height=$noticeHeight", noticeHeight >= 46f)
         fun assertSuccessStack() {
             val noticeBounds = rule.onNodeWithTag("course-success-notice", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val addBounds = rule.onNodeWithTag("today-add-course", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -317,6 +343,39 @@ class QingKeAppTest {
         assertEquals(1, backs); rule.onNodeWithTag("course-editor").assertIsDisplayed(); rule.onAllNodesWithTag("course-delete-confirm").assertCountEquals(0)
         rule.onNodeWithTag("course-save-toolbar").performClick(); assertEquals(1, saves)
         rule.onNodeWithTag("course-delete").performScrollTo().performClick(); assertEquals(1, deletes)
+    }
+
+    @Test fun dangerFooterFollowsDeletePanelAndValidationUsesAcrylicDangerCard() {
+        val schedule = CourseScheduleFormState("danger", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var scale by mutableStateOf(1f)
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), validationMessage = "请填写课程名称")) } }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; scale = 1.3f; rule.waitForIdle()
+            rule.onNodeWithTag("course-validation").performScrollTo().assertIsDisplayed()
+            rule.onNodeWithTag("course-validation-icon", useUnmergedTree = true).assertIsDisplayed()
+            val validation = rule.onNodeWithTag("course-validation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue("validation height=${validation.height}", validation.height >= 52f)
+            rule.onNodeWithTag("course-danger-zone").performScrollTo()
+            rule.onNodeWithTag("course-danger-footer").performScrollTo()
+            val delete = rule.onNodeWithTag("course-delete", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val footer = rule.onNodeWithTag("course-danger-footer", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue("footer=$footer delete=$delete", footer.top >= delete.bottom)
+        }
+    }
+
+    @Test fun dialogsUseDedicatedOpaqueElevatedSurfaceAcrossThemesAndLargeFont() {
+        val schedule = CourseScheduleFormState("modal", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var scale by mutableStateOf(1f)
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Delete)) } }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; scale = 1.3f; rule.waitForIdle()
+            rule.onNodeWithTag("course-delete-confirm-backdrop").assertIsDisplayed()
+            val surface = rule.onNodeWithTag("course-delete-confirm", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val backdrop = rule.onNodeWithTag("course-delete-confirm-backdrop", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue("surface must be inside backdrop", surface.left >= backdrop.left && surface.right <= backdrop.right)
+        }
     }
 
     @Test fun newestSuccessNoticeRestartsItsOwnTimer() {
@@ -397,19 +456,41 @@ class QingKeAppTest {
         }
     }
 
-    @Test fun systemDateAndTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
+    @Test fun inlineSemesterCalendarExpandsChangesMonthsAndReturnsControlledLeapDate() {
+        var form by mutableStateOf(defaultForm().copy(startDate = LocalDate.of(2026, 12, 31)))
+        var dateUpdates = 0
+        rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(updateStartDate = { value -> dateUpdates++; form = form.copy(startDate = value) })) }
+        rule.onNodeWithTag("semester-start-date").performClick()
+        rule.onNodeWithTag("semester-start-date-calendar").assertIsDisplayed()
+        rule.onNodeWithText("2026年12月", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("semester-calendar-next").performClick()
+        rule.onNodeWithText("2027年1月", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("semester-calendar-day-2027-01-01").performClick()
+        assertEquals(LocalDate.of(2027, 1, 1), form.startDate)
+        assertEquals(1, dateUpdates)
+        rule.onNodeWithText("2027年1月1日", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("semester-start-date").performClick()
+        rule.onAllNodesWithTag("semester-start-date-calendar").assertCountEquals(0)
+    }
+
+    @Test fun inlineSemesterCalendarRetainsLeapDayAndActivityStateAcrossRecomposition() {
+        var form by mutableStateOf(defaultForm().copy(startDate = LocalDate.of(2024, 2, 1)))
+        rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(updateStartDate = { form = form.copy(startDate = it) })) }
+        rule.onNodeWithTag("semester-start-date").performClick()
+        rule.onNodeWithTag("semester-calendar-day-2024-02-29").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("semester-start-date-calendar").assertIsDisplayed()
+        rule.onNodeWithTag("semester-calendar-day-2024-02-29").assertIsDisplayed()
+        assertEquals(LocalDate.of(2024, 2, 29), form.startDate)
+    }
+
+    @Test fun systemTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
         var form by mutableStateOf(defaultForm(expanded = true))
-        var dateUpdates = 0; var startUpdates = 0; var endUpdates = 0
+        var startUpdates = 0; var endUpdates = 0
         rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(
-            updateStartDate = { value -> dateUpdates++; form = form.copy(startDate = value) },
             updatePeriodStart = { id, value -> startUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
             updatePeriodEnd = { id, value -> endUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(end = value) else it }) },
         )) }
-        rule.onNodeWithTag("semester-start-date").performClick(); waitForSystemDialog()
-        onView(isAssignableFrom(DatePicker::class.java)).perform(setDate(2026, 8, 2)); onView(withId(android.R.id.button1)).perform(click())
-        rule.onNodeWithText("开始日期：2026-08-02").assertIsDisplayed(); assertEquals(1, dateUpdates)
-        rule.onNodeWithTag("semester-start-date").performClick(); waitForSystemDialog(); onView(isAssignableFrom(DatePicker::class.java)).perform(setDate(2026, 8, 3)); onView(withId(android.R.id.button2)).perform(click())
-        rule.onNodeWithText("开始日期：2026-08-02").assertIsDisplayed(); assertEquals(1, dateUpdates)
         rule.onNodeWithTag("period-p1-start").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(7, 20)); onView(withId(android.R.id.button1)).perform(click())
         rule.onNodeWithText("07:20").assertIsDisplayed(); assertEquals(1, startUpdates)
         rule.onNodeWithTag("period-p1-end").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(8, 10)); onView(withId(android.R.id.button1)).perform(click())
@@ -681,12 +762,6 @@ class QingKeAppTest {
             }
         }
         assertTrue("$appearance fontScale=$fontScale close text lightInk=$lightInk", lightInk >= 20)
-    }
-
-    private fun setDate(year: Int, month: Int, day: Int) = object : ViewAction {
-        override fun getDescription() = "set DatePicker value"
-        override fun getConstraints(): Matcher<View> = isAssignableFrom(DatePicker::class.java)
-        override fun perform(uiController: UiController, view: View) { (view as DatePicker).updateDate(year, month - 1, day) }
     }
 
     private fun setTime(hour: Int, minute: Int) = object : ViewAction {

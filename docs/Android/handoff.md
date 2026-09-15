@@ -1,5 +1,15 @@
 # 安卓项目当前交接状态
 
+## P3-04 视觉 R3＋首次设置月历补充已实施并待 Sol 审查／用户验收（最新，2026-09-15）
+
+本轮仅实施用户明确授权的七项视觉修正及首次设置日期控件：开始日期从系统 `DatePickerDialog` 改为页面内、周一开头的中文月历（跨月／跨年和闰日）；TODAY ADD 为 64dp；chooser `plus.square` 使用主题正文前景；危险区 footer 移至删除按钮面板外下方；确认层采用高不透明度专用 elevated acrylic；成功通知改为黄色左线／圆点／勾；课程和学期校验改为危险提示卡。未修改周课表、完整设置、通知、导入导出、iOS、Web、`source/`、Room 或共享协议，也未合并 `main`。
+
+- 开始基准为 `951777b9471202aa7502949b074add49b53b4e5f`，分支 `Android`，开始时工作区干净；远程 `origin/Android` 同为该提交。当前实施尚待本轮提交，提交号不得在此处预写。
+- 新增 `SemesterMonthGrid` 的 JVM 边界测试，Compose／API 37 回归涵盖月历展开收起、跨年／闰日与受控回调、64dp ADD 与通知垂直栈、chooser 图标浅深像素前景、危险区顺序、modal 表面、toast、浅深／130% 校验卡。
+- 完整验证：Debug／Release JVM 各 **90 tests、0 failures/errors/skipped**；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 通过；`lintDebug` **0 errors、21 warnings**；API 37 ARM64 `qingke-api37-r3-arm`（`emulator-5554`）完整 `connectedDebugAndroidTest --rerun-tasks` **63 tests、0 failures/errors/skipped**，XML 位于 `Android/app/build/outputs/androidTest-results/connected/debug/`。
+- 生产入口：清数据冷启动显示首次设置，页面内月历已实际展开；保存后进入 TODAY，CREATE／EDIT 保存和成功通知已检查；浅色／深色／130% 复拍在 `docs/Android/evidence/p3-04-visual-r3/`。目标 logcat 未匹配 FATAL／ANR。设备已恢复 light／1.0，生产 App 停在 TODAY，并保留 `VisualR3` 课程供用户查看。
+- 准确状态：**已实现、已测试、等待 Sol 集中实际 diff 审查；用户尚未验收。** 不得据此启动下一阶段或声称用户视觉认可。
+
 ## 切换新 Sol 主窗口：P3-04 B4 R2 等待用户视觉验收（最新，2026-09-15）
 
 用户因当前窗口上下文较长，要求保存现场并切换到新的 Sol 主窗口。当前仓库为 `/Users/takagisan/课表软件`，分支 `Android`；交接前代码与流程基准为 `b85e6df`，其中 `cccbb26` 是 TODAY／ADD chooser／CourseEditor 视觉返工及验证提交，`b85e6df` 是“完整实施与集中审查”协作规则提交。二者均已推送 `origin/Android`，不合并 `main`。
