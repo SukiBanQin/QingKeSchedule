@@ -7,13 +7,12 @@ import android.os.Build
 import android.os.SystemClock
 import android.content.res.Configuration
 import android.util.Xml
-import android.view.View
-import android.widget.TimePicker
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,12 +51,6 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.ViewAction
-import androidx.test.espresso.UiController
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
-import androidx.test.espresso.matcher.ViewMatchers.withId
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.CourseSchedule
@@ -82,7 +75,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.hamcrest.Matcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -726,9 +718,12 @@ class QingKeAppTest {
         rule.onNodeWithTag("period-q2-delete").performScrollTo().performClick()
         assertEquals("q2", removed)
         assertEquals(listOf("q1", "q3"), form.periods.map { it.id })
-        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick(); waitForSystemDialog()
-        onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(7, 20)); onView(withId(android.R.id.button1)).perform(click())
-        rule.waitForIdle()
+        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-time-picker-hour-07").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-minute-20").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:20")
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
         assertEquals(LocalTime.of(7, 20), form.periods.first().start)
         rule.onNodeWithTag("period-q1-start").performScrollTo().assertTextContains("07:20")
     }
@@ -878,19 +873,107 @@ class QingKeAppTest {
         }
     }
 
-    @Test fun systemTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues() {
+    @Test fun terminalTimePickerWritesOnlyOnConfirmAndIgnoresCancelAndBack() {
         var form by mutableStateOf(defaultForm(expanded = true))
-        var startUpdates = 0; var endUpdates = 0
-        rule.setContent { QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(
-            updatePeriodStart = { id, value -> startUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
-            updatePeriodEnd = { id, value -> endUpdates++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(end = value) else it }) },
-        )) }
-        rule.onNodeWithTag("period-p1-start").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(7, 20)); onView(withId(android.R.id.button1)).perform(click())
-        rule.onNodeWithText("07:20").assertIsDisplayed(); assertEquals(1, startUpdates)
-        rule.onNodeWithTag("period-p1-end").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(8, 10)); onView(withId(android.R.id.button1)).perform(click())
-        rule.onNodeWithText("08:10").assertIsDisplayed(); assertEquals(1, endUpdates)
-        rule.onNodeWithTag("period-p1-end").performClick(); waitForSystemDialog(); onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(8, 30)); onView(withId(android.R.id.button2)).perform(click())
-        rule.onNodeWithText("08:10").assertIsDisplayed(); assertEquals(1, endUpdates)
+        var startWrites = 0
+        var endWrites = 0
+        rule.setContent {
+            QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(
+                updatePeriodStart = { id, value -> startWrites++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
+                updatePeriodEnd = { id, value -> endWrites++; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(end = value) else it }) },
+            ))
+        }
+        rule.onNodeWithTag("period-p1-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-time-picker-title").assertTextContains("第 1 节 开始时间")
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("08:00")
+        rule.onNodeWithTag("terminal-time-picker-hour-07").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-minute-20").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:20")
+        assertEquals(0, startWrites)
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(1, startWrites)
+        assertEquals(LocalTime.of(7, 20), form.periods.first().start)
+        rule.onAllNodesWithTag("terminal-time-picker").assertCountEquals(0)
+
+        rule.onNodeWithTag("period-p1-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-hour-09").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-cancel").performClick(); rule.waitForIdle()
+        assertEquals(1, startWrites)
+        assertEquals(LocalTime.of(7, 20), form.periods.first().start)
+
+        rule.onNodeWithTag("period-p1-end").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-minute-05").performScrollTo().performClick()
+        androidx.test.espresso.Espresso.pressBack(); rule.waitForIdle()
+        rule.onAllNodesWithTag("terminal-time-picker").assertCountEquals(0)
+        assertEquals(0, endWrites)
+        assertEquals(LocalTime.of(8, 45), form.periods.first().end)
+    }
+
+    @Test fun terminalTimePickerKeepsItsTargetAfterPeriodsAreAddedOrRemoved() {
+        var form by mutableStateOf(defaultForm(count = 3, expanded = true))
+        var lastStart: Pair<String, LocalTime>? = null
+        rule.setContent {
+            QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(
+                updatePeriodStart = { id, value -> lastStart = id to value; form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
+                addPeriod = { form = form.copy(periods = form.periods + PeriodFormState("p4", form.periods.size + 1, LocalTime.of(21, 0), LocalTime.of(21, 45))) },
+                removePeriod = { id -> form = form.copy(periods = form.periods.filterNot { it.id == id }.mapIndexed { index, period -> period.copy(number = index + 1) }) },
+            ))
+        }
+        rule.onNodeWithTag("period-p2-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-hour-06").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-minute-00").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals("p2" to LocalTime.of(6, 0), lastStart)
+
+        rule.onNodeWithTag("period-p1-delete").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf("p2", "p3"), form.periods.map { it.id })
+        assertEquals(listOf(1, 2), form.periods.map { it.number })
+        rule.onNodeWithTag("period-p3-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-title").assertTextContains("第 2 节 开始时间")
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("09:50")
+        rule.onNodeWithTag("terminal-time-picker-cancel").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("add-period").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("period-p4-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("21:00")
+        rule.onNodeWithTag("terminal-time-picker-cancel").performClick()
+    }
+
+    @Test fun terminalTimePickerStaysUsableAcrossThemesFontScalesAndSmallScreens() {
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var scale by mutableStateOf(1f)
+        var narrow by mutableStateOf(false)
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) {
+                val page: @Composable () -> Unit = {
+                    QingKeAppContent(
+                        settingsState().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)),
+                        existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+                    )
+                }
+                if (narrow) Box(Modifier.size(320.dp, 640.dp).testTag("narrow-root")) { page() } else page()
+            }
+        }
+        listOf(1f, 1.3f).forEach { fontScale ->
+            listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+                scale = fontScale; appearance = mode; rule.waitForIdle()
+                rule.onNodeWithTag("period-q1-start").performScrollTo().performClick()
+                rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+                listOf("terminal-time-picker-confirm", "terminal-time-picker-cancel").forEach {
+                    rule.onNodeWithTag(it).assertIsDisplayed()
+                    assertAtLeast48Dp(it)
+                }
+                rule.onNodeWithTag("terminal-time-picker-hour-23").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("terminal-time-picker-minute-59").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("terminal-time-picker-cancel").performClick(); rule.waitForIdle()
+            }
+        }
+        narrow = true; scale = 1.3f; rule.waitForIdle()
+        rule.onNodeWithTag("period-q2-end").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        assertFitsInside("terminal-time-picker", "narrow-root")
+        rule.onNodeWithTag("terminal-time-picker-cancel").performClick()
     }
 
     @Test fun addAndDeleteUseCallbacksRenumberAndExposeNumberedDeleteSemantics() {
@@ -1265,18 +1348,32 @@ class QingKeAppTest {
         assertTrue("settings stepper must stay a 48dp borderless glyph, width=$settingsStepperWidth", settingsStepperWidth in 44f..50f)
     }
 
-    @Test fun onboardingBodyKeepsTheAcceptedR3Controls() {
-        rule.setContent { QingKeAppContent(onboarding(), defaultForm(expanded = true), MainTab.TODAY, formActions()) }
-        rule.onNodeWithText("收起节次设置（10 节）").assertIsDisplayed()
-        rule.onNodeWithTag("period-p1-start").assertTextEquals("08:00")
-        rule.onNodeWithTag("period-p1-end").assertTextEquals("08:45")
-        rule.onNodeWithTag("period-p1-delete").assertTextEquals("删除第 1 节")
-        rule.onNodeWithTag("period-p1-delete").assert(hasContentDescription("删除第 1 节"))
-        rule.onNodeWithTag("add-period").performScrollTo().assertTextEquals("添加节次")
-        rule.onNodeWithTag("semester-start-date-chevron", useUnmergedTree = true).assertTextEquals("⌄")
-        rule.onNodeWithTag("semester-weeks-minus", useUnmergedTree = true).performScrollTo()
-        val stepperWidth = dpWidth("semester-weeks-minus")
-        assertTrue("onboarding stepper must stay a Material button, width=$stepperWidth", stepperWidth >= 52f)
+    @Test fun onboardingUsesTheSharedTerminalPanelsAndBrandHeader() {
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        rule.setContent {
+            QingKeAppContent(
+                onboarding().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)),
+                defaultForm(count = 2, expanded = true), MainTab.TODAY, formActions(),
+            )
+        }
+        rule.onNodeWithTag("onboarding-brand-header").assertIsDisplayed()
+        rule.onNodeWithText("SETUP / 00").assertIsDisplayed()
+        rule.onNodeWithTag("onboarding-terminal-header").assertIsDisplayed()
+        rule.onNodeWithTag("onboarding-title").assertTextContains("首次设置")
+        rule.onNodeWithText("FIRST BOOT").assertIsDisplayed()
+        rule.onNodeWithText("INIT").assertIsDisplayed()
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; rule.waitForIdle()
+            assertCyanRail("onboarding-semester-panel")
+            assertCyanRail("onboarding-periods-panel")
+            assertDividersInsidePanel("onboarding-semester-divider", "onboarding-semester-panel", 2)
+            assertDividersInsidePanel("onboarding-periods-divider", "onboarding-periods-panel", 3)
+            listOf("semester-name", "semester-start-date", "semester-total-weeks").forEach { assertInsidePanel(it, "onboarding-semester-panel") }
+            listOf("daily-periods-toggle", "period-p1-start", "period-p1-end", "period-p1-delete", "add-period").forEach { assertInsidePanel(it, "onboarding-periods-panel") }
+            rule.onNodeWithTag("semester-save-title", useUnmergedTree = true).performScrollTo().assertTextContains("创建课表")
+            rule.onNodeWithTag("semester-save-subtitle", useUnmergedTree = true).assertTextContains("INITIALIZE TERMINAL")
+            assertCompactSaveCard("onboarding-bottom-spacer", "INITIALIZE TERMINAL")
+        }
     }
 
     @Test fun courseEditorSectionIndexKeepsThePreviousMetrics() {
@@ -1348,8 +1445,8 @@ class QingKeAppTest {
         assertTrue("%s must sit on the inverse bar, dark=%d/%d".format(tags.last(), save[4], save[0]), save[4] * 100 >= save[0] * 45)
     }
 
-    private fun assertCompactSaveCard() {
-        rule.onNodeWithTag("settings-bottom-spacer").performScrollTo(); rule.waitForIdle()
+    private fun assertCompactSaveCard(spacerTag: String = "settings-bottom-spacer", subtitle: String = "COMMIT CHANGES") {
+        rule.onNodeWithTag(spacerTag).performScrollTo(); rule.waitForIdle()
         val height = dpHeight("semester-save-body")
         assertTrue("semester-save-body height=$height", height in 56f..62f)
         val arrow = rule.onNodeWithTag("semester-save-arrow", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -1364,7 +1461,7 @@ class QingKeAppTest {
         assertTrue("semester-save-underline width=$underlineWidth of $cardWidth", underlineWidth >= cardWidth * 0.9f)
         val underlineInk = pixelCounts("semester-save-underline")[2]
         assertTrue("semester-save-underline signal pixels=$underlineInk", underlineInk >= 150)
-        rule.onNodeWithText("COMMIT CHANGES").assertIsDisplayed()
+        rule.onNodeWithText(subtitle).assertIsDisplayed()
     }
 
     private fun dpHeight(tag: String): Float = with(rule.density) {
@@ -1567,17 +1664,6 @@ class QingKeAppTest {
             }
         }
         assertTrue("$appearance fontScale=$fontScale close text lightInk=$lightInk", lightInk >= 20)
-    }
-
-    private fun setTime(hour: Int, minute: Int) = object : ViewAction {
-        override fun getDescription() = "set TimePicker value"
-        override fun getConstraints(): Matcher<View> = isAssignableFrom(TimePicker::class.java)
-        override fun perform(uiController: UiController, view: View) { (view as TimePicker).hour = hour; view.minute = minute }
-    }
-
-    private fun waitForSystemDialog() {
-        rule.waitForIdle()
-        SystemClock.sleep(250)
     }
 
     private fun pullAndAssertOneRefresh(before: Int, refreshes: () -> Int) {

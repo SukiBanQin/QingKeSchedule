@@ -1,6 +1,21 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 设置页视觉返修 R5 已实施，等待 Sol 复审与用户重新验收（最新，2026-09-19）
+## P3-06／A06 视觉返修 R6 已实施，等待 Sol 复审与用户视觉验收（最新，2026-09-19）
+
+R6 按用户要求完成两项调整：**（1）首次设置改成与正式设置页一致的终端风格**（复用 01／02 单一青线面板、内部横线、节次行与添加入口，新增 `SETUP / 00` 品牌头与 `FIRST BOOT`／首次设置／`INIT 00` 介绍区，底部改为「创建课表／INITIALIZE TERMINAL」黑色保存卡片，顶部仍是黑底黄字）；**（2）移除两页共用的 Android `TimePickerDialog`**，改为共享的终段时间选择器（24 小时 + 00—59 分钟双列数字、顶部 HH:MM、取消／确认、系统返回等同取消，确认才写入）。由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与范围：分支 `Android`，开始基准 `4df81f6`（已推送 `origin/Android`）；只新增本次修正提交，未改写历史、未强推、未合并 `main`。修改 `Android/app/src/main/java/com/qingke/schedule/ui/QingKeApp.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt` 与 `docs/Android/`（交接、实施计划、功能基线、新增 R6 证据目录）；未改业务逻辑、ViewModel、Room、DataStore、共享协议、iOS、Web，未实施 A07／A08／A10／A11 与导入功能，未覆盖 R2—R5 历史证据。
+- 共享组件抽取（避免两页漂移）：`TerminalSemesterForm` 渲染两页的 01／02 面板、节次行与提交卡片；`TerminalToolbar`／`TerminalIntro(onboarding)`／`TerminalNameField`／`TerminalDateControl`／`TerminalWeekControl`／`TerminalPeriodRow`／`TerminalCommitCard`／`TerminalTimePickerState`／`TerminalTimePickerHost` 均只有一份实现；页面差异只剩 tag 前缀、品牌头代码、介绍区与卡片文案。
+- 时间选择状态稳定性：以 `PeriodTimeTarget(periodId, PeriodTimeField.START/END)` 标识，`TerminalTimePickerHost` 只在目标节次仍存在时渲染（否则关闭），行本身不保存位置索引，因此增删节次不会串位；取消与系统返回只关闭不写入，确认才调用既有 `updatePeriodStart`／`updatePeriodEnd`。时间先后与重叠等校验规则未改。
+- 新增／改写测试：`onboardingUsesTheSharedTerminalPanelsAndBrandHeader`（品牌头、FIRST BOOT／INIT 00、青线面板与内部横线计数、节次行与添加入口同属面板、创建课表卡片契约，浅深色）、`terminalTimePickerWritesOnlyOnConfirmAndIgnoresCancelAndBack`（开始／结束、确认写入、取消不写、系统返回不写）、`terminalTimePickerKeepsItsTargetAfterPeriodsAreAddedOrRemoved`（增删节次后仍写到正确 periodId）、`terminalTimePickerStaysUsableAcrossThemesFontScalesAndSmallScreens`（浅深色 × 100%／130% × 320dp 窄屏，取消／确认 ≥48dp，23 时与 59 分可达）；`settingsPeriodsToggleAddRemoveAndTimePickerUseRealCallbacks` 改用共享选择器，删除 2 项系统 TimePicker 用例与相应 espresso 依赖。
+- 验证：工作区副本 `./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **104 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**；设备复用当时已在运行的 API 37 ARM64 AVD（emulator-5554，1080x2400@420dpi）：定向 `QingKeAppTest` **65 tests、0 failures**，完整 `connectedDebugAndroidTest` **94 tests、0 failures／errors／skipped**（R5 基线 92，本轮删除 1 项、改写 1 项、新增 3 项后净增 2）；文档测试 71 tests OK、`documentation.test.sh`／`repository-layout.test.sh` 与 `git diff --check` 通过。
+- 截图：新建 `docs/Android/evidence/p3-06-a06-settings-r6/`（不覆盖 R2—R5 历史证据）共 8 张：首次设置浅色／深色／展开节次／130%、正式设置展开节次（共享组件对照）、时间选择器开始（浅色）／结束（深色）／小屏 720x1280@320；逐张目视结论与主机／设备记录见该目录 README 与 `host-and-device-verification-20260919.txt`。
+- 已知差异与限制：首次设置顶部按钮文案沿用「保存／保存中」（iOS 为「继续」），以保持既有保存行为与用例稳定；首次设置页不含导入入口；A07／A08／A10／A11 仍未实施。本窗口在沙箱内以 root 运行 Gradle（工作区副本 `/private/tmp/qingke-r6`；本轮开始 /private/tmp 的临时 Gradle 目录已被清理并已按记录重建），结束时已核对无 root 所有文件、无遗留 Gradle／模拟器进程，并把设备恢复为 AVD 默认窗口、密度、字体比例与浅色模式。
+- 准确状态：**R6 已实现、已测试；Sol 复审与用户视觉验收均未进行**。R5 的复审／验收结论未在本窗口记录，以用户与 Sol 窗口为准。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## P3-06／A06 设置页视觉返修 R5 已实施（历史，2026-09-19）
+
+> 状态更新（2026-09-19）：用户随后提出 R6 两项调整（首次设置终端风格化、共享终段时间选择器替换 Android TimePickerDialog），见顶部最新节；本节记录与截图保留为历史。
 
 R4 提交 `94012b3` 经 Sol 复审发现两项问题：**（1）设置页 01 面板展开「开始日期」日历时，日期行与 `InlineMonthCalendar` 之间缺少 iOS 的 `TerminalFormDivider`**；**（2）R4 的设置页样式越过了范围**——`WeekControl`／`PeriodRow` 的新样式同时改变了已验收的首次设置正文，`TerminalSectionHeader` 的粗黑等宽字体也影响了课程编辑器。本轮（R5）只修这两项，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
 
