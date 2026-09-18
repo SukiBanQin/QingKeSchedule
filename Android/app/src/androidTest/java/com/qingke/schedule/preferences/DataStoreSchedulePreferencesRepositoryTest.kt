@@ -3,12 +3,19 @@ package com.qingke.schedule.preferences
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.qingke.schedule.domain.withLunchBreakTimes
+import com.qingke.schedule.domain.withMakeupTeachingDay
+import com.qingke.schedule.domain.withNonTeachingDate
+import com.qingke.schedule.domain.withWeekendsAreNonTeachingDays
 import java.io.File
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -202,6 +209,68 @@ class DataStoreSchedulePreferencesRepositoryTest {
                 ),
                 repository.load(),
             )
+            repository.close()
+        }
+    }
+
+    /** A07: calendar edits made through `update` accumulate, normalize and survive a DataStore restart. */
+    @Test fun academicCalendarEditsAccumulateThroughUpdateAndSurviveReopen() {
+        runBlocking {
+            val file = file("calendar-edits")
+            val repository = DataStoreSchedulePreferencesRepository.create(file)
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withNonTeachingDate(LocalDate.parse("2026-10-02"))) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withNonTeachingDate(LocalDate.parse("2026-10-01"))) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withNonTeachingDate(LocalDate.parse("2026-10-01"))) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withMakeupTeachingDay(LocalDate.parse("2026-10-10"), 2)) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withMakeupTeachingDay(LocalDate.parse("2026-10-10"), 6)) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withWeekendsAreNonTeachingDays(true)) }
+            repository.update { it.copy(academicCalendar = requireNotNull(it.academicCalendar.withLunchBreakTimes("12:00", "13:30"))) }
+            repository.close()
+
+            val reopened = DataStoreSchedulePreferencesRepository.create(file)
+            val calendar = reopened.load().academicCalendar
+            assertTrue(calendar.weekendsAreNonTeachingDays)
+            assertEquals(listOf("2026-10-01", "2026-10-02"), calendar.nonTeachingDates)
+            assertEquals(listOf(MakeupTeachingDay("2026-10-10", 6)), calendar.makeupTeachingDays)
+            assertEquals("12:00", calendar.lunchBreak.startTime)
+            assertEquals("13:30", calendar.lunchBreak.endTime)
+            assertEquals("午休", calendar.lunchBreak.title)
+            assertTrue(calendar.lunchBreak.isEnabled)
+            reopened.close()
+        }
+    }
+
+    /** The same date cannot be a stop day and a makeup day; the last edit wins and stays exclusive after reopen. */
+    @Test fun sameDateCalendarEditsStayMutuallyExclusiveAfterReopen() {
+        runBlocking {
+            val file = file("calendar-mutex")
+            val repository = DataStoreSchedulePreferencesRepository.create(file)
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withMakeupTeachingDay(LocalDate.parse("2026-10-05"), 4)) }
+            repository.update { it.copy(academicCalendar = it.academicCalendar.withNonTeachingDate(LocalDate.parse("2026-10-05"))) }
+            repository.close()
+
+            val reopened = DataStoreSchedulePreferencesRepository.create(file)
+            val calendar = reopened.load().academicCalendar
+            assertEquals(listOf("2026-10-05"), calendar.nonTeachingDates)
+            assertEquals(emptyList<MakeupTeachingDay>(), calendar.makeupTeachingDays)
+
+            reopened.update { it.copy(academicCalendar = it.academicCalendar.withMakeupTeachingDay(LocalDate.parse("2026-10-05"), 7)) }
+            val swapped = reopened.load().academicCalendar
+            assertEquals(emptyList<String>(), swapped.nonTeachingDates)
+            assertEquals(listOf(MakeupTeachingDay("2026-10-05", 7)), swapped.makeupTeachingDays)
+            reopened.close()
+        }
+    }
+
+    /** An invalid range never overwrites the stored lunch break, matching the iOS `setLunchBreak` contract. */
+    @Test fun invalidLunchRangeKeepsTheStoredValue() {
+        runBlocking {
+            val repository = repository("calendar-lunch")
+            repository.update { it.copy(academicCalendar = requireNotNull(it.academicCalendar.withLunchBreakTimes("12:00", "13:30"))) }
+            val rejected = repository.update { it.copy(academicCalendar = it.academicCalendar.withLunchBreakTimes("14:00", "11:40") ?: it.academicCalendar) }
+            assertEquals("12:00", rejected.academicCalendar.lunchBreak.startTime)
+            assertEquals("13:30", rejected.academicCalendar.lunchBreak.endTime)
+            assertNull(rejected.academicCalendar.withLunchBreakTimes("13:00", "12:00"))
             repository.close()
         }
     }

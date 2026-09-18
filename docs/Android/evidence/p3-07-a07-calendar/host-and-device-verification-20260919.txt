@@ -1,0 +1,68 @@
+P3-07／A07 教学日历 主机与设备验证记录（2026-09-19）
+
+一、主机环境与本窗口限制
+
+- 工作区：/Users/takagisan/课表软件，分支 Android，开始基准 05248f2（与 origin/Android 一致，工作区干净）。
+- JDK 17（ms-17.0.20.1），Android SDK /Users/takagisan/Library/Android/sdk-qingke-api37。
+- 本窗口以普通用户 takagisan 运行，DSH 文件沙箱只允许写工作区与 /tmp，因此：
+  * GRADLE_USER_HOME=/tmp/qingke-gradle（从 ~/.gradle 拷贝的副本，~/.gradle 只读）；
+  * HOME=/tmp/qingke-userhome 且 -Duser.home=/tmp/qingke-userhome，使 Kotlin 编译 daemon 的标记文件写到可写目录；
+  * ANDROID_USER_HOME=/tmp/qingke-android-home、TMPDIR=/tmp/qingke-tmp、-Djava.io.tmpdir、-Dorg.sqlite.tmpdir；
+  * 工作区路径含中文（课表软件）。若 Kotlin daemon 不可用而回退到 in-process，KGP 的 *.compiler.options 中的非 ASCII 转义不会被还原，会出现 “source file or directory not found: .../u8BFEu8868u8F6Fu4EF6/...” 的假编译错误；设置 -Duser.home 让 daemon 正常工作后该问题不再出现（本轮所有构建均在仓库工作区直接执行，未使用工作区副本）。
+- 本窗口未读取或修改 iOS 工作区以外的内容；iOS 只读基准为 /Users/takagisan/课表软件-IOS（HEAD fc3ddfb，与 origin/IOS 一致），本轮只读取 ReminderSettings.swift、SemesterFormView.swift、SchedulePresentation.swift、NotificationScheduling.swift、ScheduleAppState.swift。
+
+二、主机侧命令与结果（在 /Users/takagisan/课表软件/Android 执行）
+
+命令（等价形式，环境变量如上）：
+  ./gradlew -Duser.home=/tmp/qingke-userhome -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp \
+    testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --console=plain
+
+结果：
+  BUILD SUCCESSFUL（18s，暖缓存；首次全量构建含 KSP 亦通过）
+  testDebugUnitTest   : 121 tests, 0 failures, 0 errors, 0 skipped
+  testReleaseUnitTest : 121 tests, 0 failures, 0 errors, 0 skipped
+  assembleDebug / assembleRelease / assembleDebugAndroidTest : 全部通过
+  lintDebug           : 0 errors, 20 warnings（与 R6 基线相同的既有警告，未新增）
+
+本轮新增 JVM 用例：
+  domain/AcademicCalendarRulesTest（8）：优先级、周末开关、同日互斥、去重排序、同日调课替换来源星期、非法日期／星期与年 0 输入、午休默认值与范围校验、normalized 归一化。
+  presentation/SchedulePresentationTest（+3）：调课日按目标周单双周且不移动原星期课程、午休仅改变周表停课条而不改节次与课程、教学日历编辑后今日与周表一致。
+  viewmodel/ScheduleViewModelTest（+6）：写入经 updatePreferences 基于最新值累计、重复日期去重排序与来源星期替换、同日互斥、非法午休不写入、写入失败保留旧值并报错、取消保留旧值且不报普通错误。
+
+三、设备侧
+
+- 模拟器：API 37 ARM64 AVD `qingke-api37-r3-arm`（Pixel 2 骨架，原生 1080x1920@420）；本窗口以
+  emulator -netdelay none -netspeed full -avd qingke-api37-r3-arm -qt-hide-window -port 5554 -no-boot-anim
+  启动（ANDROID_AVD_HOME=/tmp/qingke-avd 为 AVD 的克隆副本，因为 ~/.android 只读），加载已保存的 default_boot 快照后 sys.boot_completed=1。
+- 设备状态（截图与连接测试统一）：`wm size 1080x2400`（Override，与 P3-03-R2 起记录的 API 37 视觉基准一致）、`wm density 420`、`settings put system font_scale 1.0`、`cmd uimode night no`；另单独录制 720x1280@320 与 font_scale 1.3。
+- 说明：该 AVD 的原生分辨率为 1080x1920。以原生分辨率运行时，4 个既有用例（touchTargetsAndTabSemanticsMeetTheContract、chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales、r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState、inlineSemesterCalendarRetainsLeapDayAcrossRecomposition）因节点落到屏幕外被 clip 而失败；按项目已记录的 API 37 基准（1080x2400）运行时全部通过。本轮新增用例均先 performScrollTo 再断言可见性，不依赖该分辨率差。
+
+命令：
+  ./gradlew connectedDebugAndroidTest（同一环境变量）
+结果：
+  BUILD SUCCESSFUL in 1m 46s
+  tests 104, failures 0, errors 0, skipped 0（R6 基线 94：新增 QingKeAppTest 7 项、DataStoreSchedulePreferencesRepositoryTest 3 项）
+  本轮新增设备用例：academicCalendarSectionIsSharedByBothFormsWithIndependentTagsAndRail、
+  calendarTogglesAndModesUseRealCallbacksAndHideLunchTimes、calendarDatePickerUsesItsOwnCalendarAndKeepsTheSemesterDateControlClosed、
+  calendarAddDeleteRouteDateAndSourceWeekday、lunchTimePickerWritesOnlyOnConfirmAndIgnoresCancelAndBack、
+  calendarControlsMeetTouchTargetsSemanticsAndThemesAtLargeFontAndNarrowWidth、calendarEditsFlowIntoTodayAndWeekImmediately（真实 ViewModel + 内存仓库，验证设置立即驱动今日页与周表）、
+  academicCalendarEditsAccumulateThroughUpdateAndSurviveReopen、sameDateCalendarEditsStayMutuallyExclusiveAfterReopen、invalidLunchRangeKeepsTheStoredValue。
+
+四、截图
+
+- 逐张采集命令与参数见 .a07-build/shots.sh（临时工具，不提交）；截图位于本目录，共 9 张。
+- 每张截图对应状态的可见节点与 bounds 记录：node-verification-20260919.txt（由 uiautomator dump + 标签过滤生成）。
+- 检查方式：像素分类渲染（深／浅／青／信号黄／危险红与墨迹占比）+ 节点文本、内容描述与 bounds 核对；本窗口无图形界面，未做人眼观感确认，用户视觉验收仍需用户完成。
+
+五、文档与仓库验证（仓库根目录）
+
+  python3 docs/tests/android-documentation.test.py   → Ran 71 tests, OK
+  bash docs/tests/documentation.test.sh              → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh          → Repository layout tests passed.
+  git diff --check                                   → 无空白错误
+
+六、结束时状态
+
+- 设备已恢复：wm size/density 复位为 AVD 默认（1080x1920@420）、font_scale 1.0、浅色，应用已 force-stop。
+- 未提交构建产物；工作区只保留本任务源码、测试与文档改动。
+- 本轮未创建子 Agent；实际服务、模型标识与思考参数未核实（工具无法读取）。

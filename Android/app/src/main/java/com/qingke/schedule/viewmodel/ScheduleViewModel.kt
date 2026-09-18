@@ -8,10 +8,19 @@ import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleConflict
+import com.qingke.schedule.domain.withLunchBreakEnabled
+import com.qingke.schedule.domain.withLunchBreakTimes
+import com.qingke.schedule.domain.withMakeupTeachingDay
+import com.qingke.schedule.domain.withNonTeachingDate
+import com.qingke.schedule.domain.withWeekendsAreNonTeachingDays
+import com.qingke.schedule.domain.withoutMakeupTeachingDay
+import com.qingke.schedule.domain.withoutNonTeachingDate
 import com.qingke.schedule.draft.CourseDraft
 import com.qingke.schedule.draft.CourseSaveEvaluation
 import com.qingke.schedule.draft.CourseScheduleDraft
 import com.qingke.schedule.draft.SemesterDraft
+import com.qingke.schedule.preferences.AcademicCalendarPreferences
+import com.qingke.schedule.preferences.LunchBreakSettings
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.state.ScheduleState
 import java.time.LocalDate
@@ -169,6 +178,35 @@ class ScheduleViewModel(
     }
 
     fun dismissError() = appState.clearError()
+
+    /* A07 academic calendar: every write transforms the latest stored preferences inside the repository
+       update, so consecutive edits cannot overwrite each other with a stale snapshot. */
+
+    fun setWeekendsAreNonTeachingDays(enabled: Boolean) = updateCalendar { it.withWeekendsAreNonTeachingDays(enabled) }
+
+    fun addNonTeachingDate(date: LocalDate) = updateCalendar { it.withNonTeachingDate(date) }
+
+    fun removeNonTeachingDate(date: String) = updateCalendar { it.withoutNonTeachingDate(date) }
+
+    fun addMakeupTeachingDay(date: LocalDate, followsDayOfWeek: Int) = updateCalendar { it.withMakeupTeachingDay(date, followsDayOfWeek) }
+
+    fun removeMakeupTeachingDay(date: String) = updateCalendar { it.withoutMakeupTeachingDay(date) }
+
+    fun setLunchBreakEnabled(enabled: Boolean) = updateCalendar { it.withLunchBreakEnabled(enabled) }
+
+    /** Matches iOS: a range whose start is not earlier than its end is rejected and nothing is written. */
+    fun setLunchBreakTimes(startTime: LocalTime, endTime: LocalTime) {
+        val start = startTime.toString()
+        val end = endTime.toString()
+        if (!LunchBreakSettings.isValidRange(start, end)) return
+        updateCalendar { it.withLunchBreakTimes(start, end) ?: it }
+    }
+
+    private fun updateCalendar(transform: (AcademicCalendarPreferences) -> AcademicCalendarPreferences) {
+        viewModelScope.launch {
+            appState.updatePreferences { preferences -> preferences.copy(academicCalendar = transform(preferences.academicCalendar)) }
+        }
+    }
 
     fun consumeCourseSuccess() { mutableCourseSuccess.value = null }
 

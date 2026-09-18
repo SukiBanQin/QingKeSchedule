@@ -5,6 +5,8 @@ import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.persistence.ScheduleRepository
+import com.qingke.schedule.preferences.LunchBreakSettings
+import com.qingke.schedule.preferences.MakeupTeachingDay
 import com.qingke.schedule.preferences.SchedulePreferences
 import com.qingke.schedule.preferences.SchedulePreferencesRepository
 import com.qingke.schedule.state.LoadStatus
@@ -472,6 +474,121 @@ class ScheduleViewModelTest {
         assertNotNull(model.editor.value); assertFalse(model.editor.value!!.isInFlight); assertNotNull(model.state.value.error)
     }
 
+    @Test
+    fun calendarWritesTransformTheLatestStoredPreferencesAndPublishTheResult() = runTest {
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), now = { LocalDateTime.parse("2026-09-02T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+
+        model.setWeekendsAreNonTeachingDays(true)
+        model.addNonTeachingDate(LocalDate.parse("2026-10-01"))
+        model.addMakeupTeachingDay(LocalDate.parse("2026-10-10"), 4)
+        model.setLunchBreakEnabled(false)
+        advanceUntilIdle()
+
+        assertEquals(4, preferences.updateCalls)
+        val calendar = model.state.value.preferences.academicCalendar
+        assertTrue(calendar.weekendsAreNonTeachingDays)
+        assertEquals(listOf("2026-10-01"), calendar.nonTeachingDates)
+        assertEquals(listOf(MakeupTeachingDay("2026-10-10", 4)), calendar.makeupTeachingDays)
+        assertFalse(calendar.lunchBreak.isEnabled)
+        assertEquals(calendar, preferences.preferences.academicCalendar)
+    }
+
+    @Test
+    fun calendarDuplicateDatesDeduplicateSortAndReplaceTheMakeupSourceWeekday() = runTest {
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.addNonTeachingDate(LocalDate.parse("2026-10-05"))
+        model.addNonTeachingDate(LocalDate.parse("2026-10-01"))
+        model.addNonTeachingDate(LocalDate.parse("2026-10-05"))
+        model.addMakeupTeachingDay(LocalDate.parse("2026-10-10"), 2)
+        model.addMakeupTeachingDay(LocalDate.parse("2026-10-10"), 6)
+        model.addMakeupTeachingDay(LocalDate.parse("2026-09-26"), 3)
+        advanceUntilIdle()
+
+        val calendar = model.state.value.preferences.academicCalendar
+        assertEquals(listOf("2026-10-01", "2026-10-05"), calendar.nonTeachingDates)
+        assertEquals(listOf(MakeupTeachingDay("2026-09-26", 3), MakeupTeachingDay("2026-10-10", 6)), calendar.makeupTeachingDays)
+
+        model.removeNonTeachingDate("2026-10-01")
+        model.removeMakeupTeachingDay("2026-09-26")
+        advanceUntilIdle()
+        assertEquals(listOf("2026-10-05"), model.state.value.preferences.academicCalendar.nonTeachingDates)
+        assertEquals(listOf(MakeupTeachingDay("2026-10-10", 6)), model.state.value.preferences.academicCalendar.makeupTeachingDays)
+    }
+
+    @Test
+    fun calendarSameDateMutexAppliesThroughTheViewModel() = runTest {
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.addMakeupTeachingDay(LocalDate.parse("2026-10-01"), 2)
+        model.addNonTeachingDate(LocalDate.parse("2026-10-01"))
+        advanceUntilIdle()
+        assertEquals(listOf("2026-10-01"), model.state.value.preferences.academicCalendar.nonTeachingDates)
+        assertEquals(emptyList<MakeupTeachingDay>(), model.state.value.preferences.academicCalendar.makeupTeachingDays)
+
+        model.addMakeupTeachingDay(LocalDate.parse("2026-10-01"), 5)
+        advanceUntilIdle()
+        assertEquals(emptyList<String>(), model.state.value.preferences.academicCalendar.nonTeachingDates)
+        assertEquals(listOf(MakeupTeachingDay("2026-10-01", 5)), model.state.value.preferences.academicCalendar.makeupTeachingDays)
+    }
+
+    @Test
+    fun invalidLunchRangeIsRejectedWithoutWritingWhileAValidRangePersists() = runTest {
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.setLunchBreakTimes(LocalTime.of(14, 0), LocalTime.of(11, 40))
+        model.setLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(12, 0))
+        advanceUntilIdle()
+        assertEquals(0, preferences.updateCalls)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+
+        model.setLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(13, 30))
+        advanceUntilIdle()
+        assertEquals(1, preferences.updateCalls)
+        assertEquals("12:00", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertEquals("13:30", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+        assertEquals("午休", model.state.value.preferences.academicCalendar.lunchBreak.title)
+        assertTrue(model.state.value.preferences.academicCalendar.lunchBreak.isEnabled)
+    }
+
+    @Test
+    fun calendarWriteFailureKeepsTheStoredValueAndReportsTheError() = runTest {
+        val preferences = FakePreferencesRepository().also { it.failUpdate = true }
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.setWeekendsAreNonTeachingDays(true)
+        model.addNonTeachingDate(LocalDate.parse("2026-10-01"))
+        advanceUntilIdle()
+
+        assertFalse(model.state.value.preferences.academicCalendar.weekendsAreNonTeachingDays)
+        assertEquals(emptyList<String>(), model.state.value.preferences.academicCalendar.nonTeachingDates)
+        assertNotNull(model.state.value.error)
+        assertFalse(model.state.value.isSaving)
+    }
+
+    @Test
+    fun calendarWriteCancellationKeepsThePreviousStateWithoutAnOrdinaryError() = runTest {
+        val preferences = FakePreferencesRepository().also { it.cancelUpdate = true }
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.addNonTeachingDate(LocalDate.parse("2026-10-01"))
+        advanceUntilIdle()
+
+        assertEquals(emptyList<String>(), model.state.value.preferences.academicCalendar.nonTeachingDates)
+        assertNull(model.state.value.error)
+        assertFalse(model.state.value.isSaving)
+    }
+
     private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
     private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
 
@@ -480,6 +597,25 @@ class ScheduleViewModelTest {
         override suspend fun save(preferences: SchedulePreferences) = preferences
         override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences) = transform(SchedulePreferences.defaults)
     })
+
+    private fun appState(repository: FakeScheduleRepository, preferences: SchedulePreferencesRepository) = ScheduleAppState(repository, preferences)
+
+    /** Stateful preferences fake: `update` transforms the currently stored value, like DataStore does. */
+    private class FakePreferencesRepository(initial: SchedulePreferences = SchedulePreferences.defaults) : SchedulePreferencesRepository {
+        var preferences = initial
+        var updateCalls = 0
+        var failUpdate = false
+        var cancelUpdate = false
+        override suspend fun load(): SchedulePreferences = preferences
+        override suspend fun save(preferences: SchedulePreferences): SchedulePreferences {
+            updateCalls++
+            if (cancelUpdate) throw CancellationException("preferences")
+            if (failUpdate) error("preferences")
+            this.preferences = preferences
+            return preferences
+        }
+        override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences): SchedulePreferences = save(transform(preferences))
+    }
 
     private class FakeScheduleRepository : ScheduleRepository {
         var data = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z")

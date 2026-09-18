@@ -1,5 +1,7 @@
 package com.qingke.schedule.presentation
 
+import com.qingke.schedule.domain.AcademicCalendarResolver
+import com.qingke.schedule.domain.AcademicDayResolution
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.CourseOccurrence
 import com.qingke.schedule.domain.CourseSchedule
@@ -14,28 +16,6 @@ import java.text.Collator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Locale
-
-sealed interface AcademicDayResolution {
-    data class TeachingDay(val sourceDayOfWeek: Int, val isMakeup: Boolean) : AcademicDayResolution
-    data class NonTeachingDay(val reason: String) : AcademicDayResolution
-}
-
-object AcademicCalendarResolver {
-    fun resolve(date: LocalDate, preferences: AcademicCalendarPreferences): AcademicDayResolution {
-        val value = date.toString()
-        if (value in preferences.nonTeachingDates) {
-            return AcademicDayResolution.NonTeachingDay("已设为停课日")
-        }
-        preferences.makeupTeachingDays.firstOrNull { it.date == value }?.let { makeup ->
-            return AcademicDayResolution.TeachingDay(makeup.followsDayOfWeek, isMakeup = true)
-        }
-        val dayOfWeek = date.dayOfWeek.value
-        if (preferences.weekendsAreNonTeachingDays && dayOfWeek >= 6) {
-            return AcademicDayResolution.NonTeachingDay("周末默认停课")
-        }
-        return AcademicDayResolution.TeachingDay(dayOfWeek, isMakeup = false)
-    }
-}
 
 data class CourseTimingProgress(
     val elapsedSeconds: Int,

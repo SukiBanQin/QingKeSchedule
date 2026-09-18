@@ -58,9 +58,7 @@ data class LunchBreakSettings(
     val endTime: String = DEFAULT_END_TIME,
 ) {
     fun normalized(): LunchBreakSettings {
-        val startMinutes = minutes(startTime)
-        val endMinutes = minutes(endTime)
-        if (startMinutes == null || endMinutes == null || startMinutes >= endMinutes) {
+        if (!isValidRange(startTime, endTime)) {
             return defaults.copy(isEnabled = isEnabled)
         }
         return copy(title = title.trim().ifEmpty { DEFAULT_TITLE })
@@ -71,6 +69,12 @@ data class LunchBreakSettings(
         const val DEFAULT_START_TIME = "11:40"
         const val DEFAULT_END_TIME = "14:00"
         val defaults = LunchBreakSettings()
+
+        fun isValidRange(startTime: String, endTime: String): Boolean {
+            val startMinutes = minutes(startTime) ?: return false
+            val endMinutes = minutes(endTime) ?: return false
+            return startMinutes < endMinutes
+        }
 
         private fun minutes(value: String): Int? {
             if (!TIME.matches(value)) return null
@@ -88,10 +92,10 @@ data class AcademicCalendarPreferences(
     val lunchBreak: LunchBreakSettings = LunchBreakSettings.defaults,
 ) {
     fun normalized(): AcademicCalendarPreferences {
-        val nonTeaching = nonTeachingDates.filter(::isValidDate).toSortedSet()
+        val nonTeaching = nonTeachingDates.filter(AcademicCalendarPreferences::isStoredDate).toSortedSet()
         val makeupByDate = linkedMapOf<String, MakeupTeachingDay>()
         makeupTeachingDays.forEach { day ->
-            if (isValidDate(day.date) && day.followsDayOfWeek in 1..7 && day.date !in nonTeaching) {
+            if (AcademicCalendarPreferences.isStoredDate(day.date) && day.followsDayOfWeek in 1..7 && day.date !in nonTeaching) {
                 makeupByDate[day.date] = day
             }
         }
@@ -105,7 +109,7 @@ data class AcademicCalendarPreferences(
     companion object {
         val defaults = AcademicCalendarPreferences()
 
-        private fun isValidDate(value: String): Boolean =
+        fun isStoredDate(value: String): Boolean =
             DATE.matches(value) && !value.startsWith("0000-") && runCatching { LocalDate.parse(value) }.isSuccess
 
         private val DATE = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")

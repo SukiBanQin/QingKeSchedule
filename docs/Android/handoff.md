@@ -1,6 +1,22 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 已完成用户视觉验收；切换新窗口准备分析 P3-07／A07（最新，2026-09-19）
+## P3-07／A07 教学日历已实施并自测，等待 Sol 独立复审与用户视觉验收（最新，2026-09-19）
+
+用户本轮直接授权完整实施 P3-07／A07（明确不实施 A08、A10、A11）。本轮由当前窗口（DeepSeek 执行窗口）完成全部实施与自测，未创建子 Agent；实际服务、模型标识与思考参数未核实（工具不能读取）。
+
+- 当前基准：分支 `Android`，开始基准 `05248f2`（`docs(android): hand off p3-07 calendar analysis`，已推送 `origin/Android`）。本任务只新增一个实现提交，未改写历史、未强推、未合并 `main`；开始前工作区干净（仅上一窗口遗留未跟踪的 `Android/.kotlin/` 构建会话目录，本轮结束时删除，未纳入提交）。本任务提交号见交付消息或 `git log`（本文档不自引用尚未产生的提交号）。
+- 中性规则位置（要求 6）：新增 `Android/app/src/main/java/com/qingke/schedule/domain/AcademicCalendarRules.kt`，包含 `AcademicDayResolution`、`AcademicCalendarResolver`（优先级 指定停课日 > 指定调课日 > 周末停课 > 正常星期）与纯编辑规则（同日互斥、去重、按日期排序、同日调课替换来源星期、周末开关、午休开关与范围校验）。`presentation/SchedulePresentation.kt` 里的旧副本已删除、改为引用 `domain`，行为不变；今日、周表与未来 A08 都不再依赖 `presentation`。`LunchBreakSettings.isValidRange`、`AcademicCalendarPreferences.isStoredDate` 在 `preferences` 内公开为可复用纯函数，`normalized()` 语义与取值不变。
+- 写入入口（要求 1、3、9）：`ScheduleViewModel` 新增 `setWeekendsAreNonTeachingDays`、`addNonTeachingDate`、`removeNonTeachingDate`、`addMakeupTeachingDay`、`removeMakeupTeachingDay`、`setLunchBreakEnabled`、`setLunchBreakTimes`；全部经 `ScheduleAppState.updatePreferences` 在仓库 `update` 的转换内基于最新存储值原子更新，连续编辑不会互相覆盖；非法午休范围（开始不早于结束）直接拒绝且不写入；不使用 `savePreferences` 整体覆盖。设置写入立即持久化，不由「保存学期设置」驱动。
+- 调课语义（要求 4）与午休（要求 5）：调课日仍按目标日期所属教学周筛选单双周，不移动或删除原星期课程；午休只影响周课表展示（插入位置与 `WeekMatrixBreak` 逻辑未改），默认开启、标题「午休」、11:40–14:00，开始必须早于结束，不新增标题编辑。
+- 共享 UI（要求 7、8）：首次设置与正式设置共用 `TerminalSemesterForm` 内的「03 教学日历」`TerminalFormSection`（周末默认不上课、周课表显示午休及开始／结束时间、停课日／调课上课模式、日期内联日历、调课来源星期下拉、添加、两个列表与删除）。新增 `ui/AcademicCalendarUiState.kt` 持有日期／模式／展开／来源星期／午休时间并 `rememberSaveable`，午餐时间选择器为独立 `CalendarTimePickerState` 与独立 tag（`terminal-lunch-time-picker-*`），与学期日期控件、节次时间选择器完全分离；`InlineMonthCalendar`、`CompactPicker` 只增加可选参数（默认值保持既有 tag 与布局），新增 `TerminalToggleRow`／`TerminalSwitchGlyph`／`CalendarModeButton`／`CalendarExceptionRow` 复用既有终端视觉与 48dp 触控。
+- 测试：JVM 新增 17 项（`domain/AcademicCalendarRulesTest` 8 项覆盖优先级、周末开关、同日互斥、去重排序、来源星期替换、非法输入与年 0 日期、午休默认与范围校验；`presentation/SchedulePresentationTest` +3 覆盖调课目标周单双周、原星期课程不动、午休只改周表停课条、今日／周表一致；`viewmodel/ScheduleViewModelTest` +6 覆盖成功、失败、取消、连续更新与非法范围不写入）。设备端新增 10 项（`QingKeAppTest` +7：两个表单共享 03 区与独立 tag、开关与模式真实回调、内联日历独立且不影响学期日期控件、添加与删除路由日期与来源星期、午休选择器仅确认写入且取消／系统返回不写、浅深色 × 100%／130% × 320dp 触控与语义、真实 ViewModel 下设置立即驱动今日页与周表；`DataStoreSchedulePreferencesRepositoryTest` +3：update 累计与重启恢复、同日互斥、非法午休不覆盖已存值）。
+- 验证结果：工作区 `./gradlew -Duser.home=… testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **121 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**（与 R6 相同的既有警告）；API 37 ARM64 AVD（emulator-5554）`connectedDebugAndroidTest` **104 tests、0 failures／errors／skipped**（R6 基线 94 + 本轮 10）。文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 均通过。
+- 证据：新建 `docs/Android/evidence/p3-07-a07-calendar/`（不覆盖 R2—R6 历史证据），9 张真实 debug 入口截图（正式设置浅／深色、首次设置、停课日＋调课日列表、午休时间选择器、今日停课提示、周课表午休条、窄屏 320dp、130% 字号）、逐张像素与节点核对结论见该目录 README，节点 bounds 记录见 `node-verification-20260919.txt`，命令与设备记录见 `host-and-device-verification-20260919.txt`。截图检查为程序化核对（像素分类渲染 + uiautomator 节点／bounds），不等于用户观感验收。
+- 已知限制：本窗口无图形界面，未做人眼观感确认；该 AVD 原生分辨率 1080x1920，按项目记录的 API 37 视觉基准 `wm size 1080x2400`／420dpi 运行（原生分辨率下 4 个既有用例因节点被 clip 失败，非本轮改动引起）；沙箱只允许写工作区与 /tmp，因此 `GRADLE_USER_HOME`／`HOME`／`TMPDIR` 指向 /tmp 副本，`-Duser.home` 用于让 Kotlin daemon 正常工作（否则 KGP 的非 ASCII 路径转义会导致假编译错误）。未核实实际模型／思考参数，如实标注。
+- 边界确认：未实施 A08（通知权限、AlarmManager、提醒 UI、通知重建）／A10／A11；未改 Room schema、共享 JSON schema 或版本 1、iOS、Web、`main`；未新增午休标题编辑；未限制例外日期必须位于当前学期；D01 维持既有结论「版本 1 备份不携带教学日历，导入不清除本机偏好」。
+- 准确状态：**A07 已实现、已测试；Sol 独立复审与用户视觉验收均未进行，不得写成已复审或已验收**。A08／A10／A11、整个 P3 与完整 App 仍未验收；下一步由 Sol 对本次完整 diff 做独立技术复审。
+
+## P3-06／A06 已完成用户视觉验收；切换新窗口准备分析 P3-07／A07（历史，2026-09-19）
 
 用户已确认 R6 视觉结果无问题。由此关闭 P3-06／A06 的用户视觉验收门槛：A06 已实现、已测试、已通过 Sol 技术复审并获用户视觉验收；不等同于整个 P3 或完整 App 验收。
 

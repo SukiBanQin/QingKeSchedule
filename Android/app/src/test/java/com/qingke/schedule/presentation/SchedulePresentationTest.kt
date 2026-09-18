@@ -1,5 +1,7 @@
 package com.qingke.schedule.presentation
 
+import com.qingke.schedule.domain.AcademicCalendarResolver
+import com.qingke.schedule.domain.AcademicDayResolution
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.CourseOccurrence
 import com.qingke.schedule.domain.CourseSchedule
@@ -9,6 +11,8 @@ import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
+import com.qingke.schedule.domain.withMakeupTeachingDay
+import com.qingke.schedule.domain.withNonTeachingDate
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.LunchBreakSettings
 import com.qingke.schedule.preferences.MakeupTeachingDay
@@ -309,6 +313,82 @@ class SchedulePresentationTest {
         assertEquals("MON–SUN / 4 PERIODS", ScheduleDisplayText.weekMatrixSummary(4))
         assertEquals("A101 · 陈老师", ScheduleDisplayText.compactCourseDetails(data.courses.first(), schedule))
         assertEquals("", ScheduleDisplayText.compactCourseDetails(data.courses.first().copy(teacher = ""), schedule.copy(classroom = "")))
+    }
+
+    @Test
+    fun makeupDateUsesTargetWeekParityWithoutMovingTheOriginalWeekdayCourse() {
+        val oddMonday = CourseSchedule("odd-monday", 1, 1, 1, 1, 18, RepeatRule.ODD, "")
+        val courses = listOf(Course("odd-course", "单周周一课", "", "#287B74", listOf(oddMonday)))
+
+        val oddTarget = AcademicCalendarPreferences(makeupTeachingDays = listOf(MakeupTeachingDay("2026-09-05", 1)))
+        val evenTarget = AcademicCalendarPreferences(makeupTeachingDays = listOf(MakeupTeachingDay("2026-09-12", 1)))
+
+        val oddNow = LocalDateTime.parse("2026-09-05T09:00")
+        val oddWeek = WeekSchedulePresentation.create(1, semester(), courses, oddNow, oddTarget)
+        assertEquals(1, oddWeek.days[5].scheduleSourceDayOfWeek)
+        assertEquals(listOf("odd-course"), oddWeek.days[5].items.map { it.occurrence.course.id })
+        assertEquals(listOf("单周周一课"), TodaySchedulePresentation.create(semester(), courses, oddNow, oddTarget).items.map { it.occurrence.course.name })
+        assertEquals(listOf("odd-monday"), oddWeek.days.first().items.map { it.occurrence.schedule.id })
+
+        val evenNow = LocalDateTime.parse("2026-09-12T09:00")
+        val evenWeek = WeekSchedulePresentation.create(2, semester(), courses, evenNow, evenTarget)
+        assertEquals(1, evenWeek.days[5].scheduleSourceDayOfWeek)
+        assertTrue("week 2 is even, so the odd-week course must not appear on the makeup date", evenWeek.days[5].items.isEmpty())
+        assertTrue(TodaySchedulePresentation.create(semester(), courses, evenNow, evenTarget).items.isEmpty())
+        assertTrue("the original Monday column keeps its own week parity", evenWeek.days.first().items.isEmpty())
+        assertFalse(evenWeek.days.first().isNonTeachingDay)
+
+        val plainWeek = WeekSchedulePresentation.create(1, semester(), courses, oddNow)
+        assertTrue("without the makeup setting the same date stays a non-teaching weekend", plainWeek.days[5].items.isEmpty())
+    }
+
+    @Test
+    fun lunchBreakOnlyChangesTheWeekBreakRowAndNeverPeriodsOrCourses() {
+        val data = fixture()
+        val lunchSemester = Semester("semester", "测试", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+            Period(3, "10:00", "10:45"), Period(4, "14:00", "14:45"),
+        ))
+        val now = LocalDateTime.parse("2026-08-31T09:00")
+        val week = WeekSchedulePresentation.create(1, lunchSemester, data.courses, now)
+        val withLunch = WeekMatrixPresentation.create(lunchSemester, week.days, AcademicCalendarPreferences())
+        val withoutLunch = WeekMatrixPresentation.create(lunchSemester, week.days, AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(isEnabled = false)))
+
+        assertEquals(WeekMatrixBreak("午休", "11:40", "14:00", 3), withLunch.scheduleBreak)
+        assertNull(withoutLunch.scheduleBreak)
+        assertEquals(withoutLunch.periods, withLunch.periods)
+        assertEquals(withoutLunch.items, withLunch.items)
+        assertEquals(
+            TodaySchedulePresentation.create(lunchSemester, data.courses, now).items.map { it.occurrence.schedule.id },
+            TodaySchedulePresentation.create(
+                lunchSemester, data.courses, now,
+                AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(isEnabled = false)),
+            ).items.map { it.occurrence.schedule.id },
+        )
+        val movedWithinTheDay = AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(true, "午休", "12:00", "13:00"))
+        assertEquals(WeekMatrixBreak("午休", "12:00", "13:00", 3), WeekMatrixPresentation.create(lunchSemester, week.days, movedWithinTheDay).scheduleBreak)
+        assertEquals(listOf(1, 2, 3, 4), withLunch.periods.map { it.number })
+    }
+
+    @Test
+    fun academicCalendarEditsStayConsistentBetweenTodayAndWeekViews() {
+        val calendar = AcademicCalendarPreferences()
+            .withNonTeachingDate(LocalDate.parse("2026-09-01"))
+            .withMakeupTeachingDay(LocalDate.parse("2026-09-05"), 1)
+        val data = fixture()
+        val tuesday = LocalDateTime.parse("2026-09-01T09:00")
+        val saturday = LocalDateTime.parse("2026-09-05T09:00")
+
+        val stoppedToday = TodaySchedulePresentation.create(semester(), data.courses, tuesday, calendar)
+        val stoppedWeek = WeekSchedulePresentation.create(1, semester(), data.courses, tuesday, calendar)
+        assertTrue(stoppedToday.isNonTeachingDay)
+        assertTrue(stoppedWeek.days[1].isNonTeachingDay)
+        assertEquals("已设为停课日，今日不显示课程。", stoppedToday.emptyMessage)
+
+        val makeupToday = TodaySchedulePresentation.create(semester(), data.courses, saturday, calendar)
+        val makeupWeek = WeekSchedulePresentation.create(1, semester(), data.courses, saturday, calendar)
+        assertEquals(makeupWeek.days[5].items.map { it.occurrence.key }, makeupToday.items.map { it.occurrence.key })
+        assertEquals(1, makeupWeek.days[5].scheduleSourceDayOfWeek)
     }
 
     private fun fixture(): ScheduleData = ScheduleDataDecoder.decode(

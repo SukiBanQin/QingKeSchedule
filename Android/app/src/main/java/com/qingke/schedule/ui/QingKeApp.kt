@@ -86,6 +86,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,9 +100,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.qingke.schedule.domain.CourseOccurrence
 import com.qingke.schedule.domain.CourseStatus
 import com.qingke.schedule.domain.RepeatRule
+import com.qingke.schedule.domain.ScheduleRules
 import com.qingke.schedule.presentation.ScheduleDisplayText
 import com.qingke.schedule.presentation.TodayCourseItem
 import com.qingke.schedule.presentation.TodaySchedulePresentation
+import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.AppearanceMode
 import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleState
@@ -188,6 +191,13 @@ data class QingKeAppActions(
     val updateCourseEndPeriod: (String, Int) -> Unit = { _, _ -> }, val updateCourseStartWeek: (String, Int) -> Unit = { _, _ -> },
     val updateCourseEndWeek: (String, Int) -> Unit = { _, _ -> }, val updateCourseRepeat: (String, RepeatRule) -> Unit = { _, _ -> },
     val addCourseSchedule: () -> Unit = {}, val removeCourseSchedule: (String) -> Unit = {},
+    val setWeekendsAreNonTeachingDays: (Boolean) -> Unit = {},
+    val addNonTeachingDate: (LocalDate) -> Unit = {},
+    val removeNonTeachingDate: (String) -> Unit = {},
+    val addMakeupTeachingDay: (LocalDate, Int) -> Unit = { _, _ -> },
+    val removeMakeupTeachingDay: (String) -> Unit = {},
+    val setLunchBreakEnabled: (Boolean) -> Unit = {},
+    val setLunchBreakTimes: (LocalTime, LocalTime) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -233,6 +243,10 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             updateCourseEndPeriod = viewModel::updateCourseScheduleEndPeriod, updateCourseStartWeek = viewModel::updateCourseScheduleStartWeek,
             updateCourseEndWeek = viewModel::updateCourseScheduleEndWeek, updateCourseRepeat = viewModel::updateCourseScheduleRepeat,
             addCourseSchedule = viewModel::addCourseSchedule, removeCourseSchedule = viewModel::removeCourseSchedule,
+            setWeekendsAreNonTeachingDays = viewModel::setWeekendsAreNonTeachingDays,
+            addNonTeachingDate = viewModel::addNonTeachingDate, removeNonTeachingDate = viewModel::removeNonTeachingDate,
+            addMakeupTeachingDay = viewModel::addMakeupTeachingDay, removeMakeupTeachingDay = viewModel::removeMakeupTeachingDay,
+            setLunchBreakEnabled = viewModel::setLunchBreakEnabled, setLunchBreakTimes = viewModel::setLunchBreakTimes,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
         semesterSuccess, viewModel::consumeSemesterSuccess,
@@ -267,7 +281,7 @@ fun QingKeAppContent(
         when (state.loadStatus) {
             LoadStatus.NOT_LOADED, LoadStatus.LOADING -> LoadingScreen()
             LoadStatus.FAILED -> LoadErrorScreen(state.error.orEmpty(), actions.retryLoad)
-            LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.isSaving, actions, dark) } ?: LoadingScreen()
+            LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.preferences.academicCalendar, state.isSaving, actions, dark) } ?: LoadingScreen()
             else MainShell(
                 state, selectedTab, currentTime, actions, form = form,
                 courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess,
@@ -322,8 +336,9 @@ fun QingKeAppContent(
     onConfirm = dismiss, onDismiss = dismiss, tag = "app-error-dialog", dismissTag = null, confirmTag = "app-error-dismiss",
 )
 
-@Composable private fun OnboardingScreen(form: SemesterFormState, saving: Boolean, actions: QingKeAppActions, dark: Boolean) {
+@Composable private fun OnboardingScreen(form: SemesterFormState, calendar: AcademicCalendarPreferences, saving: Boolean, actions: QingKeAppActions, dark: Boolean) {
     val timePicker = remember { TerminalTimePickerState() }
+    val calendarUi = rememberAcademicCalendarUiState(calendar.lunchBreak, form.startDate)
     Scaffold(
         topBar = { TerminalToolbar("首次设置", "INITIAL SETUP", "onboarding-toolbar", saving, actions.saveSemester) },
     ) { padding ->
@@ -332,10 +347,11 @@ fun QingKeAppContent(
                 BrandHeader(dark, code = "SETUP / 00", tag = "onboarding-brand-header")
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp)) {
                     TerminalIntro(dark, onboarding = true)
-                    TerminalSemesterForm("onboarding", form, dark, actions, timePicker, saving, "创建课表", "INITIALIZE TERMINAL")
+                    TerminalSemesterForm("onboarding", form, calendar, calendarUi, dark, actions, timePicker, saving, "创建课表", "INITIALIZE TERMINAL")
                 }
             }
             TerminalTimePickerHost(form, dark, actions, timePicker)
+            AcademicCalendarTimePickerHost(calendarUi, dark, actions)
         }
     }
 }
@@ -372,18 +388,26 @@ fun QingKeAppContent(
 /** Settings-page variant of [DateControl]: it sits inside a [TerminalFormSection] panel, and iOS keeps a form divider before the inline calendar. */
 
 
-@Composable private fun InlineMonthCalendar(month: YearMonth, selected: LocalDate, dark: Boolean, select: (LocalDate) -> Unit, changeMonth: (Boolean) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).testTag("semester-start-date-calendar")) {
+@Composable private fun InlineMonthCalendar(
+    month: YearMonth,
+    selected: LocalDate,
+    dark: Boolean,
+    select: (LocalDate) -> Unit,
+    changeMonth: (Boolean) -> Unit,
+    tagPrefix: String = "semester-start-date",
+    controlPrefix: String = "semester",
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).testTag("$tagPrefix-calendar")) {
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-            CalendarMonthButton("‹", "上一个月", "semester-calendar-previous") { changeMonth(false) }
+            CalendarMonthButton("‹", "上一个月", "$controlPrefix-calendar-previous") { changeMonth(false) }
             Text(month.format(DateTimeFormatter.ofPattern("yyyy年M月", Locale.CHINA)), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,)
-            CalendarMonthButton("›", "下一个月", "semester-calendar-next") { changeMonth(true) }
+            CalendarMonthButton("›", "下一个月", "$controlPrefix-calendar-next") { changeMonth(true) }
         }
         Row(Modifier.fillMaxWidth()) { listOf("一", "二", "三", "四", "五", "六", "日").forEach { day -> Text(day, Modifier.weight(1f), color = terminalSecondary(dark), fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = androidx.compose.ui.text.style.TextAlign.Center) } }
         SemesterMonthGrid.dates(month).chunked(SemesterMonthGrid.columns).forEach { week ->
             Row(Modifier.fillMaxWidth()) { week.forEach { candidate ->
                 val isSelected = candidate == selected
-                val candidateTag = candidate?.let { "semester-calendar-day-$it" } ?: "semester-calendar-empty"
+                val candidateTag = candidate?.let { "$controlPrefix-calendar-day-$it" } ?: "$controlPrefix-calendar-empty"
                 val candidateDescription = candidate?.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA))
                 Box(
                     Modifier.weight(1f).height(40.dp).padding(2.dp)
@@ -480,7 +504,7 @@ fun QingKeAppContent(
         when (selected) {
             MainTab.TODAY -> TodayScheduleScreen(state, currentTime, actions.refreshTime, actions.openCourseAt, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
             MainTab.SCHEDULE -> WeekScheduleScreen(state, currentTime, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
-            MainTab.SETTINGS -> SemesterSettingsScreen(form, state.isSaving, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
+            MainTab.SETTINGS -> SemesterSettingsScreen(form, state.preferences.academicCalendar, state.isSaving, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             if (selected == MainTab.TODAY || selected == MainTab.SCHEDULE) {
@@ -567,6 +591,7 @@ fun QingKeAppContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun SemesterSettingsScreen(
     form: SemesterFormState?,
+    calendar: AcademicCalendarPreferences,
     saving: Boolean,
     actions: QingKeAppActions,
     dark: Boolean,
@@ -575,6 +600,7 @@ fun QingKeAppContent(
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val timePicker = remember { TerminalTimePickerState() }
+    val calendarUi = form?.let { rememberAcademicCalendarUiState(calendar.lunchBreak, it.startDate) }
     fun refresh() {
         if (refreshing) return
         refreshing = true
@@ -596,13 +622,14 @@ fun QingKeAppContent(
                     if (form == null) {
                         Text("正在准备学期设置…", color = terminalSecondary(dark), modifier = Modifier.padding(top = 12.dp).testTag("settings-pending"))
                         Spacer(Modifier.height(100.dp).testTag("settings-bottom-spacer"))
-                    } else {
-                        TerminalSemesterForm("settings", form, dark, actions, timePicker, saving, "保存学期设置", "COMMIT CHANGES")
+                    } else if (calendarUi != null) {
+                        TerminalSemesterForm("settings", form, calendar, calendarUi, dark, actions, timePicker, saving, "保存学期设置", "COMMIT CHANGES")
                     }
                 }
             }
         }
         form?.let { TerminalTimePickerHost(it, dark, actions, timePicker) }
+        calendarUi?.let { AcademicCalendarTimePickerHost(it, dark, actions) }
     }
 }
 
@@ -708,13 +735,25 @@ internal enum class PeriodTimeField { START, END }
 
 internal data class PeriodTimeTarget(val periodId: String, val field: PeriodTimeField)
 
+/** Shared numeric selection behind [TerminalTimePickerOverlay]; each owner keeps its own instance. */
+internal interface TerminalTimeSelection {
+    val hour: Int
+    val minute: Int
+
+    fun selectHour(value: Int)
+
+    fun selectMinute(value: Int)
+
+    fun selectedTime(): LocalTime = LocalTime.of(hour, minute)
+}
+
 /** Shared time-picker state; the target is keyed by period id plus field, so adding or removing periods cannot shift it. */
-internal class TerminalTimePickerState {
+internal class TerminalTimePickerState : TerminalTimeSelection {
     var target: PeriodTimeTarget? by mutableStateOf(null)
         private set
-    var hour: Int by mutableIntStateOf(0)
+    override var hour: Int by mutableIntStateOf(0)
         private set
-    var minute: Int by mutableIntStateOf(0)
+    override var minute: Int by mutableIntStateOf(0)
         private set
 
     fun open(target: PeriodTimeTarget, value: LocalTime) {
@@ -725,11 +764,33 @@ internal class TerminalTimePickerState {
 
     fun close() { target = null }
 
-    fun selectHour(value: Int) { hour = value }
+    override fun selectHour(value: Int) { hour = value }
 
-    fun selectMinute(value: Int) { minute = value }
+    override fun selectMinute(value: Int) { minute = value }
+}
 
-    fun selectedTime(): LocalTime = LocalTime.of(hour, minute)
+internal enum class CalendarTimeField { START, END }
+
+/** Independent A07 state: the lunch-break picker never shares a target space with the semester period rows. */
+internal class CalendarTimePickerState : TerminalTimeSelection {
+    var field: CalendarTimeField? by mutableStateOf(null)
+        private set
+    override var hour: Int by mutableIntStateOf(0)
+        private set
+    override var minute: Int by mutableIntStateOf(0)
+        private set
+
+    fun open(field: CalendarTimeField, value: LocalTime) {
+        this.field = field
+        hour = value.hour
+        minute = value.minute
+    }
+
+    fun close() { field = null }
+
+    override fun selectHour(value: Int) { hour = value }
+
+    override fun selectMinute(value: Int) { minute = value }
 }
 
 @Composable private fun TerminalToolbar(title: String, subtitle: String, tag: String, saving: Boolean, save: () -> Unit) = Column(
@@ -803,10 +864,12 @@ internal class TerminalTimePickerState {
     Box(Modifier.fillMaxWidth().height(4.dp).background(SignalYellow).testTag("semester-save-underline"))
 }
 
-/** Shared form body: both screens render the 01／02 panels, the period rows and the shared time picker host. */
+/** Shared form body: both screens render the 01／02／03 panels, the period rows and the shared time picker hosts. */
 @Composable private fun TerminalSemesterForm(
     prefix: String,
     form: SemesterFormState,
+    calendar: AcademicCalendarPreferences,
+    calendarUi: AcademicCalendarUiState,
     dark: Boolean,
     actions: QingKeAppActions,
     timePicker: TerminalTimePickerState,
@@ -842,9 +905,186 @@ internal class TerminalTimePickerState {
             AddPeriodRow(form.periods.size, actions.addPeriod)
         }
     }
+    AcademicCalendarSection(calendar, calendarUi, prefix, dark, actions)
     form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
+}
+
+/* A07 "03 教学日历": one shared implementation for the first-boot form and the settings form. */
+
+/** iOS `Toggle` inside a terminal form panel: label and switch glyph share one 52dp row target. */
+@Composable private fun TerminalToggleRow(label: String, checked: Boolean, tag: String, dark: Boolean, change: (Boolean) -> Unit) = Row(
+    Modifier.fillMaxWidth().heightIn(min = 52.dp).toggleable(value = checked, role = Role.Switch, onValueChange = change)
+        .testTag(tag).semantics { contentDescription = label },
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(label, color = terminalText(dark), fontSize = 14.sp, modifier = Modifier.weight(1f))
+    TerminalSwitchGlyph(checked, dark, "$tag-switch")
+}
+
+/** Platform equivalent of the iOS switch, drawn so the on／off contrast survives both themes. */
+@Composable private fun TerminalSwitchGlyph(checked: Boolean, dark: Boolean, tag: String) = Canvas(Modifier.size(48.dp).testTag(tag)) {
+    val trackWidth = 46.dp.toPx()
+    val trackHeight = 26.dp.toPx()
+    val left = (size.width - trackWidth) / 2f
+    val top = (size.height - trackHeight) / 2f
+    val radius = trackHeight / 2f
+    drawRoundRect(if (checked) QingKeCyan else if (dark) Color(0xFF243134) else Color(0xFFD5DDDC), Offset(left, top), Size(trackWidth, trackHeight), CornerRadius(radius))
+    drawRoundRect(if (checked) QingKeCyan else terminalBorder(dark), Offset(left, top), Size(trackWidth, trackHeight), CornerRadius(radius), style = Stroke(1.dp.toPx()))
+    drawCircle(
+        if (checked) InverseSurface else if (dark) Color(0xFFF1F5F4) else Color(0xFFF7FAFA),
+        radius - 3.dp.toPx(),
+        Offset(if (checked) left + trackWidth - radius else left + radius, top + radius),
+    )
+}
+
+/** iOS `ExceptionMode` segmented buttons: inverse fill for the selected mode, plain outline otherwise. */
+@Composable private fun androidx.compose.foundation.layout.RowScope.CalendarModeButton(label: String, selected: Boolean, tag: String, dark: Boolean, select: () -> Unit) = Box(
+    Modifier.weight(1f).heightIn(min = 48.dp)
+        .background(if (selected) InverseSurface else Color.Transparent, TerminalShape)
+        .border(1.dp, terminalBorder(dark), TerminalShape)
+        .selectable(selected = selected, role = Role.RadioButton, onClick = select)
+        .testTag(tag),
+    contentAlignment = Alignment.Center,
+) { Text(label, color = if (selected) Color(0xFFF1F5F4) else terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+
+@Composable private fun CalendarExceptionHeader(title: String, tag: String, dark: Boolean) = Text(
+    title, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp,
+    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp).testTag(tag),
+)
+
+@Composable private fun CalendarExceptionRow(date: String, detail: String, tag: String, dark: Boolean, remove: () -> Unit) {
+    val label = calendarExceptionDateLabel(date)
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.testTag("$tag-date"))
+            Text(detail, color = terminalSecondary(dark), fontSize = 12.sp, modifier = Modifier.testTag("$tag-detail"))
+        }
+        Box(
+            Modifier.size(48.dp).clickable(onClick = remove).testTag("$tag-delete")
+                .semantics { contentDescription = "删除 $label" },
+            contentAlignment = Alignment.Center,
+        ) { Text("✕", color = Danger, fontWeight = FontWeight.Black, fontSize = 15.sp) }
+    }
+}
+
+private fun calendarExceptionDateLabel(date: String): String {
+    val parsed = ScheduleRules.parseLocalDate(date) ?: return date
+    return parsed.format(DateTimeFormatter.ofPattern("yyyy年M月d日 EEE", Locale.CHINA))
+}
+
+/** iOS `AcademicCalendarSettingsSection`: weekend switch, lunch break, exception mode, date and lists. */
+@Composable private fun AcademicCalendarSection(
+    calendar: AcademicCalendarPreferences,
+    ui: AcademicCalendarUiState,
+    prefix: String,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) {
+    val dateLabel = ui.selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA))
+    TerminalFormSection(
+        "03", "教学日历", "CALENDAR", dark, "$prefix-calendar-section", "$prefix-calendar-panel",
+        footer = "停课日优先级最高；调课日可指定按某个星期的课表上课，适用于节假日调休。",
+        footerTag = "$prefix-calendar-footer",
+    ) {
+        TerminalToggleRow("周末默认不上课", calendar.weekendsAreNonTeachingDays, "$prefix-calendar-weekends-toggle", dark, actions.setWeekendsAreNonTeachingDays)
+        TerminalFormDivider(dark, "$prefix-calendar-divider")
+        TerminalToggleRow("在周课表显示午休", calendar.lunchBreak.isEnabled, "$prefix-calendar-lunch-toggle", dark, actions.setLunchBreakEnabled)
+        if (calendar.lunchBreak.isEnabled) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PeriodTimeCell("开始", ui.lunchStart, "$prefix-calendar-lunch-start", dark, Modifier.weight(1f)) { ui.lunchPicker.open(CalendarTimeField.START, ui.lunchStart) }
+                PeriodTimeCell("结束", ui.lunchEnd, "$prefix-calendar-lunch-end", dark, Modifier.weight(1f)) { ui.lunchPicker.open(CalendarTimeField.END, ui.lunchEnd) }
+            }
+            if (!ui.lunchBreakRangeIsValid) Text(
+                "午休开始时间必须早于结束时间。", color = Danger, fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("$prefix-calendar-lunch-error"),
+            )
+        }
+        TerminalFormDivider(dark, "$prefix-calendar-divider")
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CalendarModeButton(CalendarExceptionMode.NON_TEACHING.label, ui.mode == CalendarExceptionMode.NON_TEACHING, "$prefix-calendar-mode-non-teaching", dark) { ui.mode = CalendarExceptionMode.NON_TEACHING }
+            CalendarModeButton(CalendarExceptionMode.MAKEUP.label, ui.mode == CalendarExceptionMode.MAKEUP, "$prefix-calendar-mode-makeup", dark) { ui.mode = CalendarExceptionMode.MAKEUP }
+        }
+        TerminalFormDivider(dark, "$prefix-calendar-divider")
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { ui.datePickerExpanded = !ui.datePickerExpanded }
+                .testTag("$prefix-calendar-exception-date")
+                .semantics { contentDescription = "日期，" + dateLabel + "，" + (if (ui.datePickerExpanded) "收起日历" else "展开日历") },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("日期", color = terminalText(dark), fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Text(dateLabel, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.testTag("$prefix-calendar-date-value"))
+            Spacer(Modifier.width(8.dp))
+            TerminalChevron(ui.datePickerExpanded, terminalText(dark), "$prefix-calendar-date-chevron")
+        }
+        if (ui.datePickerExpanded) {
+            TerminalFormDivider(dark, "$prefix-calendar-divider")
+            InlineMonthCalendar(
+                ui.shownMonthValue, ui.selectedDate, dark, { ui.selectedDate = it },
+                { next ->
+                    val changed = if (next) ui.shownMonthValue.plusMonths(1) else ui.shownMonthValue.minusMonths(1)
+                    ui.shownYear = changed.year
+                    ui.shownMonth = changed.monthValue
+                },
+                tagPrefix = "$prefix-calendar-exception", controlPrefix = "$prefix-calendar-exception",
+            )
+        }
+        if (ui.mode == CalendarExceptionMode.MAKEUP) {
+            TerminalFormDivider(dark, "$prefix-calendar-divider")
+            CompactPicker(
+                label = "按课表上课", valueLabel = ScheduleDisplayText.weekdayName(ui.followsDayOfWeek),
+                value = ui.followsDayOfWeek, choices = 1..7, choiceLabel = ScheduleDisplayText::weekdayName,
+                update = { ui.followsDayOfWeek = it }, tag = "$prefix-calendar-makeup-weekday",
+                dark = dark, enabled = true, visibleLabel = "按课表上课",
+            )
+        }
+        TerminalFormDivider(dark, "$prefix-calendar-divider")
+        Box(
+            Modifier.fillMaxWidth().padding(vertical = 10.dp).heightIn(min = 50.dp).background(SignalYellow, TerminalShape)
+                .clickable {
+                    when (ui.mode) {
+                        CalendarExceptionMode.NON_TEACHING -> actions.addNonTeachingDate(ui.selectedDate)
+                        CalendarExceptionMode.MAKEUP -> actions.addMakeupTeachingDay(ui.selectedDate, ui.followsDayOfWeek)
+                    }
+                    ui.datePickerExpanded = false
+                }.testTag("$prefix-calendar-add-exception"),
+            contentAlignment = Alignment.Center,
+        ) { Text(if (ui.mode == CalendarExceptionMode.NON_TEACHING) "添加停课日" else "添加调课日", color = InverseSurface, fontWeight = FontWeight.Black, fontSize = 15.sp) }
+        if (calendar.nonTeachingDates.isNotEmpty()) {
+            TerminalFormDivider(dark, "$prefix-calendar-divider")
+            CalendarExceptionHeader("停课日 / OFF", "$prefix-calendar-non-teaching-header", dark)
+            calendar.nonTeachingDates.forEach { date ->
+                CalendarExceptionRow(date, "不显示课程", "$prefix-calendar-non-teaching-" + date, dark) { actions.removeNonTeachingDate(date) }
+            }
+        }
+        if (calendar.makeupTeachingDays.isNotEmpty()) {
+            TerminalFormDivider(dark, "$prefix-calendar-divider")
+            CalendarExceptionHeader("调课日 / MAKEUP", "$prefix-calendar-makeup-header", dark)
+            calendar.makeupTeachingDays.forEach { day ->
+                CalendarExceptionRow(day.date, "按" + ScheduleDisplayText.weekdayName(day.followsDayOfWeek) + "课表", "$prefix-calendar-makeup-" + day.date, dark) { actions.removeMakeupTeachingDay(day.date) }
+            }
+        }
+    }
+}
+
+/** Screen-level host for the lunch-break picker: it stays outside the scrolling form, like the period picker. */
+@Composable private fun AcademicCalendarTimePickerHost(ui: AcademicCalendarUiState, dark: Boolean, actions: QingKeAppActions) {
+    val field = ui.lunchPicker.field ?: return
+    TerminalTimePickerOverlay(
+        title = if (field == CalendarTimeField.START) "午休开始时间" else "午休结束时间",
+        state = ui.lunchPicker,
+        dark = dark,
+        onCancel = { ui.lunchPicker.close() },
+        onConfirm = {
+            val value = ui.lunchPicker.selectedTime()
+            if (field == CalendarTimeField.START) ui.lunchStart = value else ui.lunchEnd = value
+            if (ui.lunchBreakRangeIsValid) actions.setLunchBreakTimes(ui.lunchStart, ui.lunchEnd)
+            ui.lunchPicker.close()
+        },
+        tagPrefix = "terminal-lunch-time-picker",
+    )
 }
 
 /** Shared time-picker host: it renders only while the target period still exists, so add／remove can never address the wrong row. */
@@ -871,34 +1111,35 @@ internal class TerminalTimePickerState {
 /** Shared 24-hour terminal time picker: two numeric columns, a live HH:MM readout and cancel／confirm actions. */
 @Composable internal fun TerminalTimePickerOverlay(
     title: String,
-    state: TerminalTimePickerState,
+    state: TerminalTimeSelection,
     dark: Boolean,
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
+    tagPrefix: String = "terminal-time-picker",
 ) {
     BackHandler { onCancel() }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("terminal-time-picker-backdrop"), contentAlignment = Alignment.Center) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).widthIn(max = 420.dp).terminalModalSurface(dark, QingKeCyan).testTag("terminal-time-picker")) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag(tagPrefix + "-backdrop"), contentAlignment = Alignment.Center) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).widthIn(max = 420.dp).terminalModalSurface(dark, QingKeCyan).testTag(tagPrefix)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("TIME SELECT", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.testTag("terminal-time-picker-code"))
+                Text("TIME SELECT", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.testTag(tagPrefix + "-code"))
                 Spacer(Modifier.weight(1f))
-                Text(title, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.testTag("terminal-time-picker-title"))
+                Text(title, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.testTag(tagPrefix + "-title"))
             }
             Text(
                 "%02d:%02d".format(state.hour, state.minute), color = terminalText(dark),
                 fontFamily = TerminalTypography.indexFont, fontWeight = FontWeight.Black, fontSize = 34.sp,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 2.dp, bottom = 8.dp).testTag("terminal-time-picker-value"),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 2.dp, bottom = 8.dp).testTag(tagPrefix + "-value"),
             )
             TerminalFormDivider(dark)
-            Row(Modifier.fillMaxWidth().height(230.dp).testTag("terminal-time-picker-columns")) {
-                TerminalNumberColumn("小时", 0..23, state.hour, "terminal-time-picker-hour", dark, Modifier.weight(1f)) { state.selectHour(it) }
+            Row(Modifier.fillMaxWidth().height(230.dp).testTag(tagPrefix + "-columns")) {
+                TerminalNumberColumn("小时", 0..23, state.hour, tagPrefix + "-hour", dark, Modifier.weight(1f)) { state.selectHour(it) }
                 Box(Modifier.width(1.dp).fillMaxHeight().background(terminalBorder(dark)))
-                TerminalNumberColumn("分钟", 0..59, state.minute, "terminal-time-picker-minute", dark, Modifier.weight(1f)) { state.selectMinute(it) }
+                TerminalNumberColumn("分钟", 0..59, state.minute, tagPrefix + "-minute", dark, Modifier.weight(1f)) { state.selectMinute(it) }
             }
             TerminalFormDivider(dark)
             Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TerminalPickerButton("取消", "terminal-time-picker-cancel", false, dark, onCancel)
-                TerminalPickerButton("确认", "terminal-time-picker-confirm", true, dark, onConfirm)
+                TerminalPickerButton("取消", tagPrefix + "-cancel", false, dark, onCancel)
+                TerminalPickerButton("确认", tagPrefix + "-confirm", true, dark, onConfirm)
             }
         }
     }
@@ -1246,10 +1487,11 @@ private object TerminalTypography {
     Text("+", color = QingKeCyan, fontSize = 20.sp, fontWeight = FontWeight.Black, modifier = Modifier.size(48.dp).clickable(enabled = enabled && value < maximum) { update((value + 1).coerceAtMost(maximum)) }.testTag("$tag-plus").wrapContentSize(Alignment.Center))
 }
 
-@Composable private fun CompactPicker(label: String, valueLabel: String, value: Int, choices: IntRange, choiceLabel: (Int) -> String, update: (Int) -> Unit, tag: String, dark: Boolean, enabled: Boolean) = Box(Modifier.fillMaxWidth()) {
+@Composable private fun CompactPicker(label: String, valueLabel: String, value: Int, choices: IntRange, choiceLabel: (Int) -> String, update: (Int) -> Unit, tag: String, dark: Boolean, enabled: Boolean, visibleLabel: String? = null) = Box(Modifier.fillMaxWidth()) {
     var expanded by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = enabled) { expanded = true }.testTag(tag).semantics { contentDescription = "$label：$valueLabel" }, verticalAlignment = Alignment.CenterVertically) {
-        Text(valueLabel, color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).testTag("$tag-value"))
+        if (visibleLabel != null) Text(visibleLabel, color = terminalText(dark), modifier = Modifier.weight(1f))
+        Text(valueLabel, color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = (if (visibleLabel == null) Modifier.weight(1f) else Modifier).testTag("$tag-value"))
         Text("⌄", color = QingKeCyan, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 7.dp))
     }
     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(1.dp).background(terminalBorder(dark)))

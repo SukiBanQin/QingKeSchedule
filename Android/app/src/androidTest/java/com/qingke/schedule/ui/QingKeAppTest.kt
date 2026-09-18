@@ -27,6 +27,10 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assert
@@ -57,6 +61,15 @@ import com.qingke.schedule.domain.CourseSchedule
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.Semester
+import com.qingke.schedule.domain.withLunchBreakEnabled
+import com.qingke.schedule.domain.withLunchBreakTimes
+import com.qingke.schedule.domain.withMakeupTeachingDay
+import com.qingke.schedule.domain.withNonTeachingDate
+import com.qingke.schedule.domain.withWeekendsAreNonTeachingDays
+import com.qingke.schedule.domain.withoutMakeupTeachingDay
+import com.qingke.schedule.domain.withoutNonTeachingDate
+import com.qingke.schedule.persistence.ScheduleRepository
+import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.preferences.SchedulePreferences
 import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleState
@@ -67,6 +80,7 @@ import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseScheduleFormState
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
+import com.qingke.schedule.viewmodel.ScheduleViewModel
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.LocalDateTime
@@ -83,6 +97,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.AppearanceMode
 import com.qingke.schedule.preferences.LunchBreakSettings
+import com.qingke.schedule.preferences.MakeupTeachingDay
+import com.qingke.schedule.preferences.SchedulePreferencesRepository
 import com.qingke.schedule.R
 import java.io.File
 
@@ -1391,6 +1407,311 @@ class QingKeAppTest {
         val editorIndex = dpHeight("course-info-section-number")
         assertTrue("settings index=$settingsIndex editor index=$editorIndex", settingsIndex < editorIndex - 1f)
     }
+
+    @Test fun academicCalendarSectionIsSharedByBothFormsWithIndependentTagsAndRail() {
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var page by mutableStateOf("settings")
+        rule.setContent {
+            val preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)
+            if (page == "settings") {
+                QingKeAppContent(settingsState().copy(preferences = preferences), existingForm(), MainTab.SETTINGS, QingKeAppActions())
+            } else {
+                QingKeAppContent(onboarding().copy(preferences = preferences), defaultForm(count = 2), MainTab.TODAY, QingKeAppActions())
+            }
+        }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; rule.waitForIdle()
+            assertCyanRail("settings-calendar-panel")
+            rule.onNodeWithTag("settings-calendar-section-number", useUnmergedTree = true).performScrollTo().assertTextContains("03")
+            rule.onNodeWithText("教学日历").assertIsDisplayed()
+            rule.onNodeWithText("CALENDAR").assertIsDisplayed()
+            rule.onNodeWithTag("settings-calendar-footer").performScrollTo().assertIsDisplayed()
+            listOf(
+                "settings-calendar-weekends-toggle", "settings-calendar-lunch-toggle", "settings-calendar-lunch-start",
+                "settings-calendar-lunch-end", "settings-calendar-mode-non-teaching", "settings-calendar-mode-makeup",
+                "settings-calendar-exception-date", "settings-calendar-add-exception",
+            ).forEach { assertInsidePanel(it, "settings-calendar-panel") }
+            assertCyanRail("settings-semester-panel")
+        }
+        page = "onboarding"; rule.waitForIdle()
+        assertCyanRail("onboarding-calendar-panel")
+        assertInsidePanel("onboarding-calendar-exception-date", "onboarding-calendar-panel")
+        rule.onAllNodesWithTag("settings-calendar-panel").assertCountEquals(0)
+        rule.onAllNodesWithTag("settings-calendar-exception-calendar").assertCountEquals(0)
+        rule.onAllNodesWithTag("semester-start-date-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("onboarding-calendar-footer").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun calendarTogglesAndModesUseRealCallbacksAndHideLunchTimes() {
+        var calendar by mutableStateOf(AcademicCalendarPreferences())
+        val weekendToggles = mutableListOf<Boolean>()
+        val lunchToggles = mutableListOf<Boolean>()
+        rule.setContent {
+            QingKeAppContent(calendarState(calendar), existingForm(), MainTab.SETTINGS, QingKeAppActions(
+                setWeekendsAreNonTeachingDays = { weekendToggles += it; calendar = calendar.withWeekendsAreNonTeachingDays(it) },
+                setLunchBreakEnabled = { lunchToggles += it; calendar = calendar.withLunchBreakEnabled(it) },
+            ))
+        }
+        rule.onNodeWithTag("settings-calendar-weekends-toggle").performScrollTo().assertIsOff()
+        rule.onNodeWithTag("settings-calendar-weekends-toggle").performClick(); rule.waitForIdle()
+        assertEquals(listOf(true), weekendToggles)
+        rule.onNodeWithTag("settings-calendar-weekends-toggle").assertIsOn()
+        rule.onNodeWithContentDescription("周末默认不上课").assertIsDisplayed()
+
+        rule.onNodeWithTag("settings-calendar-lunch-start").assertTextContains("11:40")
+        rule.onNodeWithTag("settings-calendar-lunch-end").assertTextContains("14:00")
+        rule.onNodeWithContentDescription("开始时间，11:40").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-lunch-toggle").performScrollTo().assertIsOn()
+        rule.onNodeWithTag("settings-calendar-lunch-toggle").performClick(); rule.waitForIdle()
+        assertEquals(listOf(false), lunchToggles)
+        rule.onNodeWithTag("settings-calendar-lunch-toggle").assertIsOff()
+        rule.onAllNodesWithTag("settings-calendar-lunch-start").assertCountEquals(0)
+        rule.onAllNodesWithTag("settings-calendar-lunch-end").assertCountEquals(0)
+        rule.onAllNodesWithTag("settings-calendar-lunch-error").assertCountEquals(0)
+
+        rule.onNodeWithTag("settings-calendar-mode-non-teaching").assertIsSelected()
+        rule.onNodeWithTag("settings-calendar-mode-makeup").assertIsNotSelected()
+        rule.onAllNodesWithTag("settings-calendar-makeup-weekday").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-add-exception").assertTextContains("添加停课日")
+        rule.onNodeWithTag("settings-calendar-mode-makeup").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-mode-makeup").assertIsSelected()
+        rule.onNodeWithTag("settings-calendar-mode-non-teaching").assertIsNotSelected()
+        rule.onNodeWithTag("settings-calendar-makeup-weekday").assertTextContains("周一")
+        rule.onNodeWithTag("settings-calendar-add-exception").assertTextContains("添加调课日")
+        rule.onNodeWithTag("settings-calendar-mode-non-teaching").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("settings-calendar-makeup-weekday").assertCountEquals(0)
+    }
+
+    @Test fun calendarDatePickerUsesItsOwnCalendarAndKeepsTheSemesterDateControlClosed() {
+        rule.setContent { QingKeAppContent(calendarState(AcademicCalendarPreferences()), existingForm(), MainTab.SETTINGS, QingKeAppActions()) }
+        rule.onAllNodesWithTag("settings-calendar-exception-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-exception-date").performScrollTo()
+        rule.onNodeWithTag("settings-calendar-exception-date", useUnmergedTree = true).assertContentDescriptionEquals("日期，2026年9月1日，展开日历")
+        rule.onNodeWithTag("settings-calendar-date-value", useUnmergedTree = true).assertTextContains("2026年9月1日")
+        rule.onNodeWithTag("settings-calendar-exception-date").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar").performScrollTo().assertIsDisplayed()
+        assertInsidePanel("settings-calendar-exception-calendar", "settings-calendar-panel")
+        rule.onAllNodesWithTag("semester-start-date-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-exception-calendar-next").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-day-2026-10-01").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-previous").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-day-2026-09-05").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-date-value", useUnmergedTree = true).assertTextContains("2026年9月5日")
+        rule.onNodeWithTag("settings-calendar-exception-date").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("settings-calendar-exception-calendar").assertCountEquals(0)
+
+        rule.onNodeWithTag("semester-start-date").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-start-date-calendar").assertIsDisplayed()
+        rule.onAllNodesWithTag("settings-calendar-exception-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("semester-start-date", useUnmergedTree = true).assertContentDescriptionEquals("开始日期，2026年9月1日，收起日历")
+    }
+
+    @Test fun calendarAddDeleteRouteDateAndSourceWeekday() {
+        var calendar by mutableStateOf(AcademicCalendarPreferences())
+        val stopped = mutableListOf<LocalDate>()
+        val makeup = mutableListOf<Pair<LocalDate, Int>>()
+        val removedStopped = mutableListOf<String>()
+        val removedMakeup = mutableListOf<String>()
+        rule.setContent {
+            QingKeAppContent(calendarState(calendar), existingForm(), MainTab.SETTINGS, QingKeAppActions(
+                addNonTeachingDate = { stopped += it; calendar = calendar.withNonTeachingDate(it) },
+                addMakeupTeachingDay = { date, day -> makeup += date to day; calendar = calendar.withMakeupTeachingDay(date, day) },
+                removeNonTeachingDate = { removedStopped += it; calendar = calendar.withoutNonTeachingDate(it) },
+                removeMakeupTeachingDay = { removedMakeup += it; calendar = calendar.withoutMakeupTeachingDay(it) },
+            ))
+        }
+        rule.onNodeWithTag("settings-calendar-exception-date").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-day-2026-09-05").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-mode-makeup").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-makeup-weekday").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-makeup-weekday-option-3").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-makeup-weekday").assertTextContains("周三")
+        rule.onNodeWithTag("settings-calendar-add-exception").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf(LocalDate.parse("2026-09-05") to 3), makeup)
+        rule.onAllNodesWithTag("settings-calendar-exception-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05-detail", useUnmergedTree = true).assertTextContains("按周三课表")
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05-delete").assertContentDescriptionEquals("删除 2026年9月5日 周六")
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05-delete").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf("2026-09-05"), removedMakeup)
+        rule.onAllNodesWithTag("settings-calendar-makeup-2026-09-05").assertCountEquals(0)
+
+        rule.onNodeWithTag("settings-calendar-mode-non-teaching").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-add-exception").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf(LocalDate.parse("2026-09-05")), stopped)
+        rule.onNodeWithTag("settings-calendar-non-teaching-2026-09-05").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-non-teaching-2026-09-05-detail", useUnmergedTree = true).assertTextContains("不显示课程")
+
+        rule.onNodeWithTag("settings-calendar-mode-makeup").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-add-exception").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf(LocalDate.parse("2026-09-05") to 3, LocalDate.parse("2026-09-05") to 3), makeup)
+        rule.onAllNodesWithTag("settings-calendar-non-teaching-2026-09-05").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-makeup-2026-09-05-delete").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf("2026-09-05", "2026-09-05"), removedMakeup)
+        rule.onAllNodesWithTag("settings-calendar-makeup-2026-09-05").assertCountEquals(0)
+        assertEquals(emptyList<String>(), removedStopped)
+    }
+
+    @Test fun lunchTimePickerWritesOnlyOnConfirmAndIgnoresCancelAndBack() {
+        var calendar by mutableStateOf(AcademicCalendarPreferences())
+        val writes = mutableListOf<Pair<LocalTime, LocalTime>>()
+        rule.setContent {
+            QingKeAppContent(calendarState(calendar), existingForm(), MainTab.SETTINGS, QingKeAppActions(
+                setLunchBreakEnabled = { calendar = calendar.withLunchBreakEnabled(it) },
+                setLunchBreakTimes = { start, end -> writes += start to end; calendar = calendar.withLunchBreakTimes(start.toString(), end.toString()) ?: calendar },
+            ))
+        }
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-lunch-time-picker-title").assertTextContains("午休开始时间")
+        rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("11:40")
+        rule.onAllNodesWithTag("terminal-time-picker").assertCountEquals(0)
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-12").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-minute-30").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-cancel").performClick(); rule.waitForIdle()
+        assertEquals(emptyList<Pair<LocalTime, LocalTime>>(), writes)
+        rule.onNodeWithTag("settings-calendar-lunch-start").assertTextContains("11:40")
+        rule.onNodeWithTag("period-q1-start").assertTextContains("08:55")
+
+        rule.onNodeWithTag("settings-calendar-lunch-end").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-title").assertTextContains("午休结束时间")
+        androidx.test.espresso.Espresso.pressBack(); rule.waitForIdle()
+        rule.onAllNodesWithTag("terminal-lunch-time-picker").assertCountEquals(0)
+        assertEquals(0, writes.size)
+
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-12").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-minute-30").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(listOf(LocalTime.of(12, 30) to LocalTime.of(14, 0)), writes)
+        rule.onNodeWithTag("settings-calendar-lunch-start").assertTextContains("12:30")
+        rule.onAllNodesWithTag("settings-calendar-lunch-error").assertCountEquals(0)
+
+        rule.onNodeWithTag("settings-calendar-lunch-end").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-13").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(listOf(LocalTime.of(12, 30) to LocalTime.of(14, 0), LocalTime.of(12, 30) to LocalTime.of(13, 0)), writes)
+        rule.onAllNodesWithTag("settings-calendar-lunch-error").assertCountEquals(0)
+
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-15").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(2, writes.size)
+        rule.onNodeWithTag("settings-calendar-lunch-start").assertTextContains("15:30")
+        rule.onNodeWithTag("settings-calendar-lunch-error").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-lunch-error").assertTextContains("午休开始时间必须早于结束时间。")
+        rule.onAllNodesWithTag("terminal-lunch-time-picker").assertCountEquals(0)
+        rule.onNodeWithTag("settings-calendar-lunch-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("settings-calendar-lunch-start").assertCountEquals(0)
+        rule.onAllNodesWithTag("settings-calendar-lunch-error").assertCountEquals(0)
+    }
+
+    @Test fun calendarControlsMeetTouchTargetsSemanticsAndThemesAtLargeFontAndNarrowWidth() {
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        var scale by mutableStateOf(1f)
+        var narrow by mutableStateOf(false)
+        val calendar = AcademicCalendarPreferences(
+            weekendsAreNonTeachingDays = true,
+            nonTeachingDates = listOf("2026-10-01"),
+            makeupTeachingDays = listOf(MakeupTeachingDay("2026-10-10", 4)),
+        )
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) {
+                val page: @Composable () -> Unit = {
+                    QingKeAppContent(
+                        calendarState(calendar).copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance, academicCalendar = calendar)),
+                        existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+                    )
+                }
+                if (narrow) Box(Modifier.size(320.dp, 720.dp).testTag("narrow-root")) { page() } else page()
+            }
+        }
+        listOf(1f, 1.3f).forEach { fontScale ->
+            listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+                scale = fontScale; appearance = mode; rule.waitForIdle()
+                listOf(
+                    "settings-calendar-weekends-toggle", "settings-calendar-lunch-toggle", "settings-calendar-lunch-start",
+                    "settings-calendar-lunch-end", "settings-calendar-mode-non-teaching", "settings-calendar-mode-makeup",
+                    "settings-calendar-exception-date", "settings-calendar-add-exception",
+                    "settings-calendar-non-teaching-2026-10-01-delete", "settings-calendar-makeup-2026-10-10-delete",
+                ).forEach { tag ->
+                    rule.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+                    assertAtLeast48Dp(tag, scroll = true)
+                    assertInsidePanel(tag, "settings-calendar-panel")
+                }
+                rule.onNodeWithTag("settings-calendar-weekends-toggle").assertIsOn()
+                val signal = pixelCounts("settings-calendar-add-exception")[2]
+                assertTrue("fontScale=$fontScale mode=$mode add-exception must keep the signal fill, yellow=$signal", signal >= 200)
+                val switch = rule.onNodeWithTag("settings-calendar-weekends-toggle-switch", useUnmergedTree = true).apply { performScrollTo() }.fetchSemanticsNode().boundsInRoot
+                assertTrue("switch glyph bounds=$switch", switch.width >= with(rule.density) { 44.dp.toPx() })
+                rule.onNodeWithTag("settings-calendar-makeup-2026-10-10-detail", useUnmergedTree = true).performScrollTo().assertTextContains("按周四课表")
+            }
+        }
+        narrow = true; scale = 1.3f; rule.waitForIdle()
+        listOf("settings-calendar-weekends-toggle", "settings-calendar-exception-date", "settings-calendar-add-exception", "settings-calendar-makeup-2026-10-10").forEach { assertFitsInside(it, "narrow-root") }
+        assertCyanRail("settings-calendar-panel")
+    }
+
+    @Test fun calendarEditsFlowIntoTodayAndWeekImmediately() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+            Period(3, "10:00", "10:45"), Period(4, "14:00", "14:45"),
+        ))
+        val courses = listOf(Course("monday", "周一课", "老师", "#287B74", listOf(CourseSchedule("s", 1, 1, 1, 1, 18, RepeatRule.EVERY, ""))))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, courses, "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-05T09:00") }, { "id" })
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+        rule.onNodeWithText("今天没有课程，享受空闲时间吧。").assertIsDisplayed()
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-date").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-next").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-day-2026-09-05").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-exception-calendar-day-2026-09-05").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-add-exception").performScrollTo().performClick()
+        rule.waitUntil(5_000) { model.state.value.preferences.academicCalendar.nonTeachingDates.contains("2026-09-05") }
+        rule.onNodeWithTag("settings-calendar-non-teaching-2026-09-05").performScrollTo().assertIsDisplayed()
+
+        rule.onNodeWithTag("today-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("today-empty").assertIsDisplayed()
+        rule.onNodeWithText("已设为停课日，今日不显示课程。").assertIsDisplayed()
+
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("week-manifest-detail").assertTextContains("OFF DAY")
+        rule.onNodeWithTag("week-lunch-break").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("week-lunch-break-title").assertTextContains("午休")
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-lunch-toggle").performScrollTo().performClick()
+        rule.waitUntil(5_000) { !model.state.value.preferences.academicCalendar.lunchBreak.isEnabled }
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+        rule.onNodeWithTag("week-period-1").assertIsDisplayed()
+        rule.onNodeWithTag("week-manifest-detail").assertTextContains("OFF DAY")
+    }
+
+    private class HostScheduleRepository(private var data: ScheduleData) : ScheduleRepository {
+        override suspend fun load(): ScheduleData = data
+        override suspend fun replace(data: ScheduleData): ScheduleData = data.also { this.data = it }
+        override suspend fun saveSemester(semester: Semester): ScheduleData = data.copy(semester = semester).also { data = it }
+        override suspend fun saveCourse(course: Course): ScheduleData = data
+        override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData = data
+        override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData = data
+        override suspend fun deleteCourse(id: String): ScheduleData = data
+    }
+
+    private class HostPreferencesRepository : SchedulePreferencesRepository {
+        private var stored = SchedulePreferences.defaults
+        override suspend fun load(): SchedulePreferences = stored
+        override suspend fun save(preferences: SchedulePreferences): SchedulePreferences = preferences.also { stored = it }
+        override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences): SchedulePreferences = save(transform(stored))
+    }
+
+    private fun calendarState(calendar: AcademicCalendarPreferences) =
+        settingsState().copy(preferences = SchedulePreferences.defaults.copy(academicCalendar = calendar))
 
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
