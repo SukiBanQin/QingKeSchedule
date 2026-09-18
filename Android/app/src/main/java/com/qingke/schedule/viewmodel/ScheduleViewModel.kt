@@ -85,6 +85,8 @@ class ScheduleViewModel(
     val editor: StateFlow<CourseEditorState?> = mutableEditor.asStateFlow()
     private val mutableCourseSuccess = MutableStateFlow<String?>(null)
     val courseSuccess: StateFlow<String?> = mutableCourseSuccess.asStateFlow()
+    private val mutableSemesterSuccess = MutableStateFlow<String?>(null)
+    val semesterSuccess: StateFlow<String?> = mutableSemesterSuccess.asStateFlow()
     private var courseDraft: CourseDraft? = null
     private var editorSourceIndex: Int? = null
     private var editorFingerprint: Course? = null
@@ -105,10 +107,19 @@ class ScheduleViewModel(
 
     private suspend fun loadAndPrepare() {
         appState.load()
-        if (state.value.needsOnboarding && draft == null) {
-            draft = SemesterDraft.create(mutableCurrentTime.value.toLocalDate(), idFactory)
-            publishForm()
+        if (draft != null) return
+        val semester = state.value.data.semester
+        draft = when {
+            semester != null -> SemesterDraft.edit(semester, idFactory)
+            state.value.needsOnboarding -> SemesterDraft.create(mutableCurrentTime.value.toLocalDate(), idFactory)
+            else -> null
         }
+        draft?.let { publishInitialForm(it) }
+    }
+
+    /** Matches iOS: few periods start expanded so short timetables are editable straight away. */
+    private fun publishInitialForm(value: SemesterDraft) {
+        mutableForm.value = snapshot(value).copy(periodsExpanded = value.periods.size < 5)
     }
 
     fun selectTab(tab: MainTab) { mutableSelectedTab.value = tab }
@@ -132,17 +143,21 @@ class ScheduleViewModel(
     fun saveSemester() {
         val current = draft ?: return
         if (saveRequested || state.value.isSaving) return
-        val issues = current.validationIssues()
+        val issues = current.validationIssues() +
+            current.impactIssues(state.value.data.semester, state.value.data.courses)
         if (issues.isNotEmpty()) {
             mutableForm.value = snapshot(current).copy(validationMessage = issues.first().message)
             return
         }
+        val onboarding = state.value.data.semester == null
         saveRequested = true
         mutableForm.value = snapshot(current).copy(validationMessage = null)
         val semester = current.semester()
         viewModelScope.launch {
             try {
-                appState.saveSemester(semester)
+                if (appState.saveSemester(semester) && !onboarding) {
+                    mutableSemesterSuccess.value = "SYSTEM // 学期与节次设置已保存"
+                }
             } catch (error: CancellationException) {
                 throw error
             } finally {
@@ -154,6 +169,8 @@ class ScheduleViewModel(
     fun dismissError() = appState.clearError()
 
     fun consumeCourseSuccess() { mutableCourseSuccess.value = null }
+
+    fun consumeSemesterSuccess() { mutableSemesterSuccess.value = null }
 
     fun openAddCourse() {
         if (state.value.data.semester == null || editorInFlight) return

@@ -6,6 +6,7 @@ import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleRules
 import com.qingke.schedule.domain.Semester
+import com.qingke.schedule.domain.ValidationIssue
 import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
@@ -218,10 +219,41 @@ class DraftTest {
         assertEquals(semester.id, edited.id)
         assertEquals(LocalDate.of(2026, 2, 23), edited.startDate)
         assertEquals(16, edited.totalWeeks)
-        assertEquals(listOf(Period(1, "08:30", "09:15"), Period(2, "09:25", "10:10")), edited.semester().periods)
+        assertEquals(listOf(Period(4, "08:30", "09:15"), Period(9, "09:25", "10:10")), edited.semester().periods)
         edited.periods.clear()
         edited.addPeriod()
         assertEquals(LocalTime.of(8, 0), edited.periods.single().startTime)
+    }
+
+    @Test
+    fun semesterDraftKeepsImportedNumbersAndReportsOnlyCourseBreakingChanges() {
+        val imported = semester.copy(totalWeeks = 16, periods = listOf(
+            Period(2, "08:55", "09:40"), Period(1, "10:00", "10:45"),
+        ))
+        val courses = listOf(Course("course", "课", "", "#287B74", listOf(
+            CourseSchedule("s", 1, 1, 2, 1, 16, RepeatRule.EVERY, ""),
+        )))
+        val legal = SemesterDraft.edit(imported, ids("p1", "p2")).apply {
+            name = "改名"
+            startDate = LocalDate.of(2026, 2, 23)
+            totalWeeks = 20
+            periods[1].startTime = LocalTime.of(10, 5)
+            periods[1].endTime = LocalTime.of(10, 50)
+        }
+        assertEquals(emptyList<ValidationIssue>(), legal.impactIssues(imported, courses))
+        assertEquals(emptyList<ValidationIssue>(), legal.validationIssues())
+        assertEquals(
+            listOf(Period(2, "08:55", "09:40"), Period(1, "10:05", "10:50")),
+            legal.semester().periods,
+        )
+
+        val shortened = SemesterDraft.edit(imported, ids("p1", "p2")).apply { totalWeeks = 10 }
+        assertEquals("semester.totalWeeks", shortened.impactIssues(imported, courses).single().path)
+
+        val trimmed = SemesterDraft.edit(imported, ids("p1", "p2")).apply { removePeriod(periods.first().id) }
+        assertEquals("semester.periods", trimmed.impactIssues(imported, courses).single().path)
+        assertEquals(emptyList<ValidationIssue>(), trimmed.impactIssues(imported, emptyList()))
+        assertEquals(emptyList<ValidationIssue>(), trimmed.impactIssues(null, courses))
     }
 
     @Test

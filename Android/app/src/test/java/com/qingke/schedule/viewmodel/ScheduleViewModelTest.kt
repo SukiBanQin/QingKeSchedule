@@ -71,12 +71,82 @@ class ScheduleViewModelTest {
         assertEquals("自定义学期", repository.saved!!.name); assertEquals("2026-09-02", repository.saved!!.startDate); assertEquals(20, repository.saved!!.totalWeeks); assertEquals(11, repository.saved!!.periods.size)
     }
 
-    @Test fun failedLoadRetriesAndExistingSemesterDoesNotCreateDraft() = runTest {
+    @Test fun failedLoadRetriesAndExistingSemesterBuildsEditableDraftOnce() = runTest {
         val repository = FakeScheduleRepository().also { it.failLoad = true }
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
         assertEquals(LoadStatus.FAILED, model.state.value.loadStatus); assertNull(model.form.value)
-        repository.failLoad = false; repository.data = repository.data.copy(semester = Semester("s", "已有", "2026-09-01", 18, emptyList()))
-        model.retryLoad(); advanceUntilIdle(); assertEquals(LoadStatus.READY, model.state.value.loadStatus); assertNull(model.form.value); assertEquals(2, repository.loadCalls)
+        repository.failLoad = false
+        repository.data = repository.data.copy(
+            semester = Semester("s", "已有", "2026-09-01", 18, listOf(Period(2, "08:55", "09:40"), Period(1, "10:00", "10:45"))),
+        )
+        model.retryLoad(); advanceUntilIdle(); assertEquals(LoadStatus.READY, model.state.value.loadStatus)
+        val form = model.form.value!!
+        assertEquals("已有", form.name); assertEquals(LocalDate.parse("2026-09-01"), form.startDate); assertEquals(18, form.totalWeeks)
+        assertEquals(listOf(2, 1), form.periods.map { it.number })
+        assertTrue(form.periodsExpanded)
+        assertEquals(2, repository.loadCalls)
+    }
+
+    @Test fun existingSemesterDraftKeepsUnsavedEditsAcrossTabsClockRefreshAndReload() = runTest {
+        val repository = FakeScheduleRepository().also {
+            it.data = ScheduleData(1, Semester("term", "秋季", "2026-09-01", 16, listOf(Period(2, "08:55", "09:40"), Period(1, "10:00", "10:45"))), emptyList(), "now")
+        }
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-01T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+        assertTrue(model.form.value!!.periodsExpanded)
+        model.updateName("未保存的名字"); model.updateTotalWeeks(12)
+        model.togglePeriods(); model.selectTab(MainTab.SETTINGS)
+        model.refreshCurrentTime(); model.retryLoad(); advanceUntilIdle()
+        assertEquals("未保存的名字", model.form.value!!.name)
+        assertEquals(12, model.form.value!!.totalWeeks)
+        assertEquals(listOf(2, 1), model.form.value!!.periods.map { it.number })
+        assertFalse(model.form.value!!.periodsExpanded)
+        assertEquals(MainTab.SETTINGS, model.selectedTab.value)
+        assertEquals(2, repository.loadCalls)
+        assertEquals(0, repository.saveCalls)
+    }
+
+    @Test fun semesterSaveReportsCourseBreakingChangesKeepsDraftAndWritesPreservedNumbers() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("s", 1, 1, 2, 1, 16, com.qingke.schedule.domain.RepeatRule.EVERY, "")))
+        val semester = Semester("term", "秋季", "2026-09-01", 16, listOf(Period(2, "08:55", "09:40"), Period(1, "10:00", "10:45")))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.updateName("改名"); model.updateTotalWeeks(20)
+        val used = model.form.value!!.periods[1]
+        model.updatePeriodStart(used.id, LocalTime.of(10, 5)); model.updatePeriodEnd(used.id, LocalTime.of(10, 50))
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals("term", repository.saved!!.id)
+        assertEquals("改名", repository.saved!!.name)
+        assertEquals(listOf(2, 1), repository.saved!!.periods.map { it.number })
+        assertEquals(listOf("08:55" to "09:40", "10:05" to "10:50"), repository.saved!!.periods.map { it.startTime to it.endTime })
+        assertEquals("SYSTEM // 学期与节次设置已保存", model.semesterSuccess.value)
+        assertEquals("改名", model.state.value.data.semester!!.name)
+        assertEquals(listOf(course), model.state.value.data.courses)
+        model.consumeSemesterSuccess(); assertNull(model.semesterSuccess.value)
+
+        model.updateTotalWeeks(10); model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("周次"))
+
+        model.updateTotalWeeks(20)
+        model.removePeriod(model.form.value!!.periods.first().id)
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("节次"))
+        assertEquals(1, model.form.value!!.periods.size)
+        assertEquals(20, model.form.value!!.totalWeeks)
+        assertEquals("改名", model.form.value!!.name)
+    }
+
+    @Test fun onboardingSaveKeepsDraftWithoutPublishingSettingsNotice() = runTest {
+        val repository = FakeScheduleRepository()
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        model.updateName("新学期"); model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertNull(model.semesterSuccess.value)
+        assertEquals("新学期", model.form.value!!.name)
     }
 
     @Test fun retryDuringSuspendedInitialLoadDoesNotStartAnotherReadAndLaterRetryDoes() = runTest {

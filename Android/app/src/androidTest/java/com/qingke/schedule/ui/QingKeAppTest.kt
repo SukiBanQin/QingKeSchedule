@@ -674,7 +674,135 @@ class QingKeAppTest {
         rule.setContent { QingKeAppContent(readyWithSemester(), null, selected, QingKeAppActions(selectTab = { selected = it })) }
         rule.onNodeWithTag("today-tab").assertIsEnabled()
         rule.onNodeWithTag("schedule-tab").performClick(); rule.onNodeWithTag("week-schedule").assertIsDisplayed()
-        rule.onNodeWithTag("settings-tab").performClick(); rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
+        rule.onNodeWithTag("settings-tab").performClick(); rule.onNodeWithTag("settings-screen").assertIsDisplayed()
+    }
+
+    @Test fun settingsScreenEditsExistingSemesterAndBothSaveEntriesShareOnePath() {
+        var form by mutableStateOf(existingForm())
+        var saves = 0
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(
+                updateName = { form = form.copy(name = it) },
+                updateTotalWeeks = { form = form.copy(totalWeeks = it) },
+                togglePeriods = { form = form.copy(periodsExpanded = !form.periodsExpanded) },
+                saveSemester = { saves++ },
+            ))
+        }
+        rule.onNodeWithTag("settings-screen").assertIsDisplayed()
+        rule.onNodeWithTag("settings-title").assertTextContains("系统设置")
+        rule.onNodeWithTag("settings-brand-header").assertIsDisplayed()
+        rule.onNodeWithTag("settings-toolbar").assertIsDisplayed()
+        rule.onNodeWithTag("semester-name").assertIsDisplayed().assertTextContains("测试学期")
+        rule.onNodeWithText("总周数：18").assertIsDisplayed()
+        rule.onNodeWithTag("settings-periods-footer").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("semester-name").performTextReplacement("自定义学期")
+        assertEquals("自定义学期", form.name)
+        rule.onNodeWithTag("semester-save-toolbar").performClick()
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick()
+        assertEquals(2, saves)
+    }
+
+    @Test fun settingsPeriodsToggleAddRemoveAndTimePickerUseRealCallbacks() {
+        var form by mutableStateOf(existingForm().copy(periodsExpanded = false))
+        var added = 0
+        var removed: String? = null
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(
+                togglePeriods = { form = form.copy(periodsExpanded = !form.periodsExpanded) },
+                addPeriod = { added++; form = form.copy(periods = form.periods + PeriodFormState("q3", 3, LocalTime.of(14, 0), LocalTime.of(14, 45))) },
+                removePeriod = { id -> removed = id; form = form.copy(periods = form.periods.filterNot { it.id == id }) },
+                updatePeriodStart = { id, value -> form = form.copy(periods = form.periods.map { if (it.id == id) it.copy(start = value) else it }) },
+            ))
+        }
+        rule.onAllNodesWithTag("period-q1-row").assertCountEquals(0)
+        rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick()
+        rule.onNodeWithTag("period-q1-row").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("period-q1-start").performScrollTo().assertTextContains("08:55")
+        rule.onNodeWithTag("add-period").performScrollTo().performClick()
+        assertEquals(1, added)
+        rule.onNodeWithTag("period-q3-row").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("period-q2-delete").performScrollTo().performClick()
+        assertEquals("q2", removed)
+        assertEquals(listOf("q1", "q3"), form.periods.map { it.id })
+        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick(); waitForSystemDialog()
+        onView(isAssignableFrom(TimePicker::class.java)).perform(setTime(7, 20)); onView(withId(android.R.id.button1)).perform(click())
+        rule.waitForIdle()
+        assertEquals(LocalTime.of(7, 20), form.periods.first().start)
+        rule.onNodeWithTag("period-q1-start").performScrollTo().assertTextContains("07:20")
+    }
+
+    @Test fun settingsSavingDisablesBothEntriesAndShowsValidationError() {
+        val conflict = "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。"
+        var form by mutableStateOf(existingForm().copy(validationMessage = conflict))
+        rule.setContent { QingKeAppContent(settingsState().copy(isSaving = true), form, MainTab.SETTINGS, QingKeAppActions()) }
+        rule.onNodeWithTag("semester-save-toolbar").assertIsNotEnabled()
+        rule.onNodeWithTag("semester-save").assertIsNotEnabled()
+        rule.onNodeWithTag("semester-validation-error").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText(conflict).assertIsDisplayed()
+        form = form.copy(validationMessage = null)
+        rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-validation-error").assertCountEquals(0)
+    }
+
+    @Test fun settingsSuccessNoticeIsConsumedAfterDisplaying() {
+        var notice by mutableStateOf<String?>("SYSTEM // 学期与节次设置已保存")
+        rule.setContent {
+            QingKeAppContent(
+                settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+                semesterSuccess = notice, consumeSemesterSuccess = { notice = null },
+            )
+        }
+        rule.onNodeWithTag("semester-save-success").assertIsDisplayed()
+        rule.onNodeWithTag("semester-save-success-message").assertTextContains("SYSTEM // 学期与节次设置已保存")
+        rule.waitUntil(4_000) { notice == null }
+        rule.onAllNodesWithTag("semester-save-success").assertCountEquals(0)
+    }
+
+    @Test fun settingsPullToRefreshKeepsEditedDraftAndOnlyRefreshesTheClock() {
+        var form by mutableStateOf(existingForm())
+        var refreshes = 0
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(
+                updateName = { form = form.copy(name = it) },
+                refreshTime = { refreshes++ },
+            ))
+        }
+        rule.onNodeWithTag("semester-name").performTextReplacement("未保存的名字")
+        assertEquals("未保存的名字", form.name)
+        rule.onNodeWithTag("settings-screen").performTouchInput { swipeDown() }
+        rule.waitUntil(2_000) { refreshes == 1 }
+        rule.onNodeWithTag("semester-name").assertTextContains("未保存的名字")
+        assertEquals("未保存的名字", form.name)
+        assertEquals(1, refreshes)
+    }
+
+    @Test fun savedSemesterPeriodTimesFlowIntoTodayAndWeekImmediately() {
+        var tab by mutableStateOf(MainTab.TODAY)
+        rule.setContent {
+            QingKeAppContent(
+                updatedPeriodState(), existingForm(), tab,
+                QingKeAppActions(selectTab = { tab = it }), LocalDateTime.parse("2026-08-31T07:45"),
+            )
+        }
+        rule.onNodeWithTag("today-course-start-time-0-0", useUnmergedTree = true).assertTextContains("07:30")
+        rule.onNodeWithTag("today-course-end-time-0-0", useUnmergedTree = true).assertTextContains("08:15")
+        rule.onNodeWithTag("schedule-tab").performClick()
+        rule.onNodeWithTag("week-period-1-start").assertTextContains("07:30")
+        rule.onNodeWithTag("week-list-0-0").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun savedSemesterPeriodTimesFlowIntoCourseEditorImmediately() {
+        val schedule = CourseScheduleFormState("s", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        rule.setContent {
+            QingKeAppContent(
+                updatedPeriodState(), existingForm(), MainTab.TODAY, QingKeAppActions(),
+                LocalDateTime.parse("2026-08-31T07:45"),
+                editor = CourseEditorState(CourseEditorMode.EDIT, name = "早课", schedules = listOf(schedule)),
+            )
+        }
+        rule.onNodeWithTag("course-schedule-header-s").performScrollTo()
+        rule.onNodeWithTag("course-start-period-s-value", useUnmergedTree = true).assertTextContains("第 1 节 · 07:30")
+        rule.onNodeWithTag("course-end-period-s-value", useUnmergedTree = true).assertTextContains("第 1 节 · 08:15")
     }
 
     @Test fun terminalTabsExposeCenteredIconTitleAndNumberGroups() {
@@ -1213,6 +1341,31 @@ class QingKeAppTest {
     private fun loading() = ScheduleState(loadStatus = LoadStatus.LOADING)
     private fun failed(message: String) = ScheduleState(loadStatus = LoadStatus.FAILED, error = message)
     private fun onboarding(saving: Boolean = false, error: String? = null) = ScheduleState(loadStatus = LoadStatus.READY, isSaving = saving, error = error)
+    private fun existingForm() = SemesterFormState(
+        id = "term", name = "测试学期", startDate = LocalDate.parse("2026-09-01"), totalWeeks = 18,
+        periods = listOf(
+            PeriodFormState("q1", 2, LocalTime.of(8, 55), LocalTime.of(9, 40)),
+            PeriodFormState("q2", 1, LocalTime.of(10, 0), LocalTime.of(10, 45)),
+        ),
+        periodsExpanded = true,
+    )
+
+    private fun settingsState() = ScheduleState(
+        data = ScheduleData(1, Semester("term", "测试学期", "2026-09-01", 18, listOf(Period(2, "08:55", "09:40"), Period(1, "10:00", "10:45"))), emptyList(), "1970-01-01T00:00:00Z"),
+        preferences = SchedulePreferences.defaults,
+        loadStatus = LoadStatus.READY,
+    )
+
+    private fun updatedPeriodState(): ScheduleState {
+        val semester = Semester("term", "测试学期", "2026-08-31", 18, listOf(Period(1, "07:30", "08:15")))
+        val course = Course("course", "早课", "老师", "#287B74", listOf(CourseSchedule("s", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")))
+        return ScheduleState(
+            data = ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"),
+            preferences = SchedulePreferences.defaults,
+            loadStatus = LoadStatus.READY,
+        )
+    }
+
     private fun readyWithSemester() = ScheduleState(
         data = ScheduleData(1, Semester("semester", "已有", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"))), emptyList(), "1970-01-01T00:00:00Z"),
         preferences = SchedulePreferences.defaults, loadStatus = LoadStatus.READY,

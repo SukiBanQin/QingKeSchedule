@@ -200,6 +200,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     val courseSuccess by viewModel.courseSuccess.collectAsStateWithLifecycle()
+    val semesterSuccess by viewModel.semesterSuccess.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -236,6 +237,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             addCourseSchedule = viewModel::addCourseSchedule, removeCourseSchedule = viewModel::removeCourseSchedule,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
+        semesterSuccess, viewModel::consumeSemesterSuccess,
     )
 }
 
@@ -249,6 +251,8 @@ fun QingKeAppContent(
     editor: CourseEditorState? = null,
     courseSuccess: String? = null,
     consumeCourseSuccess: () -> Unit = {},
+    semesterSuccess: String? = null,
+    consumeSemesterSuccess: () -> Unit = {},
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -266,7 +270,11 @@ fun QingKeAppContent(
             LoadStatus.NOT_LOADED, LoadStatus.LOADING -> LoadingScreen()
             LoadStatus.FAILED -> LoadErrorScreen(state.error.orEmpty(), actions.retryLoad)
             LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.isSaving, actions, dark) } ?: LoadingScreen()
-            else MainShell(state, selectedTab, currentTime, actions, courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess)
+            else MainShell(
+                state, selectedTab, currentTime, actions, form = form,
+                courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess,
+                semesterSuccess = semesterSuccess, consumeSemesterSuccess = consumeSemesterSuccess,
+            )
         }
         editor?.let { CourseEditorOverlay(it, state.data.semester, state.data.courses, dark, actions) }
         state.error?.let { message -> if (state.loadStatus == LoadStatus.READY) ErrorDialog(message, actions.dismissError) }
@@ -414,7 +422,17 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun MainShell(state: ScheduleState, selected: MainTab, currentTime: LocalDateTime, actions: QingKeAppActions, courseSuccess: String? = null, consumeCourseSuccess: () -> Unit = {}) {
+@Composable private fun MainShell(
+    state: ScheduleState,
+    selected: MainTab,
+    currentTime: LocalDateTime,
+    actions: QingKeAppActions,
+    form: SemesterFormState? = null,
+    courseSuccess: String? = null,
+    consumeCourseSuccess: () -> Unit = {},
+    semesterSuccess: String? = null,
+    consumeSemesterSuccess: () -> Unit = {},
+) {
     val dark = state.preferences.appearanceMode == AppearanceMode.DARK ||
         (state.preferences.appearanceMode == AppearanceMode.SYSTEM && isSystemInDarkTheme())
     Box(Modifier.fillMaxSize().testTag("main-shell")) {
@@ -422,7 +440,7 @@ fun QingKeAppContent(
         when (selected) {
             MainTab.TODAY -> TodayScheduleScreen(state, currentTime, actions.refreshTime, actions.openCourseAt, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
             MainTab.SCHEDULE -> WeekScheduleScreen(state, currentTime, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
-            MainTab.SETTINGS -> ShellPlaceholder("设置（壳层）", dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
+            MainTab.SETTINGS -> SemesterSettingsScreen(form, state.isSaving, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             if (selected == MainTab.TODAY || selected == MainTab.SCHEDULE) {
@@ -433,6 +451,9 @@ fun QingKeAppContent(
             }
             courseSuccess?.let {
                 Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { CourseSuccessNotice(it, dark, consumeCourseSuccess) }
+            }
+            semesterSuccess?.let {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { SemesterSuccessNotice(it, dark, consumeSemesterSuccess) }
             }
             Box(Modifier.fillMaxWidth().testTag("terminal-tab-bar")) { TerminalTabBar(selected, actions.selectTab, dark) }
         }
@@ -502,9 +523,134 @@ fun QingKeAppContent(
     drawLine(color, androidx.compose.ui.geometry.Offset(centerX, plusInset), androidx.compose.ui.geometry.Offset(centerX, size.height - plusInset), stroke)
 }
 
-@Composable private fun ShellPlaceholder(text: String, dark: Boolean, modifier: Modifier = Modifier) = Column(
-    modifier.fillMaxSize().statusBarsPadding(), Arrangement.Center, Alignment.CenterHorizontally,
-) { Text(text, color = terminalText(dark), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black) }
+/** Real A06 entry: the iOS "学期与节次" page, reusing the onboarding field widgets and save path. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun SemesterSettingsScreen(
+    form: SemesterFormState?,
+    saving: Boolean,
+    actions: QingKeAppActions,
+    dark: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    var refreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    fun refresh() {
+        if (refreshing) return
+        refreshing = true
+        actions.refreshTime()
+        scope.launch { delay(450); refreshing = false }
+    }
+    PullToRefreshBox(refreshing, ::refresh, modifier.fillMaxSize().testTag("settings-refresh-container")) {
+        Column(Modifier.statusBarsPadding()) {
+            SettingsToolbar(saving, actions.saveSemester)
+            BrandHeader(dark, code = "SYSTEM / 03", tag = "settings-brand-header")
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp).verticalScroll(rememberScrollState()).testTag("settings-screen")) {
+                if (refreshing) Row(Modifier.fillMaxWidth().testTag("settings-refresh-status"), verticalAlignment = Alignment.CenterVertically) {
+                    Text("刷新中", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text("SYNC / LOCAL", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                }
+                SettingsIntro(dark)
+                if (form == null) {
+                    Text("正在准备学期设置…", color = terminalSecondary(dark), modifier = Modifier.padding(top = 12.dp).testTag("settings-pending"))
+                } else {
+                    TerminalSectionHeader("01", "学期信息", "TERM", dark, "settings-semester-section")
+                    OutlinedTextField(
+                        form.name, actions.updateName,
+                        Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp).testTag("semester-name"),
+                        label = { Text("学期名称") }, singleLine = true, shape = TerminalShape,
+                    )
+                    DateControl(form.startDate, actions.updateStartDate, dark)
+                    WeekControl(form.totalWeeks, actions.updateTotalWeeks)
+
+                    TerminalSectionHeader("02", "每日节次", "PERIODS / " + form.periods.size, dark, "settings-periods-section")
+                    OutlinedButton(
+                        actions.togglePeriods,
+                        Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp).testTag("daily-periods-toggle"),
+                        shape = TerminalShape,
+                    ) { Text(if (form.periodsExpanded) "收起节次设置（" + form.periods.size + " 节）" else "展开节次设置（" + form.periods.size + " 节）") }
+                    if (form.periodsExpanded) {
+                        form.periods.forEach { PeriodRow(it, form.periods.size, actions) }
+                        OutlinedButton(
+                            actions.addPeriod, enabled = form.periods.size < 20,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("add-period"), shape = TerminalShape,
+                        ) { Text("添加节次") }
+                    }
+                    Text(
+                        "教学周从开始日期所在周的周一算起；课程统一使用这里的节次时间。",
+                        color = terminalSecondary(dark), fontSize = 11.sp,
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).testTag("settings-periods-footer"),
+                    )
+                    form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
+                    SettingsSaveButton(saving, actions.saveSemester)
+                }
+                Spacer(Modifier.height(100.dp))
+            }
+        }
+    }
+}
+
+@Composable private fun SettingsToolbar(saving: Boolean, save: () -> Unit) = Column(
+    Modifier.fillMaxWidth().background(InverseSurface).statusBarsPadding().testTag("settings-toolbar"),
+) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 58.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("学期与节次", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("SYSTEM CONFIG", color = Color(0xB3F1F5F4), fontFamily = FontFamily.Monospace, fontSize = 8.sp, letterSpacing = 1.sp)
+        }
+        Button(
+            save, enabled = !saving, shape = TerminalShape,
+            colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface),
+            modifier = Modifier.heightIn(min = 48.dp).testTag("semester-save-toolbar"),
+        ) { Text(if (saving) "保存中" else "保存") }
+    }
+    Box(Modifier.fillMaxWidth().height(3.dp).background(SignalYellow))
+}
+
+@Composable private fun SettingsIntro(dark: Boolean) = Row(
+    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp).testTag("settings-terminal-header"),
+    verticalAlignment = Alignment.Bottom,
+) {
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "CONFIGURATION", color = InverseSurface, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp,
+            modifier = Modifier.background(QingKeCyan).padding(horizontal = 8.dp, vertical = 4.dp).testTag("settings-status-tag"),
+        )
+        Text("系统设置", color = terminalText(dark), fontSize = 36.sp, lineHeight = 40.sp, fontWeight = FontWeight.Black, modifier = Modifier.testTag("settings-title"))
+        Text("管理学期与每日节次。", color = terminalSecondary(dark), fontSize = 13.sp)
+    }
+    Column(horizontalAlignment = Alignment.End) {
+        Text("SYS", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp)
+        Text("03", color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Light, fontSize = 42.sp, lineHeight = 44.sp)
+    }
+}
+
+@Composable private fun SettingsSaveButton(saving: Boolean, save: () -> Unit) = Column(
+    Modifier.fillMaxWidth().padding(top = 18.dp).clickable(enabled = !saving, onClick = save).background(InverseSurface).testTag("semester-save"),
+) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(if (saving) "正在保存…" else "保存学期设置", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("COMMIT CHANGES", color = Color(0x9EF1F5F4), fontFamily = FontFamily.Monospace, fontSize = 8.sp, letterSpacing = 1.sp)
+        }
+        Text("→", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Black, fontSize = 20.sp)
+    }
+    Box(Modifier.fillMaxWidth().height(4.dp).background(SignalYellow))
+}
+
+@Composable private fun SemesterSuccessNotice(message: String, dark: Boolean, consume: () -> Unit) {
+    LaunchedEffect(message) { delay(2_600); consume() }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 46.dp).terminalPanel(dark, SignalYellow, TerminalSurfaceLevel.ELEVATED)
+            .padding(horizontal = 14.dp, vertical = 8.dp).testTag("semester-save-success"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).background(SignalYellow, androidx.compose.foundation.shape.CircleShape))
+        Spacer(Modifier.width(10.dp))
+        Text(message, color = terminalText(dark), fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).testTag("semester-save-success-message"))
+        Text("✓", color = SignalYellow, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun TodayScheduleScreen(state: ScheduleState, now: LocalDateTime, refresh: () -> Unit, openCourseAt: (Int) -> Unit, dark: Boolean, modifier: Modifier = Modifier) {

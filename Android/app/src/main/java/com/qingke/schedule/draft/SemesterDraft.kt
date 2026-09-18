@@ -1,5 +1,6 @@
 package com.qingke.schedule.draft
 
+import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.ScheduleValidator
@@ -22,8 +23,33 @@ class SemesterDraft private constructor(
 ) {
     fun semester(): Semester = Semester(
         id, name.trim(), startDate.format(DATE), totalWeeks,
-        periods.mapIndexed { index, period -> Period(index + 1, period.startTime.format(TIME), period.endTime.format(TIME)) },
+        periods.map { Period(it.number, it.startTime.format(TIME), it.endTime.format(TIME)) },
     )
+
+    /**
+     * Reports structural changes that would silently change the meaning of already saved
+     * courses. Changing only the name, date, weeks or the times of periods that courses
+     * already reference stays valid; removing a referenced number or shrinking the term
+     * does not.
+     */
+    fun impactIssues(previous: Semester?, courses: List<Course>): List<ValidationIssue> {
+        if (previous == null || courses.isEmpty()) return emptyList()
+        val issues = mutableListOf<ValidationIssue>()
+        if (courses.any { course -> course.schedules.any { it.endWeek > totalWeeks } }) {
+            issues += ValidationIssue(
+                "semester.totalWeeks",
+                "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。",
+            )
+        }
+        val numbers = periods.mapTo(mutableSetOf()) { it.number }
+        if (courses.any { course -> course.schedules.any { it.startPeriod !in numbers || it.endPeriod !in numbers } }) {
+            issues += ValidationIssue(
+                "semester.periods",
+                "删除或改变节次会影响已有课程引用的节次，请先在课程编辑中调整相关课程。",
+            )
+        }
+        return issues
+    }
 
     fun validationIssues(): List<ValidationIssue> = ScheduleValidator.validate(
         ScheduleData(1, semester(), emptyList(), "1970-01-01T00:00:00Z"),
@@ -31,7 +57,8 @@ class SemesterDraft private constructor(
 
     fun addPeriod() {
         val start = (periods.lastOrNull()?.endTime ?: LocalTime.of(7, 50)).plusMinutes(10)
-        periods += PeriodDraft(idFactory(), periods.size + 1, start, start.plusMinutes(45))
+        val number = (periods.maxOfOrNull { it.number } ?: 0) + 1
+        periods += PeriodDraft(idFactory(), number, start, start.plusMinutes(45))
     }
 
     fun removePeriod(id: String) {

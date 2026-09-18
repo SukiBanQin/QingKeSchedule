@@ -70,6 +70,40 @@ class RoomScheduleRepositoryTest {
         assertEquals("2026-01-03T00:00:00Z", result.updatedAt)
     }
 
+    @Test fun saveSemesterKeepsReversedNumbersNewTimesAndCoursesAcrossReopen() = runBlocking {
+        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-semester-${System.nanoTime()}.db")
+        val repository = repository(file)
+        val original = data()
+        repository.replace(original)
+        val updated = original.semester!!.copy(
+            name = "新学期",
+            periods = listOf(Period(2, "09:05", "09:50"), Period(1, "10:05", "10:50")),
+        )
+        val result = repository.saveSemester(updated)
+        assertEquals(listOf(2, 1), result.semester!!.periods.map { it.number })
+        assertEquals(original.courses, result.courses)
+        assertEquals("2026-01-03T00:00:00Z", result.updatedAt)
+        repository.database.close()
+        val reopened = repository(file)
+        assertEquals(result, reopened.load())
+        reopened.database.close(); file.delete()
+        Unit
+    }
+
+    @Test fun shorteningWeeksBeyondCourseRangeRollsBackWholeSemesterSave() = runBlocking {
+        val repository = repository(null)
+        val original = data()
+        repository.replace(original)
+        assertThrows(ScheduleRepositoryException.InvalidData::class.java) {
+            runBlocking { repository.saveSemester(original.semester!!.copy(totalWeeks = 10)) }
+        }
+        assertEquals(original, repository.load())
+        assertThrows(ScheduleRepositoryException.InvalidData::class.java) {
+            runBlocking { repository.saveSemester(original.semester!!.copy(periods = listOf(Period(1, "10:00", "10:45")))) }
+        }
+        assertEquals(original, repository.load())
+    }
+
     @Test fun saveCourseUpdatesFirstDuplicateKeepsPositionAndAppendsNewCourse() = runBlocking {
         val repository = repository(null)
         repository.replace(data())

@@ -1,8 +1,27 @@
 # 安卓项目当前交接状态
 
-## 切换新 Sol 主窗口：P3-05 已验收，P3-06／A06 待授权（最新，2026-09-18）
+## P3-06／A06 完整设置页与学期编辑已实施，待 Sol 独立复审与用户验收（最新，2026-09-18）
+
+本轮按用户明确任务实施 P3-06／A06：用真实设置页替换 `SETTINGS` 壳层，支持编辑学期名、开始日期、1—52 周、1—20 节、节次展开收起、增删与起止时间。由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与工作区：分支 `Android`，开始基准 `0e2e937`（`docs(android): hand off after p3-05 acceptance`），本地 HEAD 与 `origin/Android` 一致且工作区干净；未发现其他窗口改动。
+- 允许范围：只修改 `Android/`、`docs/Android/` 与必要测试。未改 iOS、Web、共享协议与版本 1 schema、Room schema、通知、导入导出、A07 教学日历、A11 外观，也未合并 `main`；iOS 只读基准为 `fc3ddfb` 的 `SemesterFormView.swift`／`SemesterDraft.swift`。
+- 实现：`MainTab.SETTINGS` 渲染真实 `SemesterSettingsScreen`（顶部「学期与节次 / SYSTEM CONFIG / 保存」+ 品牌头 SYSTEM / 03 + `CONFIGURATION`／`系统设置`／SYS 03 介绍区 + `01 学期信息` 与 `02 每日节次` 分区 + 底部「保存学期设置 / COMMIT CHANGES」），复用既有引导页组件（开始日期日历、周数步进、节次展开收起、每节起止时间 TimePicker、删除第 N 节、添加节次）；节次默认展开规则对齐 iOS `count < 5`；两个保存入口共用同一 `actions.saveSemester` 路径。
+- 草稿生命周期：已有学期冷启动即建立 `SemesterDraft.edit` 草稿（保留原节次编号与学期 id）；标签切换、每秒时钟刷新、`retryLoad()` 与设置页下拉刷新都不会重建草稿；下拉刷新只刷内存时钟（与 TODAY／周表一致），因此不可能丢弃未保存内容。
+- 节次编号语义（用户已确认规则）：`semester()` 不再把节次重编号为 1…n，合法导入的非连续／反序编号在只改名称、日期或周数时原样写回；`addPeriod()` 用 `max(number) + 1` 避免重复编号；`removePeriod()` 与 iOS 一致重排 1…n，但新增预检 `SemesterDraft.impactIssues(previous, courses)` 会在「缩短周数致课程越界」或「既有课程引用的节次编号消失」时整次拒绝并提示先调整课程；修改已被引用节次的时间允许保存（课程随该节次使用新时间）。Room 保存仍在事务内执行 `ScheduleValidator` 作为安全网，失败不落盘、旧数据与既有课程完整保留。
+- 保存反馈与互斥：`saveRequested` 与 `isSaving` 双重防重并禁用两个入口；非法输入与结构冲突保留整份草稿并显示内联提示；成功发布 `semester-save-success` toast；成功后 `ScheduleAppState` 直接发布仓库返回的已提交快照，TODAY、周表与课程编辑立即使用新节次时间。
+- 新增／更新测试：JVM `DraftTest`（4/9 反序编号保留、结构冲突仅在有课程引用时报告）、`ScheduleViewModelTest`（已有学期草稿跨标签／刷新／重载保留、缩周与删节拒绝且草稿保留、合法改名与改时间写回原编号、成功提示与消费、引导态不发设置提示）；Room `saveSemesterKeepsReversedNumbersNewTimesAndCoursesAcrossReopen`、`shorteningWeeksBeyondCourseRangeRollsBackWholeSemesterSave`；Compose `QingKeAppTest` 7 项（设置页真实字段与两个保存入口、节次展开／增删／TimePicker、保存中禁用与校验提示、成功 toast 自动消费、下拉刷新保留草稿、TODAY 与周表立即用新时间、课程编辑立即用新时间）与 `P3R2ActivityRecreationTest` 改为断言真实设置页并保留草稿。
+- 主机验证：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon` BUILD SUCCESSFUL；Debug／Release JVM 各 **96 tests、0 failures／errors／skipped**；`lintDebug` **0 errors、20 warnings**；Android 文档 70 tests OK、两个文档脚本与 `git diff --check` 通过。
+- 设备验证：API 37 ARM64 AVD（1080x2400，420dpi）完整 `connectedDebugAndroidTest --no-daemon` **83 tests、0 failures／errors／skipped**；截图 8 张覆盖浅色／深色 100%、浅色 130%、小屏 720x1280 滚动与缩周被拒的内联提示，逐张结论见 `docs/Android/evidence/p3-06-a06-settings/README.md`。
+- 已知差异：iOS 设置页还含教学日历／提醒／备份／外观四个分区（A07／A08／A10／A11，本轮范围外），因此副标题写「管理学期与每日节次。」且不放无效入口；删除节次后重排 1…n 与 iOS 一致，但 Android 额外拒绝会改变既有课程含义的变化。
+- 窗口尺寸敏感性（未改 P3-04 代码）：设备为 1080x1920 时两个既有 P3-04 用例（`chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales`、`r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`）失败，恢复记录基准 1080x2400 后通过；已如实记入证据 README。
+- 准确状态：**已实现、已测试、有 API 37 设备截图证据；Sol 独立复审与用户视觉验收均未进行**。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## 切换新 Sol 主窗口：P3-05 已验收，P3-06／A06 待授权（2026-09-18）
 
 用户决定切换到新的 Sol 主窗口继续 Android 分析、协调与按需独立审查。本节用于新窗口接手，不构成新阶段开发授权；默认流程仍为 DeepSeek V4.1 主力开发、自测，Sol 负责分析定界、必要协调和关键任务独立审查，不自动创建子 Agent，也不与实施窗口同时写入共享工作区。
+
+> 状态更新（2026-09-18）：P3-06／A06 已获用户明确授权并完成实施与自测，最新状态见上一节；本节「待授权」与承接边界为历史信息，其 P3-05 收口结论与环境注意事项仍然有效。
 
 - **代码基准**：仓库 `/Users/takagisan/课表软件`，分支 `Android`，不合并 `main`。交接前本地 HEAD、`origin/Android` 和远程 `refs/heads/Android` 均为 `5fb0bd23bab742ee830f60a5d180c3b4b2cd71b6`（`docs(android): close p3-05 visual acceptance`），工作区干净；本节的文档提交与推送结果以交付消息及 Git 历史为准。
 - **准确状态**：P3-04／A04／A05 与 P3-05／A03 当前范围均已实现、验证、通过 Sol 技术复审，并已获用户产品／视觉验收。P3-05 R2 实现为 `e3321bd`，验收收口为 `5fb0bd2`；不要重复实施、复审或重新要求用户验收。

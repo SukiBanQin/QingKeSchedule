@@ -418,7 +418,7 @@ private fun dayManifestDetail(day: WeekDayPresentation): String = when {
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text("%02d".format(period.number), color = weekForeground(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 13.sp, modifier = Modifier.testTag("week-period-" + period.number))
-                Text(period.startTime, color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 7.sp)
+                Text(period.startTime, color = weekSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 7.sp, modifier = Modifier.testTag("week-period-" + period.number + "-start"))
             }
         }
         matrix.scheduleBreak?.let { scheduleBreak ->

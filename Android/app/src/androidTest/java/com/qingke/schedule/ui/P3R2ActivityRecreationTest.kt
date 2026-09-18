@@ -82,7 +82,8 @@ class P3R2ActivityRecreationTest {
         firstRecreatedModel.saveSemester()
         rule.waitUntil(5_000) { !firstRecreatedModel.state.value.needsOnboarding }
         firstRecreatedModel.selectTab(MainTab.SETTINGS)
-        rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
+        rule.onNodeWithTag("settings-screen").assertIsDisplayed()
+        rule.onNodeWithTag("semester-name").assertTextContains("重建保留")
         rule.activityRule.scenario.recreate()
         lateinit var secondRecreatedModel: ScheduleViewModel
         rule.activityRule.scenario.onActivity { activity ->
@@ -90,7 +91,8 @@ class P3R2ActivityRecreationTest {
             assertSame(originalModel, secondRecreatedModel)
             activity.setContent { QingKeApp(secondRecreatedModel) }
         }
-        rule.onNodeWithText("设置（壳层）").assertIsDisplayed()
+        rule.onNodeWithTag("settings-screen").assertIsDisplayed()
+        rule.onNodeWithTag("semester-name").assertTextContains("重建保留")
         assertEquals(MainTab.SETTINGS, secondRecreatedModel.selectedTab.value)
         assertEquals(1, creations)
     }
