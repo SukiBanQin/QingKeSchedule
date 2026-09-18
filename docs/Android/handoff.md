@@ -1,6 +1,23 @@
 # 安卓项目当前交接状态
 
+## P3-05／A03 周课表视觉返修 R1 已实施，待独立审查与用户视觉验收（最新，2026-09-18）
+
+本节由当前主窗口在用户明确指示下直接实施并记录；上一节给 DeepSeek V4.1 Flash 的交接内容已由本次实施覆盖，未另行委派，也未创建任何子 Agent。实际模型与思考档位未核实（当前工具不能读取）。
+
+- 基准与工作区：分支 `Android`，开始基准 `2299e0b`（`docs(android): hand off p3-05 visual r1`）；开始时本地 HEAD 与 `origin/Android` 一致且工作区干净，未发现其他窗口的未提交改动或基准漂移。
+- 允许范围：只改 `Android/app/src/main/java/com/qingke/schedule/ui/WeekScheduleScreen.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt`、本交接文件与 `docs/Android/evidence/p3-05-visual-r1/`。未改 iOS、Web、Room/schema、DataStore、共享协议、业务规则、设置、通知、导入导出、P3-04 既有视觉与 `main`；继续复用 `WeekSchedulePresentation`、`WeekMatrixPresentation`、`ScheduleDisplayText`、`courseColor`、`TodayVisualSpec`、`openAddCourse()`、`openCourseAt()` 与 `AcademicCalendarPreferences`，未复制新的领域规则。
+- 七项修正均已实现：反相黑底白字周页标签；粗体「课表」+ 右侧动态 `WEEK` 两位周号；白底（深色主题为深色面）1dp 细边框教学周面板（左右箭头／竖分隔线／学期名／`第 XX 教学周`／`ODD|EVEN WEEK`，中部点击返回当前周，删除原独立「返回当前周」整行）；日期条上下 1dp 横线与每日竖分隔线、选中日期反相背景 + 日期下方 3dp 黄色下划线；`05 周视图` + 动态 `MON–SUN / N PERIODS`；矩阵 8 条竖线与节次数 + 1 条横线、表头 38dp／行高 68dp／午休行 30dp、`TIME`／星期名／节次编号深色粗体居中、午休仅在设置启用且展示模型产生 break 时以青色底 + 上下细边框 + 左侧标题／分隔线／时间显示；日清单标题改为编号／周几／条目数并删除 ISO 日期，课程卡片最小高度 94dp，含旋转序号、起止时间列、竖分隔线、节次或冲突标记、课程名、教室／教师与右箭头，点击仍路由既有 `openCourseAt(courseIndex)`。
+- testTag 与无障碍语义：既有周页标签与语义全部保留，**没有重命名**，仅新增 `week-controls`、`week-teaching-week`、`week-parity`、`week-matrix-header-index`、`week-view-title`、`week-matrix-summary`、`week-manifest-detail`、`week-matrix-canvas`、`week-lunch-break-title`；因此不存在需要同步改名的定向测试。点击控件内部的文本断言改为 unmerged tree，因为 `clickable` 会合并子节点语义。
+- 新增 Compose 契约测试 4 项，覆盖要求中的动态教学周、箭头与返回当前周、选中日期下划线（像素重心随选日右移）与日期条上下横线（像素亮度）、矩阵竖线／横线位置、午休条件显示与青色底、日清单无 ISO 日期与 `week-list-*` 点击路由；既有 `weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource` 未改名且继续通过。
+- 主机验证：`./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon` BUILD SUCCESSFUL；Debug／Release JVM 各 **92 tests、0 failures／errors／skipped**；`lintDebug` **0 errors、20 warnings**；Android 文档 70 tests OK、两个文档脚本与 `git diff --check` 通过。
+- 设备验证：API 37 ARM64 `emulator-5556`（1080x2400／420dpi，font_scale 1.0 与 1.3、light 与 dark）完整 `connectedDebugAndroidTest --no-daemon` **72 tests、0 failures／errors／skipped**；定向 `am instrument` 5 个周页用例 `OK (5 tests)`。上一节记录的既有 P3-04 失败用例（`chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales`、`r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`）在本轮同一 AVD 上通过；本轮未改任何 P3-04 代码或测试、也未专门分析该差异，仅如实记录。
+- 截图证据：`docs/Android/evidence/p3-05-visual-r1/` 下浅色 100%、浅色日清单、深色 100%、深色日清单、深色 130% 共 5 张生产截图（真实入口新建学期「2026 秋季学期」与课程 `Advanced Mathematics`），逐张目视结论与数据说明见该目录 README.md；设备结束时恢复 light／`font_scale=1.0` 并强停前台应用。
+- 环境限制：本会话文件沙箱不允许写工作区以外路径，构建使用可写临时目录承载 Gradle 用户目录／Android 用户目录／TMPDIR（未改变仓库配置）；`git ls-remote` 因本机 SSH host key 校验失败无法实时查询远端，推送结果以实际命令返回为准。
+- 准确状态：**已实现、已测试、有 API 37 生产截图证据；尚未独立复审，用户视觉验收未进行**。两个历史 P3-04 connected 失败在本轮通过，不据此宣称已修复或已验收；P3-05／A03、A03 之外的 A 项、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
 ## DeepSeek V4.1 Flash 实施交接：P3-05／A03 周课表视觉返修 R1（2026-09-18）
+
+> 状态更新（2026-09-18）：本节描述的委派未被执行。用户随后指示由当前主窗口直接实施，R1 已按上一节完成实现、测试、API 37 设备验证与截图证据；本节保留作历史记录，其范围、允许路径与验收清单仍为当前有效边界。
 
 ### 交接目的
 

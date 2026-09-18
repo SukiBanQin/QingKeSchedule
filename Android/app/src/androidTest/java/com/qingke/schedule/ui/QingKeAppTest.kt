@@ -38,6 +38,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click as touchClick
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
@@ -85,6 +87,7 @@ import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.AppearanceMode
+import com.qingke.schedule.preferences.LunchBreakSettings
 import com.qingke.schedule.R
 import java.io.File
 
@@ -137,6 +140,68 @@ class QingKeAppTest {
         assertEquals(1, adds)
         rule.onNodeWithTag("week-item-0:0:0").performClick()
         assertEquals(listOf(0), opened)
+    }
+
+    @Test fun weekHeaderControlsAndSectionTitlesFollowIosStructure() {
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.SCHEDULE, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00")) }
+        rule.onNodeWithTag("week-brand").assertTextContains("SCHEDULE :// WEEK MATRIX")
+        rule.onNodeWithTag("week-title").assertTextContains("01")
+        rule.onNodeWithTag("week-teaching-week", useUnmergedTree = true).assertTextContains("第 01 教学周")
+        rule.onNodeWithTag("week-parity", useUnmergedTree = true).assertTextContains("ODD WEEK")
+        rule.onNodeWithTag("week-previous").assertIsNotEnabled()
+        rule.onNodeWithTag("week-current").assertIsNotEnabled()
+        rule.onNodeWithTag("week-next").performClick()
+        rule.onNodeWithTag("week-title").assertTextContains("02")
+        rule.onNodeWithTag("week-teaching-week", useUnmergedTree = true).assertTextContains("第 02 教学周")
+        rule.onNodeWithTag("week-parity", useUnmergedTree = true).assertTextContains("EVEN WEEK")
+        rule.onNodeWithTag("week-previous").assertIsEnabled()
+        rule.onNodeWithTag("week-current").assertIsEnabled()
+        rule.onNodeWithTag("week-current").performClick()
+        rule.onNodeWithTag("week-title").assertTextContains("01")
+        rule.onNodeWithTag("week-matrix-header-index").assertTextContains("05")
+        rule.onNodeWithTag("week-view-title").assertTextContains("周视图")
+        rule.onNodeWithTag("week-matrix-summary").assertTextContains("MON–SUN / 4 PERIODS")
+    }
+
+    @Test fun weekDateStripSelectionMovesSignalUnderlineAndManifestTitleDropsIsoDate() {
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.SCHEDULE, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00")) }
+        rule.onNodeWithTag("week-date-strip").performScrollTo()
+        rule.onNodeWithTag("week-day-1").assert(hasContentDescription("已选择", substring = true))
+        val monday = signalUnderlineCenterX("week-date-strip")
+        rule.onNodeWithTag("week-day-5").performClick()
+        rule.waitForIdle()
+        val friday = signalUnderlineCenterX("week-date-strip")
+        assertTrue("selected underline must move right: $monday -> $friday", friday > monday + 60f)
+        rule.onNodeWithTag("week-day-5").assert(hasContentDescription("已选择", substring = true))
+        rule.onNodeWithTag("week-day-1").assert(hasContentDescription("未选择", substring = true))
+        rule.onNodeWithTag("selected-day-title").assertTextContains("周五")
+        rule.onNodeWithTag("week-manifest-detail").assertTextContains("0 ENTRIES")
+    }
+
+    @Test fun weekMatrixDrawsGridLinesAndShowsLunchBreakOnlyWhenEnabled() {
+        var state by mutableStateOf(weekState(withLunchBreak = false))
+        rule.setContent { QingKeAppContent(state, null, MainTab.SCHEDULE, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00")) }
+        rule.onNodeWithTag("week-matrix").performScrollTo()
+        assertWeekMatrixGridLines()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+        state = weekState(withLunchBreak = true)
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-matrix").performScrollTo()
+        rule.onNodeWithTag("week-lunch-break").assertIsDisplayed()
+        rule.onNodeWithTag("week-lunch-break-title").assertTextContains("午休")
+        assertLunchBreakCyanStrip()
+        rule.onNodeWithTag("week-period-1").assertIsDisplayed()
+    }
+
+    @Test fun weekDayManifestOmitsIsoDateAndRoutesCourseClicks() {
+        val opened = mutableListOf<Int>()
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.SCHEDULE, QingKeAppActions(openCourseAt = { opened += it }), LocalDateTime.parse("2026-08-31T09:00")) }
+        rule.onNodeWithTag("selected-day-title").assertTextContains("周一")
+        rule.onNodeWithTag("week-manifest-detail").assertTextContains("4 ENTRIES")
+        rule.onAllNodes(hasText("2026-08-31", substring = true)).assertCountEquals(0)
+        rule.onNodeWithTag("week-list-0-0").performScrollTo().performClick()
+        rule.onNodeWithTag("week-list-2-0").performScrollTo().performClick()
+        assertEquals(listOf(0, 2), opened)
     }
 
     @Test fun appendOverlayIsReadOnlyAndInFlightScheduleControlsAreDisabled() {
@@ -1124,5 +1189,109 @@ class QingKeAppTest {
             preferences = SchedulePreferences.defaults,
             loadStatus = LoadStatus.READY,
         )
+    }
+
+    private fun weekState(withLunchBreak: Boolean): ScheduleState {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "09:00", "09:45"),
+            Period(3, "10:00", "10:45"), Period(4, "14:00", "14:45"),
+        ))
+        fun schedule(period: Int) = CourseSchedule("s" + period, 1, period, period, 1, 18, RepeatRule.EVERY, "")
+        val courses = listOf(
+            Course("a", "第一门", "老师", "#287B74", listOf(schedule(1))),
+            Course("b", "第二门", "", "#287B74", listOf(schedule(2))),
+            Course("c", "第三门", "", "#287B74", listOf(schedule(3))),
+            Course("d", "第四门", "", "#287B74", listOf(schedule(4))),
+        )
+        return ScheduleState(
+            data = ScheduleData(1, semester, courses, "1970-01-01T00:00:00Z"),
+            preferences = SchedulePreferences.defaults.copy(
+                academicCalendar = AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(isEnabled = withLunchBreak)),
+            ),
+            loadStatus = LoadStatus.READY,
+        )
+    }
+
+    private fun signalUnderlineCenterX(tag: String): Float {
+        val bitmap = rule.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        var total = 0L
+        var count = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                if (red >= 220 && green >= 180 && blue <= 120) {
+                    total += x
+                    count++
+                }
+            }
+        }
+        val stripMiddle = medianLuminance(bitmap, bitmap.height / 2, horizontal = true)
+        val topRule = medianLuminance(bitmap, 1, horizontal = true)
+        val bottomRule = medianLuminance(bitmap, bitmap.height - 2, horizontal = true)
+        assertTrue("day strip must draw a top rule, top=" + topRule + " middle=" + stripMiddle, topRule < stripMiddle - 12)
+        assertTrue("day strip must draw a bottom rule, bottom=" + bottomRule + " middle=" + stripMiddle, bottomRule < stripMiddle - 12)
+        assertTrue("week date strip must render a signal-yellow selection underline in $tag, found $count px", count >= 20)
+        return total.toFloat() / count
+    }
+
+    private fun assertWeekMatrixGridLines() {
+        val bitmap = rule.onNodeWithTag("week-matrix-canvas").captureToImage().asAndroidBitmap()
+        val density = rule.density.density
+        val timeColumn = 44f * density
+        val headerHeight = 38f * density
+        val rowHeight = 68f * density
+        val columnWidth = (bitmap.width - timeColumn) / 7f
+        assertTrue("week matrix canvas must be fully captured, height=" + bitmap.height, bitmap.height >= (headerHeight + rowHeight * 4).toInt() - 4)
+        val sampleRowY = (headerHeight + rowHeight * 1.5f).toInt().coerceIn(0, bitmap.height - 1)
+        val rowBaseline = medianLuminance(bitmap, sampleRowY, horizontal = true)
+        val darkerColumns = (0..7).count { column ->
+            val x = (timeColumn + columnWidth * column).toInt().coerceIn(0, bitmap.width - 1)
+            darkestNear(bitmap, x, sampleRowY, horizontal = true) <= rowBaseline - 12
+        }
+        assertTrue("week matrix must draw vertical column lines, darkerColumns=$darkerColumns", darkerColumns >= 6)
+        val sampleColumnX = (timeColumn + columnWidth * 3.5f).toInt().coerceIn(0, bitmap.width - 1)
+        val columnBaseline = medianLuminance(bitmap, sampleColumnX, horizontal = false)
+        val darkerRows = (0..4).count { row ->
+            val y = (headerHeight + rowHeight * row).toInt().coerceIn(0, bitmap.height - 1)
+            darkestNear(bitmap, sampleColumnX, y, horizontal = false) <= columnBaseline - 12
+        }
+        assertTrue("week matrix must draw a horizontal line before each period, darkerRows=$darkerRows", darkerRows >= 4)
+    }
+
+    private fun assertLunchBreakCyanStrip() {
+        val bitmap = rule.onNodeWithTag("week-lunch-break").captureToImage().asAndroidBitmap()
+        var cyan = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                if (red <= 120 && green >= 120 && blue >= 150) cyan++
+            }
+        }
+        assertTrue("lunch break must be a cyan strip, cyanPixels=$cyan", cyan >= bitmap.width * bitmap.height / 4)
+    }
+
+    private fun medianLuminance(bitmap: Bitmap, fixed: Int, horizontal: Boolean): Int {
+        val values = if (horizontal) {
+            (0 until bitmap.width step 2).map { luminance(bitmap, it, fixed) }
+        } else {
+            (0 until bitmap.height step 2).map { luminance(bitmap, fixed, it) }
+        }
+        return values.sorted()[values.size / 2]
+    }
+
+    private fun darkestNear(bitmap: Bitmap, x: Int, y: Int, horizontal: Boolean): Int = (-3..3).minOf { delta ->
+        if (horizontal) luminance(bitmap, (x + delta).coerceIn(0, bitmap.width - 1), y)
+        else luminance(bitmap, x, (y + delta).coerceIn(0, bitmap.height - 1))
+    }
+
+    private fun luminance(bitmap: Bitmap, x: Int, y: Int): Int {
+        val pixel = bitmap.getPixel(x, y)
+        return ((pixel shr 16 and 0xff) * 299 + (pixel shr 8 and 0xff) * 587 + (pixel and 0xff) * 114) / 1000
     }
 }
