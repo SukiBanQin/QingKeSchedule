@@ -296,6 +296,54 @@ class DraftTest {
     }
 
     @Test
+    fun markPersistedRebasesFirstOnboardingIdentityOntoTheWrittenSemester() {
+        val draft = SemesterDraft.create(LocalDate.of(2026, 9, 1), ids("semester", *Array(10) { "p$it" }))
+        assertTrue(draft.periods.all { it.sourceNumber == null })
+        val written = draft.periods.associate { it.id to it.number }
+        val persisted = draft.semester()
+        draft.markPersisted(written)
+
+        val courses = listOf(Course("course", "课", "", "#287B74", listOf(
+            CourseSchedule("s", 1, 3, 3, 1, 18, RepeatRule.EVERY, ""),
+        )))
+        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(persisted, courses))
+
+        draft.name = "改名"
+        draft.periods[2].startTime = LocalTime.of(10, 5)
+        draft.periods[2].endTime = LocalTime.of(10, 50)
+        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(persisted, courses))
+
+        draft.totalWeeks = 10
+        assertEquals("semester.totalWeeks", draft.impactIssues(persisted, courses).single().path)
+        draft.totalWeeks = 18
+
+        draft.removePeriod(draft.periods.first().id)
+        assertEquals("semester.periods", draft.impactIssues(persisted, courses).single().path)
+    }
+
+    @Test
+    fun markPersistedUsesPeriodIdentityNotNumbersAndLeavesLaterAdditionsUnsaved() {
+        val original = Semester("semester", "测试学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val courses = listOf(Course("course", "课", "", "#287B74", listOf(
+            CourseSchedule("s", 1, 3, 3, 1, 18, RepeatRule.EVERY, ""),
+        )))
+        val draft = SemesterDraft.edit(original, ids("p1", "p2", "p3", "p4"))
+        val written = draft.periods.associate { it.id to it.number }
+
+        draft.removePeriod(draft.periods.last().id)
+        draft.addPeriod()
+        assertEquals(listOf(1, 2, 3), draft.periods.map { it.number })
+        assertEquals(listOf(1, 2, null), draft.periods.map { it.sourceNumber })
+
+        draft.markPersisted(written)
+        assertEquals(listOf(1, 2, null), draft.periods.map { it.sourceNumber })
+        assertEquals("semester.periods", draft.impactIssues(original, courses).single().path)
+        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(original, emptyList()))
+    }
+
+    @Test
     fun semesterDraftKeepsOnePeriodAndReportsTimeOverlapOrInvalidOrdering() {
         val draft = SemesterDraft.create(LocalDate.of(2026, 9, 1), ids("semester", *Array(12) { "p$it" }))
         draft.periods.drop(1).map { it.id }.forEach(draft::removePeriod)

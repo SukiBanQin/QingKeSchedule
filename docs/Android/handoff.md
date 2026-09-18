@@ -1,6 +1,21 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 首轮 Sol 复审未通过，返修完成待再次复审（最新，2026-09-18）
+## P3-06／A06 第二轮 Sol 复审返修 R3 已完成，等待再次复审（最新，2026-09-18）
+
+第二轮 Sol 独立复审在 `6f25e6b` 上发现两处问题：**（1）节次身份基准在成功保存后没有更新**——`SemesterDraft.create()` 与 `addPeriod()` 产生的节次 `sourceNumber` 为 null，`saveSemester()` 成功后又不重建或重基准草稿，因此首次设置或新增／合法重排节次保存后，课程引用该节次，再普通改名或改时间会被 `impactIssues` 错误拒绝；**（2）文档残留**——设置页证据 README 仍用旧的“编号消失／编号集合变化”描述，`implementation-plan.md` 仍称 P3-05 R2 待复审，`product-baseline.md` 默认流程仍写 Terra。本轮（R3）在同一允许范围内完成两项修正，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与范围：分支 `Android`，开始基准 `6f25e6b`（`fix(android): guard referenced periods and fix p3-06 dark theme`，已推送 `origin/Android`）；只新增本次修正提交，未改写历史、未强推、未合并 `main`。修改 `Android/app/src/main/java/com/qingke/schedule/draft/SemesterDraft.kt`、`Android/app/src/main/java/com/qingke/schedule/viewmodel/ScheduleViewModel.kt`、`Android/app/src/test/java/com/qingke/schedule/draft/DraftTest.kt`、`Android/app/src/test/java/com/qingke/schedule/viewmodel/ScheduleViewModelTest.kt` 与 `docs/Android/` 内的计划、基线、交接与 P3-06 证据说明；未改 iOS、Web、共享协议、Room schema，未触碰 A07／A08／A10／A11。
+- 修正 1（保存成功后重建节次身份基准）：`PeriodDraft.sourceNumber` 改为可变，`SemesterDraft` 新增 `markPersisted(persistedNumbers)`；`ScheduleViewModel.saveSemester()` 在发起写入前捕获 `period id → number` 快照，仅在仓库写入**成功**后调用该方法：本次写过的节次以写入时的编号成为新基准，写入期间新增的节次仍保持未持久化（`sourceNumber = null`），保存期间的新编辑不会被误标为已持久化；失败保存不调用该方法，草稿内容与节次展开状态不变。首次设置、已有学期新增节次、合法重排后保存再引用该节次的普通改名／改时间都能保存，删除／移动尚未保存且已被课程引用的节次仍被拒绝，缩短周数规则不变。
+- 修正 2（文档同步）：证据 README 的节次规则改为“原节次身份仍对应原编号”，明确新增不影响引用时允许，并补记 R3 小节与数字；`implementation-plan.md` 的 P3-05 R2 改为已通过技术复审及用户视觉验收，P3-06 状态补记第二轮复审与 R3；`product-baseline.md` 默认流程改为 DeepSeek 主力开发、自测，Sol 按需审查。
+- 新增回归测试 6 项：`DraftTest.markPersistedRebasesFirstOnboardingIdentityOntoTheWrittenSemester`、`DraftTest.markPersistedUsesPeriodIdentityNotNumbersAndLeavesLaterAdditionsUnsaved`、`ScheduleViewModelTest.onboardingSaveRebasesPeriodIdentitySoCoursesCanLaterReferenceThoseNumbers`（首次设置保存后课程引用已有节次 → 普通改名与改时间可保存）、`savedNewPeriodBecomesTheIdentityBaselineAndDeletingItIsStillRejected`（新增节次保存后引用再普通编辑可保存；成功结构保存后的编号成为新基准，删除该节次仍拒绝）、`failedSemesterSaveKeepsThePersistedBaselineForTheNextJudgement`（失败保存不更新基准）、`editsDuringAnInFlightSemesterSaveAreNotMarkedPersisted`（保存期间的新编辑不视为已持久化，草稿与展开状态保留）。
+- 负向对照：临时移除成功保存后的 `markPersisted` 调用后，首次设置与新增节次两个 ViewModel 用例失败（45 tests 中 2 failed）；改为按“保存完成时的当前编号”重建后，保存期间编辑用例失败（1 failed）；恢复正确实现后定向 45 tests 全部通过。
+- 验证：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL；Debug／Release JVM 各 **104 tests、0 failures／errors／skipped**（R2 为 98，本轮 +6）；`lintDebug` **0 errors、20 warnings**；文档测试 71 tests OK、`documentation.test.sh`／`repository-layout.test.sh` 与 `git diff --check` 通过。R3 未改 UI，未重启模拟器或重拍截图，沿用 R2 已核实的 API 37 视觉证据与 84 tests 设备记录（`docs/Android/evidence/p3-06-a06-settings/`）。
+- 本机环境限制：本窗口在沙箱内以 root 运行 Gradle，因此使用工作区外的 `GRADLE_USER_HOME=/private/tmp/qingke-gradle`、`ANDROID_USER_HOME=/private/tmp/qingke-android-home`、JDK 17 与 `-Djava.io.tmpdir=/tmp/qingke-tmp`；构建完成后已删除 `Android/.kotlin` 构建会话目录并把 `Android/`（含 `app/build`、`.gradle`）与 `.git` 中本轮生成的 root 所属文件 chown 回 `takagisan:staff`，核对无 root 所有文件、无运行中的 Gradle／模拟器。**后续窗口不要以 root 身份向共享目录写构建产物或证据。**
+- 准确状态：**R3 已实现、已测试；第二轮复审尚未通过，用户视觉验收未进行**。等待 Sol 再次复审。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## P3-06／A06 首轮 Sol 复审未通过，返修完成待再次复审（历史，2026-09-18）
+
+> 状态更新（2026-09-18）：本轮 R2 返修后，第二轮 Sol 独立复审在 `6f25e6b` 上又发现节次身份基准生命周期与文档残留问题，已在 R3 修正；本节记录与数字保留为历史。
 
 Sol 对 `83d1a9f` 的首轮独立复审未通过。本轮在同一允许范围内完成四项修正，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
 

@@ -17,7 +17,7 @@ data class PeriodDraft(
     var startTime: LocalTime,
     var endTime: LocalTime,
     /** Number this period carried in the persisted semester; null for periods added inside the draft. */
-    val sourceNumber: Int? = null,
+    var sourceNumber: Int? = null,
 )
 
 class SemesterDraft private constructor(
@@ -63,6 +63,17 @@ class SemesterDraft private constructor(
             )
         }
         return issues
+    }
+
+    /**
+     * Re-points the identity baseline at a semester that was just written. [persistedNumbers] must
+     * be the numbers captured when the write was requested, keyed by draft period id, so that edits
+     * made while the write was in flight are not reported as persisted. Periods missing from that
+     * map were created after the request and keep no persisted identity. Only call this after a
+     * successful write.
+     */
+    fun markPersisted(persistedNumbers: Map<String, Int>) {
+        periods.forEach { period -> period.sourceNumber = persistedNumbers[period.id] }
     }
 
     fun validationIssues(): List<ValidationIssue> = ScheduleValidator.validate(

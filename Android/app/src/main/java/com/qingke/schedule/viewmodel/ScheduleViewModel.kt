@@ -153,10 +153,12 @@ class ScheduleViewModel(
         saveRequested = true
         mutableForm.value = snapshot(current).copy(validationMessage = null)
         val semester = current.semester()
+        val persistedNumbers = current.periods.associate { it.id to it.number }
         viewModelScope.launch {
             try {
-                if (appState.saveSemester(semester) && !onboarding) {
-                    mutableSemesterSuccess.value = "SYSTEM // 学期与节次设置已保存"
+                if (appState.saveSemester(semester)) {
+                    current.markPersisted(persistedNumbers)
+                    if (!onboarding) mutableSemesterSuccess.value = "SYSTEM // 学期与节次设置已保存"
                 }
             } catch (error: CancellationException) {
                 throw error

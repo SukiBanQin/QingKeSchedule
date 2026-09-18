@@ -156,6 +156,115 @@ class ScheduleViewModelTest {
         assertEquals(semester, repository.data.semester)
     }
 
+    @Test fun onboardingSaveRebasesPeriodIdentitySoCoursesCanLaterReferenceThoseNumbers() = runTest {
+        val repository = FakeScheduleRepository()
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-07-01T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+        model.updateName("新学期")
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals((1..10).toList(), repository.data.semester!!.periods.map { it.number })
+
+        val course = Course("course", "课", "", "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("s", 1, 3, 3, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "")))
+        repository.data = repository.data.copy(courses = listOf(course))
+        model.retryLoad(); advanceUntilIdle()
+        assertEquals("新学期", model.form.value!!.name)
+
+        model.updateName("改名")
+        val used = model.form.value!!.periods[2]
+        model.updatePeriodStart(used.id, LocalTime.of(10, 5))
+        model.updatePeriodEnd(used.id, LocalTime.of(10, 50))
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(2, repository.saveCalls)
+        assertNull(model.form.value!!.validationMessage)
+        assertEquals("改名", repository.saved!!.name)
+        assertEquals((1..10).toList(), repository.saved!!.periods.map { it.number })
+        assertEquals("10:05" to "10:50", repository.saved!!.periods[2].startTime to repository.saved!!.periods[2].endTime)
+        assertEquals(listOf(course), model.state.value.data.courses)
+    }
+
+    @Test fun savedNewPeriodBecomesTheIdentityBaselineAndDeletingItIsStillRejected() = runTest {
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, emptyList(), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.addPeriod(); model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals(listOf(1, 2, 3), repository.data.semester!!.periods.map { it.number })
+
+        val course = Course("course", "课", "", "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("s", 1, 3, 3, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "")))
+        repository.data = repository.data.copy(courses = listOf(course))
+        model.retryLoad(); advanceUntilIdle()
+
+        model.updateName("改名"); model.saveSemester(); advanceUntilIdle()
+        assertEquals(2, repository.saveCalls)
+        assertNull(model.form.value!!.validationMessage)
+        assertEquals("改名", repository.saved!!.name)
+
+        model.removePeriod(model.form.value!!.periods.last().id)
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(2, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("请先在课程编辑中调整"))
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        assertEquals("改名", repository.data.semester!!.name)
+    }
+
+    @Test fun failedSemesterSaveKeepsThePersistedBaselineForTheNextJudgement() = runTest {
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"), Period(4, "10:55", "11:40"),
+        ))
+        val first = com.qingke.schedule.domain.CourseSchedule("s", 1, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "")
+        val course = Course("course", "课", "", "#287B74", listOf(first))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now"); it.failSave = true }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods[2].id)
+        assertEquals(listOf(1, 2, 3), model.form.value!!.periods.map { it.number })
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals(semester, repository.data.semester)
+
+        repository.failSave = false
+        repository.data = repository.data.copy(courses = listOf(course, Course("other", "另一门", "", "#287B74", listOf(
+            first.copy(id = "s3", startPeriod = 3, endPeriod = 3),
+        ))))
+        model.retryLoad(); advanceUntilIdle()
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("请先在课程编辑中调整"))
+        assertEquals(listOf(1, 2, 3), model.form.value!!.periods.map { it.number })
+        assertEquals(semester, repository.data.semester)
+    }
+
+    @Test fun editsDuringAnInFlightSemesterSaveAreNotMarkedPersisted() = runTest {
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, emptyList(), "now"); it.saveGate = CompletableDeferred() }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+        assertTrue(model.form.value!!.periodsExpanded)
+        model.togglePeriods()
+        model.addPeriod()
+        model.saveSemester()
+        assertEquals(1, repository.saveCalls)
+
+        model.removePeriod(model.form.value!!.periods.last().id)
+        model.addPeriod()
+        model.updateName("保存期间改名")
+        assertEquals(listOf(1, 2, 3), model.form.value!!.periods.map { it.number })
+        repository.saveGate!!.complete(Unit); advanceUntilIdle()
+
+        assertEquals("保存期间改名", model.form.value!!.name)
+        assertFalse(model.form.value!!.periodsExpanded)
+        assertEquals(listOf(1, 2, 3), repository.data.semester!!.periods.map { it.number })
+
+        val course = Course("course", "课", "", "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("s", 1, 3, 3, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "")))
+        repository.data = repository.data.copy(courses = listOf(course))
+        model.retryLoad(); advanceUntilIdle()
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("请先在课程编辑中调整"))
+        assertEquals("保存期间改名", model.form.value!!.name)
+    }
+
     @Test fun onboardingSaveKeepsDraftWithoutPublishingSettingsNotice() = runTest {
         val repository = FakeScheduleRepository()
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
