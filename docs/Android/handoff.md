@@ -1,5 +1,17 @@
 # 安卓项目当前交接状态
 
+## 切换新 Sol 主窗口：P3-05 已验收，P3-06／A06 待授权（最新，2026-09-18）
+
+用户决定切换到新的 Sol 主窗口继续 Android 分析、协调与按需独立审查。本节用于新窗口接手，不构成新阶段开发授权；默认流程仍为 DeepSeek V4.1 主力开发、自测，Sol 负责分析定界、必要协调和关键任务独立审查，不自动创建子 Agent，也不与实施窗口同时写入共享工作区。
+
+- **代码基准**：仓库 `/Users/takagisan/课表软件`，分支 `Android`，不合并 `main`。交接前本地 HEAD、`origin/Android` 和远程 `refs/heads/Android` 均为 `5fb0bd23bab742ee830f60a5d180c3b4b2cd71b6`（`docs(android): close p3-05 visual acceptance`），工作区干净；本节的文档提交与推送结果以交付消息及 Git 历史为准。
+- **准确状态**：P3-04／A04／A05 与 P3-05／A03 当前范围均已实现、验证、通过 Sol 技术复审，并已获用户产品／视觉验收。P3-05 R2 实现为 `e3321bd`，验收收口为 `5fb0bd2`；不要重复实施、复审或重新要求用户验收。
+- **用户最新判断**：课程编辑中的下拉菜单只选择“第几节”，显示的开始时间来自当前学期节次设置；目前缺少修改入口属于尚未实施的 A06 完整设置／学期编辑，不记作 P3-04 或 P3-05 缺陷。
+- **下一项建议与边界**：建议下一项为 P3-06／A06。只有用户在新窗口明确授权“开始分析 P3-06／A06”后，才进行只读分析与定界：增量核对 iOS `SemesterFormView.swift`、设置入口及学期编辑路由，Android 现有 `SemesterDraft`、`SETTINGS` 壳层、ViewModel actions 与 Room 保存流程，并整理修改学期周数／节次数量时对既有课程的校验、范围、风险和验收清单。不要直接修改应用代码或派发实施；实施须另行取得明确授权。A07 教学日历建议保持为后续独立任务。
+- **运行与写入状态**：接手核对时没有 Gradle daemon、模拟器或连接设备，也没有可续接的活动子 Agent；本窗口未启动 P3-06 写入者。ADB 位于 `/Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb`，核对后 daemon 已关闭。此前 Android Studio 无法清理 root 构建产物的问题已处理，新 `Android/app/build` 由普通用户生成；后续不得以 root 身份在共享构建目录产生文件。
+- **历史证据权限**：`docs/Android/evidence/p3-05-visual-r1/` 与 `p3-05-visual-r2/` 仍由 `root:staff` 所有，目录内 README 和主机验证文本为 `0600`；这是已知本机权限遗留，不代表 Git 内容缺失。新窗口只读接手不需要修改这些历史证据；如后续确需读取或维护，应先安全修复所有权／权限，不得覆盖证据内容。
+- **接手动作**：按增量规则先核对 `git status --short --branch`、`git log --oneline -n 12`、`git ls-remote --heads origin Android`、本节及顶部 P3-05 收口节。若三处提交一致且工作区干净，只需向用户确认接手与下一项授权边界，不重复读取整份历史交接、重跑 P3-05 测试或启动新阶段。
+
 ## P3-05／A03 周课表视觉返修 R2 已通过技术复审及用户视觉验收（最新，2026-09-18）
 
 P3-05 R2 实现提交为 `e3321bd`（`fix(android): correct r2 week controls layout and spacing`）。Sol 已集中核对完整 diff、测试、API 37 设备结果与 5 张 R2 生产截图，确认 130% 字号下 `ODD WEEK/EVEN WEEK` 完整显示、“切走→箭头回本周→点击中部→恢复自动跟随”回归通过，浅色／深色／100%／130% 与日清单视觉正常；Debug／Release JVM 各 92 tests、API 37 connected 74 tests、lint、文档测试与 `git diff --check` 均通过。
