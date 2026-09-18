@@ -325,9 +325,9 @@ fun QingKeAppContent(
 )
 
 @Composable private fun OnboardingScreen(form: SemesterFormState, saving: Boolean, actions: QingKeAppActions, dark: Boolean) = Scaffold(
-    topBar = { Row(Modifier.fillMaxWidth().background(InverseSurface).statusBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("首次设置", color = Color.White, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f))
-        Button(actions.saveSemester, enabled = !saving, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface), modifier = Modifier.heightIn(min = 48.dp).testTag("semester-save-toolbar")) { Text(if (saving) "保存中" else "保存") }
+    topBar = { Row(Modifier.fillMaxWidth().background(InverseSurface).statusBarsPadding().heightIn(min = 58.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("首次设置", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 17.sp); Spacer(Modifier.weight(1f))
+        SettingsToolbarSave(saving, actions.saveSemester)
     } },
 ) { padding ->
     Column(Modifier.padding(padding).padding(16.dp).navigationBarsPadding().verticalScroll(rememberScrollState()).testTag("onboarding-screen")) {
@@ -344,16 +344,16 @@ fun QingKeAppContent(
     }
 }
 
-@Composable private fun DateControl(date: LocalDate, update: (LocalDate) -> Unit, dark: Boolean) {
+@Composable private fun DateControl(date: LocalDate, update: (LocalDate) -> Unit, dark: Boolean, boxed: Boolean = true) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var shownYear by rememberSaveable { mutableIntStateOf(date.year) }
     var shownMonth by rememberSaveable { mutableIntStateOf(date.monthValue) }
     val month = YearMonth.of(shownYear, shownMonth)
     val chineseDate = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA))
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).terminalPanel(dark, QingKeCyan).testTag("semester-start-date-container")) {
+    Column(Modifier.fillMaxWidth().then(if (boxed) Modifier.padding(vertical = 8.dp).terminalPanel(dark, QingKeCyan) else Modifier).testTag("semester-start-date-container")) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { expanded = !expanded }
-                .padding(horizontal = 14.dp).testTag("semester-start-date")
+                .padding(horizontal = if (boxed) 14.dp else 0.dp).testTag("semester-start-date")
                 .semantics { contentDescription = "开始日期，$chineseDate，${if (expanded) "收起日历" else "展开日历"}" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -361,7 +361,7 @@ fun QingKeAppContent(
             Spacer(Modifier.weight(1f))
             Text(chineseDate, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
             Spacer(Modifier.width(8.dp))
-            Text(if (expanded) "⌃" else "⌄", color = terminalText(dark), fontWeight = FontWeight.Black, modifier = Modifier.testTag("semester-start-date-chevron"))
+            TerminalChevron(expanded, terminalText(dark), "semester-start-date-chevron")
         }
         if (expanded) InlineMonthCalendar(month, date, dark, { selected -> update(selected) }, { next ->
             val changed = if (next) month.plusMonths(1) else month.minusMonths(1)
@@ -404,22 +404,52 @@ fun QingKeAppContent(
     contentAlignment = Alignment.Center,
 ) { Text(symbol, color = SignalYellow, fontSize = 30.sp, lineHeight = 30.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif) }
 
-@Composable private fun WeekControl(value: Int, update: (Int) -> Unit, dark: Boolean) = Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun WeekControl(value: Int, update: (Int) -> Unit, dark: Boolean) = Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
     Text("总周数：$value", color = terminalText(dark), modifier = Modifier.weight(1f).testTag("semester-total-weeks"))
-    OutlinedButton({ update(value - 1) }, enabled = value > 1, modifier = Modifier.heightIn(min = 48.dp).testTag("semester-weeks-minus"), shape = TerminalShape) { Text("−") }
-    Spacer(Modifier.width(8.dp)); OutlinedButton({ update(value + 1) }, enabled = value < 52, modifier = Modifier.heightIn(min = 48.dp).testTag("semester-weeks-plus"), shape = TerminalShape) { Text("+") }
+    StepperGlyphButton("−", "semester-weeks-minus", value > 1) { update(value - 1) }
+    Spacer(Modifier.width(4.dp))
+    StepperGlyphButton("+", "semester-weeks-plus", value < 52) { update(value + 1) }
 }
+
+/** Borderless stepper glyph: the iOS Stepper look, so the form panel keeps a single outline. */
+@Composable private fun StepperGlyphButton(symbol: String, tag: String, enabled: Boolean, action: () -> Unit) = Box(
+    Modifier.size(48.dp).alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, onClick = action).testTag(tag),
+    contentAlignment = Alignment.Center,
+) { Text(symbol, color = QingKeCyan, fontSize = 22.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif) }
 
 @Composable private fun PeriodRow(period: PeriodFormState, count: Int, actions: QingKeAppActions, dark: Boolean) {
     val context = LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("period-${period.id}-row")) {
-        Text("第 ${period.number} 节", color = terminalText(dark), fontWeight = FontWeight.Bold, modifier = Modifier.testTag("period-${period.id}-label"))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodStart(period.id, LocalTime.of(hour, minute)) }, period.start.hour, period.start.minute, true).show() }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("period-${period.id}-start"), shape = TerminalShape) { Text(period.start.toString()) }
-            OutlinedButton({ TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodEnd(period.id, LocalTime.of(hour, minute)) }, period.end.hour, period.end.minute, true).show() }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("period-${period.id}-end"), shape = TerminalShape) { Text(period.end.toString()) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).testTag("period-${period.id}-row")) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("第 ${period.number} 节", color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f).testTag("period-${period.id}-label"))
+            if (count > 1) Box(
+                Modifier.size(48.dp).clickable { actions.removePeriod(period.id) }.testTag("period-${period.id}-delete")
+                    .semantics { contentDescription = "删除第 ${period.number} 节" },
+                contentAlignment = Alignment.Center,
+            ) { Text("✕", color = Danger, fontWeight = FontWeight.Black, fontSize = 15.sp) }
         }
-        if (count > 1) OutlinedButton({ actions.removePeriod(period.id) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("period-${period.id}-delete").semantics { contentDescription = "删除第 ${period.number} 节" }, shape = TerminalShape) { Text("删除第 ${period.number} 节") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PeriodTimeCell("开始", period.start, "period-${period.id}-start", dark, Modifier.weight(1f)) {
+                TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodStart(period.id, LocalTime.of(hour, minute)) }, period.start.hour, period.start.minute, true).show()
+            }
+            PeriodTimeCell("结束", period.end, "period-${period.id}-end", dark, Modifier.weight(1f)) {
+                TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodEnd(period.id, LocalTime.of(hour, minute)) }, period.end.hour, period.end.minute, true).show()
+            }
+        }
     }
+}
+
+/** iOS compact DatePicker cell: one fill colour instead of a second outline inside the form panel. */
+@Composable private fun PeriodTimeCell(label: String, value: LocalTime, tag: String, dark: Boolean, modifier: Modifier, pick: () -> Unit) = Row(
+    modifier.heightIn(min = 48.dp)
+        .background(if (dark) Color(0xFF202D31) else Color(0xFFDCE4E3), TerminalShape)
+        .clickable(onClick = pick).padding(horizontal = 12.dp)
+        .testTag(tag).semantics { contentDescription = "${label}时间，$value" },
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(label, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+    Spacer(Modifier.width(8.dp))
+    Text(value.toString(), color = terminalText(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 15.sp)
 }
 
 @Composable private fun MainShell(
@@ -554,37 +584,45 @@ fun QingKeAppContent(
                 if (form == null) {
                     Text("正在准备学期设置…", color = terminalSecondary(dark), modifier = Modifier.padding(top = 12.dp).testTag("settings-pending"))
                 } else {
-                    TerminalSectionHeader("01", "学期信息", "TERM", dark, "settings-semester-section")
-                    OutlinedTextField(
-                        form.name, actions.updateName,
-                        Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp).testTag("semester-name"),
-                        label = { Text("学期名称") }, singleLine = true, shape = TerminalShape,
-                    )
-                    DateControl(form.startDate, actions.updateStartDate, dark)
-                    WeekControl(form.totalWeeks, actions.updateTotalWeeks, dark)
-
-                    TerminalSectionHeader("02", "每日节次", "PERIODS / " + form.periods.size, dark, "settings-periods-section")
-                    OutlinedButton(
-                        actions.togglePeriods,
-                        Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp).testTag("daily-periods-toggle"),
-                        shape = TerminalShape,
-                    ) { Text(if (form.periodsExpanded) "收起节次设置（" + form.periods.size + " 节）" else "展开节次设置（" + form.periods.size + " 节）") }
-                    if (form.periodsExpanded) {
-                        form.periods.forEach { PeriodRow(it, form.periods.size, actions, dark) }
-                        OutlinedButton(
-                            actions.addPeriod, enabled = form.periods.size < 20,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("add-period"), shape = TerminalShape,
-                        ) { Text("添加节次") }
+                    TerminalFormSection("01", "学期信息", "TERM", dark, "settings-semester-section", "settings-semester-panel") {
+                        BasicTextField(
+                            value = form.name,
+                            onValueChange = actions.updateName,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("semester-name"),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 16.sp),
+                            decorationBox = { innerTextField ->
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                                    if (form.name.isBlank()) Text("学期名称", color = terminalSecondary(dark), fontSize = 15.sp)
+                                    innerTextField()
+                                }
+                            },
+                        )
+                        TerminalFormDivider(dark, "settings-semester-divider")
+                        DateControl(form.startDate, actions.updateStartDate, dark, boxed = false)
+                        TerminalFormDivider(dark, "settings-semester-divider")
+                        WeekControl(form.totalWeeks, actions.updateTotalWeeks, dark)
                     }
-                    Text(
-                        "教学周从开始日期所在周的周一算起；课程统一使用这里的节次时间。",
-                        color = terminalSecondary(dark), fontSize = 11.sp,
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).testTag("settings-periods-footer"),
-                    )
+                    TerminalFormSection(
+                        "02", "每日节次", "PERIODS / " + form.periods.size, dark, "settings-periods-section", "settings-periods-panel",
+                        footer = "教学周从开始日期所在周的周一算起；课程统一使用这里的节次时间。",
+                        footerTag = "settings-periods-footer",
+                    ) {
+                        PeriodsToggleRow(form.periodsExpanded, form.periods.size, actions.togglePeriods, dark)
+                        if (form.periodsExpanded) {
+                            TerminalFormDivider(dark, "settings-periods-divider")
+                            form.periods.forEachIndexed { index, period ->
+                                PeriodRow(period, form.periods.size, actions, dark)
+                                if (index < form.periods.lastIndex) TerminalFormDivider(dark, "settings-periods-divider")
+                            }
+                            TerminalFormDivider(dark, "settings-periods-divider")
+                            AddPeriodRow(form.periods.size, actions.addPeriod)
+                        }
+                    }
                     form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
                     SettingsSaveButton(saving, actions.saveSemester)
                 }
-                Spacer(Modifier.height(100.dp))
+                Spacer(Modifier.height(100.dp).testTag("settings-bottom-spacer"))
             }
         }
     }
@@ -593,18 +631,107 @@ fun QingKeAppContent(
 @Composable private fun SettingsToolbar(saving: Boolean, save: () -> Unit) = Column(
     Modifier.fillMaxWidth().background(InverseSurface).statusBarsPadding().testTag("settings-toolbar"),
 ) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 58.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).heightIn(min = 58.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("学期与节次", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("学期与节次", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 17.sp)
             Text("SYSTEM CONFIG", color = Color(0xB3F1F5F4), fontFamily = FontFamily.Monospace, fontSize = 8.sp, letterSpacing = 1.sp)
         }
-        Button(
-            save, enabled = !saving, shape = TerminalShape,
-            colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface),
-            modifier = Modifier.heightIn(min = 48.dp).testTag("semester-save-toolbar"),
-        ) { Text(if (saving) "保存中" else "保存") }
+        SettingsToolbarSave(saving, save)
     }
     Box(Modifier.fillMaxWidth().height(3.dp).background(SignalYellow))
+}
+
+/** iOS `settingsHeader` save entry: plain signal text on the inverse bar, never a filled yellow button. */
+@Composable private fun SettingsToolbarSave(saving: Boolean, save: () -> Unit) = Box(
+    Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp).clickable(enabled = !saving, onClick = save).testTag("semester-save-toolbar"),
+    contentAlignment = Alignment.Center,
+) { Text(if (saving) "保存中" else "保存", color = SignalYellow, fontWeight = FontWeight.Black, fontSize = 16.sp) }
+
+/** iOS `TerminalFormSection`: one index header plus a single bordered panel with a cyan rail. */
+@Composable private fun TerminalFormSection(
+    number: String,
+    title: String,
+    detail: String,
+    dark: Boolean,
+    tag: String,
+    panelTag: String,
+    footer: String? = null,
+    footerTag: String? = null,
+    content: @Composable () -> Unit,
+) = Column(Modifier.fillMaxWidth().padding(top = 5.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+    TerminalSectionHeader(number, title, detail, dark, tag)
+    Column(Modifier.fillMaxWidth().terminalFormPanel(dark).testTag(panelTag)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) { content() }
+    }
+    if (footer != null) Text(
+        footer, color = terminalSecondary(dark), fontSize = 11.sp,
+        modifier = Modifier.fillMaxWidth().testTag(footerTag ?: panelTag + "-footer"),
+    )
+}
+
+/** iOS `TerminalAcrylicSurface` plus the 1dp edge and 3dp cyan rail; form panels carry no floating card shadow. */
+private fun Modifier.terminalFormPanel(dark: Boolean): Modifier {
+    val surface = if (dark) Color(0xE61A2527) else Color(0xDDFBFEFD)
+    val highlight = if (dark) Color.White.copy(alpha = .10f) else Color.White.copy(alpha = .48f)
+    return this
+        .background(Brush.linearGradient(listOf(highlight, surface, surface.copy(alpha = .94f))), TerminalShape)
+        .border(1.dp, terminalPanelEdge(dark), TerminalShape)
+        .drawBehind { drawRect(QingKeCyan, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+}
+
+/** iOS `TerminalFormDivider`: a hairline between the controls of one form panel. */
+@Composable private fun TerminalFormDivider(dark: Boolean, tag: String? = null) = Box(
+    Modifier.fillMaxWidth().height(1.dp).background(terminalBorder(dark)).then(if (tag != null) Modifier.testTag(tag) else Modifier),
+)
+
+/** iOS `chevron.up` / `chevron.down`, drawn so the collapse state stays visible and announced. */
+@Composable private fun TerminalChevron(up: Boolean, color: Color, tag: String, description: String? = null) = Canvas(
+    Modifier.size(14.dp).testTag(tag).then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
+) {
+    val stroke = 2.dp.toPx()
+    val leftX = size.width * 0.08f
+    val rightX = size.width * 0.92f
+    val midX = size.width / 2f
+    val apexY = if (up) size.height * 0.32f else size.height * 0.68f
+    val baseY = if (up) size.height * 0.68f else size.height * 0.32f
+    drawLine(color, androidx.compose.ui.geometry.Offset(leftX, baseY), androidx.compose.ui.geometry.Offset(midX, apexY), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(color, androidx.compose.ui.geometry.Offset(midX, apexY), androidx.compose.ui.geometry.Offset(rightX, baseY), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+}
+
+/** iOS `Image(systemName: "arrow.right")` on the commit card. */
+@Composable private fun SaveCardArrow(color: Color, modifier: Modifier = Modifier) = Canvas(modifier) {
+    val stroke = 2.5.dp.toPx()
+    val head = 9.dp.toPx()
+    val centerY = size.height / 2f
+    val startX = 1.dp.toPx()
+    val endX = size.width - 1.dp.toPx()
+    drawLine(color, androidx.compose.ui.geometry.Offset(startX, centerY), androidx.compose.ui.geometry.Offset(endX, centerY), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(color, androidx.compose.ui.geometry.Offset(endX - head, centerY - head), androidx.compose.ui.geometry.Offset(endX, centerY), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+    drawLine(color, androidx.compose.ui.geometry.Offset(endX - head, centerY + head), androidx.compose.ui.geometry.Offset(endX, centerY), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+}
+
+/** iOS periods toggle: cyan label on the left, count and chevron on the right, inside the panel. */
+@Composable private fun PeriodsToggleRow(expanded: Boolean, count: Int, toggle: () -> Unit, dark: Boolean) = Row(
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = toggle)
+        .semantics { contentDescription = "每日节次，$count 节，${if (expanded) "已展开" else "已收起"}" }
+        .testTag("daily-periods-toggle"),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(if (expanded) "收起节次设置" else "展开节次设置", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    Spacer(Modifier.weight(1f))
+    Text("$count 节", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.testTag("daily-periods-count"))
+    Spacer(Modifier.width(8.dp))
+    TerminalChevron(expanded, QingKeCyan, "daily-periods-chevron", if (expanded) "收起节次箭头" else "展开节次箭头")
+}
+
+/** iOS `Label("添加节次", systemImage: "plus") ` inside the same periods panel. */
+@Composable private fun AddPeriodRow(count: Int, add: () -> Unit) = Row(
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = count < 20, onClick = add).testTag("add-period"),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text("+", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 16.sp)
+    Spacer(Modifier.width(9.dp))
+    Text("添加节次", color = QingKeCyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
 }
 
 @Composable private fun SettingsIntro(dark: Boolean) = Row(
@@ -628,14 +755,17 @@ fun QingKeAppContent(
 @Composable private fun SettingsSaveButton(saving: Boolean, save: () -> Unit) = Column(
     Modifier.fillMaxWidth().padding(top = 18.dp).clickable(enabled = !saving, onClick = save).background(InverseSurface).testTag("semester-save"),
 ) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 16.dp).testTag("semester-save-body"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(if (saving) "正在保存…" else "保存学期设置", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Text("COMMIT CHANGES", color = Color(0x9EF1F5F4), fontFamily = FontFamily.Monospace, fontSize = 8.sp, letterSpacing = 1.sp)
         }
-        Text("→", color = Color(0xFFF1F5F4), fontWeight = FontWeight.Black, fontSize = 20.sp)
+        SaveCardArrow(Color(0xFFF1F5F4), Modifier.size(26.dp).testTag("semester-save-arrow"))
     }
-    Box(Modifier.fillMaxWidth().height(4.dp).background(SignalYellow))
+    Box(Modifier.fillMaxWidth().height(4.dp).background(SignalYellow).testTag("semester-save-underline"))
 }
 
 @Composable private fun SemesterSuccessNotice(message: String, dark: Boolean, consume: () -> Unit) {
@@ -906,7 +1036,12 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
     if (save != null) Text(if (saving) "保存中" else "保存", color = SignalYellow, fontWeight = FontWeight.Black, modifier = Modifier.clickable(enabled = !saving, onClick = save).padding(vertical = 12.dp).testTag("course-save-toolbar")) else Spacer(Modifier.width(28.dp))
 }
 
-@Composable private fun TerminalSectionHeader(number: String, title: String, subtitle: String, dark: Boolean, tag: String) = Row(Modifier.fillMaxWidth().padding(top = 14.dp).drawBehind { drawLine(terminalBorder(dark), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.padding(bottom = 7.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) { Text(number, color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.testTag("$tag-number")); Spacer(Modifier.width(9.dp)); Text(title, color = terminalText(dark), fontWeight = FontWeight.Black); Spacer(Modifier.weight(1f)); Text(subtitle, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
+/** iOS uses Avenir Next Condensed Black for the section index; the platform mono face has no heavy cut, so pair the bold face with a black weight request. */
+private object TerminalTypography {
+    val indexFont = FontFamily(Typeface.create("monospace", Typeface.BOLD))
+}
+
+@Composable private fun TerminalSectionHeader(number: String, title: String, subtitle: String, dark: Boolean, tag: String) = Row(Modifier.fillMaxWidth().padding(top = 14.dp).drawBehind { drawLine(terminalBorder(dark), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.padding(bottom = 7.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically) { Text(number, color = QingKeCyan, fontFamily = TerminalTypography.indexFont, fontWeight = FontWeight.Black, fontSize = 15.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, modifier = Modifier.testTag("$tag-number")); Spacer(Modifier.width(9.dp)); Text(title, color = terminalText(dark), fontWeight = FontWeight.Black); Spacer(Modifier.weight(1f)); Text(subtitle, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
 
 @Composable private fun PlainEditorTextField(label: String, value: String, update: (String) -> Unit, tag: String, enabled: Boolean, dark: Boolean) = BasicTextField(
     value = value,

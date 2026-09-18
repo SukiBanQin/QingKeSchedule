@@ -1,6 +1,23 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 第二轮 Sol 复审返修 R3 已完成，等待再次复审（最新，2026-09-18）
+## P3-06／A06 设置页视觉返修 R4 已实施，等待 Sol 复审与用户重新验收（最新，2026-09-18）
+
+R3 提交 `9fdec22` 已通过 Sol 技术复审，但**用户视觉验收未通过**：设置页与 iOS `TerminalFormSection` 的结构与视觉仍有差距（用户备忘录“APP 还有的问题”第 1、2、3、5 项）。本轮（R4）只修这四项视觉问题，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与范围：分支 `Android`，开始基准 `9fdec22`（`fix(android): rebase saved period identity for p3-06 r3`，已推送 `origin/Android`）；只新增本次修正提交，未改写历史、未强推、未合并 `main`。修改 `Android/app/src/main/java/com/qingke/schedule/ui/QingKeApp.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt` 与 `docs/Android/`（交接、实施计划、功能基线、新增 R4 证据目录）；未改业务规则、ViewModel、Room、DataStore、共享协议、iOS、Web、main，也未实施 A07／A08／A10／A11。iOS 只读基准为 `/Users/takagisan/课表软件-IOS` 的 `SemesterFormView.swift` 与 `CourseStyle.swift`（`TerminalFormSection`／`TerminalSectionHeader`／`TerminalFormDivider`／`settingsHeader` 保存入口／底部 `saveButton`）。
+- 修正 1（01 学期信息整体面板）：新增 `TerminalFormSection`（编号标题 + 单一面板 + 可选 footer）与 `terminalFormPanel`（iOS 亚克力表面、1dp `panelEdge` 边框、左侧 3dp 青色竖线、不再叠加卡片阴影）。学期名称改为面板内无边框输入、开始日期与总周数连同内部 `TerminalFormDivider` 横线都进入同一面板；`01` 序号改用显式粗体等宽字面（`Typeface.create("monospace", BOLD)` + `FontWeight.Black`，15sp／字距 0.6sp），不再显得纤细。
+- 修正 2（02 每日节次整体面板）：折叠行移入面板内部（左侧青色「展开／收起节次设置」，右侧「N 节」与 Canvas 绘制的上下箭头，带状态 contentDescription）；展开后的节次行、内部横线与「添加节次」都留在同一面板，节次行改为「第 N 节 + 右上删除 ✕ + 两个时间单元」，点击仍弹系统 TimePicker，不再显示为一组互不关联的描边按钮。时间选择、删除、添加、校验、footer 与全部 testTag 的业务行为不变。
+- 修正 3（顶部保存）：设置页与引导页顶栏的「保存／保存中」改为黑色工具栏上的黄色文字（不再使用黄色填充矩形按钮），保留 58dp 栏高与 3dp 信号线；课程编辑器原本已是黑底黄字，未改动；ADD 等黄色主操作未改动。
+- 修正 4（底部保存卡片）：卡片主体按 iOS `minHeight: 58` 收紧为 58dp（去掉过大的上下留白），保留黑底、白色标题／副标题与 4dp 黄色底线；右侧箭头改为 Canvas 绘制的 26dp 大箭头，并新增 `semester-save-arrow`、`semester-save-underline`、`settings-bottom-spacer` 契约标签。
+- 新增测试：`QingKeAppTest` 新增 5 项——01／02 内容同属带左侧青色竖线的整体面板（浅深色、内部横线计数与包含关系）、折叠箭头随状态变化且展开内容仍属同一面板、顶部保存为黑底黄字而非黄色填充（含引导页与课程编辑器对照）、底部卡片 58dp 高度与箭头尺寸契约、130% 字号 + 320dp 窄屏不溢出。
+- 验证：工作区副本 `./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **104 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**；设备复用当时已在运行的 API 37 ARM64 AVD（emulator-5554，1080x2400@420dpi）：定向 `QingKeAppTest` **60 tests、0 failures**，完整 `connectedDebugAndroidTest` **89 tests、0 failures／errors／skipped**（R3 基线 84 + 本轮 5）；文档测试 71 tests OK、`documentation.test.sh`／`repository-layout.test.sh` 与 `git diff --check` 通过。测试过程中发现并修正两处测试取样问题（面板 testTag 落在内边距之后导致竖线不在截图内、展开态卡片被底部标签栏遮挡黄色底线），并把顶层 index 字体改为惰性 object，避免纯 JVM 用例触发 ExceptionInInitializerError。
+- 截图：新建 `docs/Android/evidence/p3-06-a06-settings-r4/`（不覆盖 R2／R3 历史证据），8 张真实 debug 入口截图——浅色 100%、深色 100%、浅色 130%、浅色展开节次、深色展开节次、保存卡片近景、小屏 720x1280@320 顶部与滚动到底部；逐张目视结论与主机／设备记录见该目录 README 与 `host-and-device-verification-20260918.txt`。
+- 本机环境限制：本窗口在沙箱内以 root 运行 Gradle（工作区副本 `/private/tmp/qingke-r4`，`GRADLE_USER_HOME=/private/tmp/qingke-gradle`、`ANDROID_USER_HOME=/private/tmp/qingke-android-home`、JDK 17 与可写 `java.io.tmpdir`），避免与用户同时打开的 Android Studio 争夺 `Android/app/build`；设备复用当时已在运行的 API 37 AVD（emulator-5554，1080x2400@420）。工作区只写源码与文档，结束后核对无 root 所有文件、无遗留 Gradle／模拟器进程。
+- 准确状态：**R4 已实现、已测试；Sol 复审与用户视觉验收均未进行**。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## P3-06／A06 第二轮 Sol 复审返修 R3 已通过技术复审（用户视觉验收未通过）（历史，2026-09-18）
+
+> 状态更新（2026-09-18）：本节 R3 提交 `9fdec22` 已通过 Sol 技术复审，但用户视觉验收未通过；设置页视觉问题已由 R4 修正，见顶部最新节。
 
 第二轮 Sol 独立复审在 `6f25e6b` 上发现两处问题：**（1）节次身份基准在成功保存后没有更新**——`SemesterDraft.create()` 与 `addPeriod()` 产生的节次 `sourceNumber` 为 null，`saveSemester()` 成功后又不重建或重基准草稿，因此首次设置或新增／合法重排节次保存后，课程引用该节次，再普通改名或改时间会被 `impactIssues` 错误拒绝；**（2）文档残留**——设置页证据 README 仍用旧的“编号消失／编号集合变化”描述，`implementation-plan.md` 仍称 P3-05 R2 待复审，`product-baseline.md` 默认流程仍写 Terra。本轮（R3）在同一允许范围内完成两项修正，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -1143,9 +1144,204 @@ class QingKeAppTest {
         saveTodayScreenshot("android-api37-empty-non-teaching.png")
     }
 
+    @Test fun settingsFormSectionsUseOneRailPanelWithInternalDividers() {
+        var appearance by mutableStateOf(AppearanceMode.LIGHT)
+        rule.setContent {
+            QingKeAppContent(
+                settingsState().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)),
+                existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+            )
+        }
+        listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
+            appearance = mode; rule.waitForIdle()
+            assertCyanRail("settings-semester-panel")
+            assertCyanRail("settings-periods-panel")
+            assertDividersInsidePanel("settings-semester-divider", "settings-semester-panel", 2)
+            assertDividersInsidePanel("settings-periods-divider", "settings-periods-panel", 3)
+            listOf("semester-name", "semester-start-date", "semester-total-weeks")
+                .forEach { assertInsidePanel(it, "settings-semester-panel") }
+            listOf("daily-periods-toggle", "daily-periods-count", "daily-periods-chevron", "period-q1-start", "period-q1-end", "add-period")
+                .forEach { assertInsidePanel(it, "settings-periods-panel") }
+            rule.onNodeWithTag("settings-periods-footer").performScrollTo().assertIsDisplayed()
+        }
+    }
+
+    @Test fun settingsPeriodsToggleKeepsEverythingInsideOnePanelWithStatefulChevron() {
+        var form by mutableStateOf(existingForm().copy(periodsExpanded = false))
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(
+                togglePeriods = { form = form.copy(periodsExpanded = !form.periodsExpanded) },
+            ))
+        }
+        rule.onNodeWithTag("daily-periods-chevron", useUnmergedTree = true).assertContentDescriptionEquals("展开节次箭头")
+        rule.onNodeWithText("展开节次设置").assertIsDisplayed()
+        rule.onNodeWithText("2 节").assertIsDisplayed()
+        rule.onAllNodesWithTag("period-q1-row").assertCountEquals(0)
+        rule.onAllNodesWithTag("settings-periods-divider").assertCountEquals(0)
+        assertInsidePanel("daily-periods-toggle", "settings-periods-panel")
+        assertCyanRail("settings-periods-panel")
+
+        rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("daily-periods-chevron", useUnmergedTree = true).assertContentDescriptionEquals("收起节次箭头")
+        rule.onNodeWithText("收起节次设置").assertIsDisplayed()
+        assertDividersInsidePanel("settings-periods-divider", "settings-periods-panel", 3)
+        listOf("period-q1-row", "period-q1-start", "period-q1-end", "period-q1-delete", "add-period")
+            .forEach { assertInsidePanel(it, "settings-periods-panel") }
+        assertCyanRail("settings-periods-panel")
+    }
+
+    @Test fun topSaveEntriesUseYellowTextOnTheInverseBarWithoutFilledButtons() {
+        var page by mutableStateOf("settings")
+        rule.setContent {
+            when (page) {
+                "settings" -> QingKeAppContent(settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions())
+                "onboarding" -> QingKeAppContent(onboarding(), defaultForm(), MainTab.TODAY, QingKeAppActions())
+                else -> QingKeAppContent(
+                    settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+                    editor = CourseEditorState(CourseEditorMode.CREATE),
+                )
+            }
+        }
+        assertYellowTextOnInverseBar("settings-toolbar", "semester-save-toolbar")
+        page = "onboarding"; rule.waitForIdle()
+        assertYellowTextOnInverseBar("semester-save-toolbar")
+        page = "editor"; rule.waitForIdle()
+        assertYellowTextOnInverseBar("course-editor-toolbar", "course-save-toolbar")
+    }
+
+    @Test fun settingsSaveCardMatchesCompactIosHeightAndArrowContract() {
+        var scale by mutableStateOf(1f)
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) {
+                QingKeAppContent(settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions())
+            }
+        }
+        rule.onNodeWithTag("semester-save").performScrollTo(); rule.waitForIdle()
+        assertCompactSaveCard()
+        scale = 1.3f; rule.waitForIdle()
+        assertCompactSaveCard()
+    }
+
+    @Test fun settingsSectionsSurviveLargeFontAndNarrowScreenWithoutClipping() {
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, 1.3f)) {
+                Box(Modifier.size(320.dp, 720.dp).testTag("narrow-root")) {
+                    QingKeAppContent(settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions())
+                }
+            }
+        }
+        rule.onNodeWithTag("narrow-root").assertIsDisplayed()
+        listOf("semester-name", "semester-start-date", "semester-total-weeks", "daily-periods-toggle", "daily-periods-count", "daily-periods-chevron", "period-q1-start", "period-q1-end", "period-q1-delete", "add-period", "semester-save")
+            .forEach { tag ->
+                rule.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+                assertFitsInside(tag, "narrow-root")
+            }
+        assertCyanRail("settings-semester-panel")
+        assertCyanRail("settings-periods-panel")
+    }
+
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
     ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
+
+    private fun assertCyanRail(panelTag: String) {
+        rule.onNodeWithTag(panelTag, useUnmergedTree = true).performScrollTo()
+        val bitmap = rule.onNodeWithTag(panelTag, useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val railColumns = (with(rule.density) { 4.dp.toPx() }.toInt()).coerceAtLeast(2)
+        var cyan = 0
+        for (x in 0 until minOf(railColumns, bitmap.width)) {
+            for (y in 0 until bitmap.height) {
+                val pixel = bitmap.getPixel(x, y)
+                if (isCyanInk(pixel shr 16 and 0xff, pixel shr 8 and 0xff, pixel and 0xff)) cyan++
+            }
+        }
+        assertTrue("%s cyan rail pixels=%d height=%d".format(panelTag, cyan, bitmap.height), cyan >= bitmap.height * 2)
+    }
+
+    private fun assertInsidePanel(tag: String, panelTag: String) {
+        rule.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo()
+        val panel = rule.onNodeWithTag(panelTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("$tag $node must stay inside $panelTag $panel", node.left >= panel.left - 1f && node.right <= panel.right + 1f && node.top >= panel.top - 1f && node.bottom <= panel.bottom + 1f)
+    }
+
+    private fun assertDividersInsidePanel(tag: String, panelTag: String, expected: Int) {
+        val count = rule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        assertEquals(expected, count)
+        for (index in 0 until count) {
+            rule.onAllNodesWithTag(tag, useUnmergedTree = true)[index].performScrollTo()
+            val panel = rule.onNodeWithTag(panelTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val bounds = rule.onAllNodesWithTag(tag, useUnmergedTree = true)[index].fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag $bounds must stay inside $panelTag $panel", bounds.left >= panel.left - 1f && bounds.right <= panel.right + 1f && bounds.top >= panel.top - 1f && bounds.bottom <= panel.bottom + 1f)
+        }
+    }
+
+    private fun assertFitsInside(tag: String, rootTag: String) {
+        val root = rule.onNodeWithTag(rootTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("$tag $node must stay inside $rootTag $root", node.left >= root.left - 1f && node.right <= root.right + 1f)
+    }
+
+    private fun assertYellowTextOnInverseBar(vararg tags: String) {
+        if (tags.size > 1) {
+            val bar = pixelCounts(tags[0])
+            assertTrue("%s must keep the inverse bar, dark=%d/%d".format(tags[0], bar[4], bar[0]), bar[4] * 100 >= bar[0] * 45)
+        }
+        val save = pixelCounts(tags.last())
+        assertTrue("%s must paint signal text, yellow=%d/%d".format(tags.last(), save[2], save[0]), save[2] >= 12)
+        assertTrue("%s must not be a filled yellow button, yellow=%d/%d".format(tags.last(), save[2], save[0]), save[2] * 100 <= save[0] * 45)
+        assertTrue("%s must sit on the inverse bar, dark=%d/%d".format(tags.last(), save[4], save[0]), save[4] * 100 >= save[0] * 45)
+    }
+
+    private fun assertCompactSaveCard() {
+        rule.onNodeWithTag("settings-bottom-spacer").performScrollTo(); rule.waitForIdle()
+        val height = dpHeight("semester-save-body")
+        assertTrue("semester-save-body height=$height", height in 56f..62f)
+        val arrow = rule.onNodeWithTag("semester-save-arrow", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val minimum = with(rule.density) { 22.dp.toPx() }
+        assertTrue("semester-save-arrow bounds=$arrow", arrow.width >= minimum && arrow.height >= minimum)
+        val arrowInk = pixelCounts("semester-save-arrow")[3]
+        assertTrue("semester-save-arrow ink=$arrowInk", arrowInk >= 60)
+        val underlineHeight = dpHeight("semester-save-underline")
+        assertTrue("semester-save-underline height=$underlineHeight", underlineHeight in 3f..6f)
+        val cardWidth = rule.onNodeWithTag("semester-save", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.width
+        val underlineWidth = rule.onNodeWithTag("semester-save-underline", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.width
+        assertTrue("semester-save-underline width=$underlineWidth of $cardWidth", underlineWidth >= cardWidth * 0.9f)
+        val underlineInk = pixelCounts("semester-save-underline")[2]
+        assertTrue("semester-save-underline signal pixels=$underlineInk", underlineInk >= 150)
+        rule.onNodeWithText("COMMIT CHANGES").assertIsDisplayed()
+    }
+
+    private fun dpHeight(tag: String): Float = with(rule.density) {
+        rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height.toDp().value
+    }
+
+    private fun pixelCounts(tag: String): IntArray {
+        val bitmap = rule.onNodeWithTag(tag, useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        val counts = IntArray(5)
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                counts[0]++
+                if (isCyanInk(red, green, blue)) counts[1]++
+                if (isSignalInk(red, green, blue)) counts[2]++
+                if (isLightInk(red, green, blue)) counts[3]++
+                if (isDarkInk(red, green, blue)) counts[4]++
+            }
+        }
+        return counts
+    }
+
+    private fun isCyanInk(red: Int, green: Int, blue: Int) = red < 110 && green > 130 && blue > 150
+
+    private fun isSignalInk(red: Int, green: Int, blue: Int) = red > 200 && green > 140 && blue < 100
+
+    private fun isLightInk(red: Int, green: Int, blue: Int) = (red * 299 + green * 587 + blue * 114) / 1000 >= 140
+
+    private fun isDarkInk(red: Int, green: Int, blue: Int) = red < 60 && green < 60 && blue < 60
 
     private fun assertAtLeast48Dp(tag: String, scroll: Boolean = false) {
         val node = rule.onNodeWithTag(tag)

@@ -1,0 +1,65 @@
+P3-06／A06 设置页视觉返修 R4：主机与设备验证记录
+日期：2026-09-18    分支：Android    开始基准：9fdec22（= origin/Android）    工作区开始时干净
+
+== 环境说明 ================================================================
+本窗口在沙箱内以 root 运行 Gradle，无法使用 su／sudo 切换到普通用户，因此使用工作区副本
+/private/tmp/qingke-r4（Android/ + ios/Shared/fixtures）构建与测试，避免与用户当时已打开的
+Android Studio Gradle daemon／共享 Android/app/build 冲突；构建环境：
+  GRADLE_USER_HOME=/private/tmp/qingke-gradle（含 kotlin.daemon.jvmargs 指向可写 tmpdir）
+  ANDROID_USER_HOME=/private/tmp/qingke-android-home   HOME=/tmp/qingke-userhome
+  JAVA_HOME=.../ms-17.0.20.1/Contents/Home（Microsoft JDK 17）
+  -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp -Dfile.encoding=UTF-8
+设备为当时已在运行的 API 37 ARM64 AVD（emulator-5554，qemu-system-aarch64 -avd qingke-api37-r3-arm），
+窗口覆盖 1080x2400、密度 420；小屏验证时临时改为 720x1280、密度 320。
+ADB/模拟器：/Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb。
+
+== 主机侧 ==================================================================
+执行（工作区副本）：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+结果：BUILD SUCCESSFUL
+  testDebugUnitTest   tests=104 failures=0 errors=0 skipped=0
+  testReleaseUnitTest tests=104 failures=0 errors=0 skipped=0
+  lintDebug           errors=0 warnings=20
+  APK                  assembleDebug／assembleRelease／assembleDebugAndroidTest 均产出
+
+文档验证（仓库根目录）：
+  python3 docs/tests/android-documentation.test.py  → Ran 71 tests, OK
+  bash docs/tests/documentation.test.sh             → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh         → Repository layout tests passed.
+  git diff --check                                  → 通过（无输出）
+
+== 设备侧 ==================================================================
+定向（新增／受影响用例所在类）：
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.qingke.schedule.ui.QingKeAppTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=60 failures=0 errors=0 skipped=0
+完整：
+  ./gradlew connectedDebugAndroidTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=89 failures=0 errors=0 skipped=0
+  （R3 基线 84 + 本轮新增 5：01／02 单面板契约、折叠箭头与面板包含关系、顶部保存黑底黄字、
+    底部卡片 58dp 与箭头契约、130% + 320dp 窄屏不裁切）
+
+== 截图（真实 debug 入口、真实数据）=========================================
+数据：全新安装 → 首次设置保存默认学期（2026 秋季学期，2026-09-18 起 18 周、10 节）→ 设置页。
+  p3-06-r4-settings-light-api37.png          浅色 100%（1080x2400@420）
+  p3-06-r4-settings-dark-api37.png           深色 100%
+  p3-06-r4-settings-light-font130-api37.png  浅色 130%
+  p3-06-r4-periods-light-expanded-api37.png  浅色、展开节次并滚动
+  p3-06-r4-periods-dark-expanded-api37.png   深色、展开节次并滚动
+  p3-06-r4-save-card-light-api37.png         浅色保存卡片近景
+  p3-06-r4-settings-small-api37.png          小屏 720x1280@320 顶部
+  p3-06-r4-settings-small-save-api37.png     小屏滚动到底部（保存卡片）
+逐张目视结论见本目录 README.md。
+
+== 测试与实现的迭代记录（负向对照）=========================================
+1) 面板 testTag 原先位于 14dp 内边距之后，captureToImage() 只覆盖内边距区域，
+   「settings-semester-panel cyan rail pixels=0」失败；把 testTag 移到面板外层节点（含背景、
+   边框与左侧竖线）后同一断言通过——说明测试检查的是真实绘制的青色竖线，而不是语义存在。
+2) 底部卡片展开态在 1080x2400 下会被底部标签栏遮住黄色底线（「semester-save signal underline=0」）；
+   改为先滚到页面底部占位（settings-bottom-spacer）再断言，100% 与 130% 均通过。
+3) 早期尝试在文件顶层声明 index 字体（Typeface.create），会让纯 JVM 用例
+   QingKeAppColorTest 触发 ExceptionInInitializerError；改为惰性 object（TerminalTypography）后 104 tests 全绿。
+
+== 结束状态 ================================================================
+截图完成后把设备恢复为 AVD 默认窗口（wm size／density reset）、font_scale=1.0、浅色模式；
+应用数据保留“默认学期（18 周、10 节）”。工作区本轮只新增源码／测试／文档改动，
+构建产物位于工作区副本，不向共享 Android/app/build 写入 root 所有文件。
