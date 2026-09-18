@@ -1,6 +1,21 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 设置页视觉返修 R4 已实施，等待 Sol 复审与用户重新验收（最新，2026-09-18）
+## P3-06／A06 设置页视觉返修 R5 已实施，等待 Sol 复审与用户重新验收（最新，2026-09-19）
+
+R4 提交 `94012b3` 经 Sol 复审发现两项问题：**（1）设置页 01 面板展开「开始日期」日历时，日期行与 `InlineMonthCalendar` 之间缺少 iOS 的 `TerminalFormDivider`**；**（2）R4 的设置页样式越过了范围**——`WeekControl`／`PeriodRow` 的新样式同时改变了已验收的首次设置正文，`TerminalSectionHeader` 的粗黑等宽字体也影响了课程编辑器。本轮（R5）只修这两项，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与范围：分支 `Android`，开始基准 `94012b3`（`fix(android): align p3-06 settings page with ios form sections`，已推送 `origin/Android`）；只新增本次修正提交，未改写历史、未强推、未合并 `main`。修改 `Android/app/src/main/java/com/qingke/schedule/ui/QingKeApp.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt` 与 `docs/Android/`（交接、实施计划、功能基线、新增 R5 证据目录）；未改业务逻辑、ViewModel、Room、DataStore、共享协议、iOS、Web、`main`，未实施 A07／A08／A10／A11，未覆盖 R4／R2 历史证据。
+- 修正 1（展开日历分隔线）：新增设置页专用 `SettingsDateControl`，展开日历前插入 `TerminalFormDivider(dark, "settings-semester-divider")`，日历仍属于同一青线面板；收起态 2 条、展开态 3 条分隔线。
+- 修正 2（收回跨范围影响）：恢复 `DateControl`／`WeekControl`／`PeriodRow` 为 R3 实现（与 `9fdec22` 逐字一致，已用函数体 diff 核对），设置页改用 `SettingsDateControl`／`SettingsWeekControl`／`SettingsPeriodRow`；`TerminalSectionHeader` 增加 `heavyIndex: Boolean = false` 显式样式参数，只有 `TerminalFormSection` 传 `true`，课程编辑器回到 R3 度量。首次设置正文恢复 R3 视觉，仅保留已授权的顶栏黑底黄字「保存」。R4 已正确的 01／02 单面板、青线、折叠箭头、顶部保存与底部保存卡片保持不变。
+- 新增／更新测试：`QingKeAppTest` 新增 3 项——展开日历后分隔线 2→3 且日历与新增分隔线都在 `settings-semester-panel` 内（并校验分隔线位于日期行与日历之间、点选日期仍写回）、首次设置正文保留 R3 控件形态（折叠按钮文字、时间按钮只有时间、删除为「删除第 N 节」按钮、`⌄` 文本箭头、周数步进仍是 ≥52dp 的 Material 按钮）、课程编辑器序号行高仍大于设置页（`heavyIndex` 未泄漏）。
+- 验证：工作区副本 `./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **104 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**；设备复用当时已在运行的 API 37 ARM64 AVD（emulator-5554，1080x2400@420dpi）：定向 `QingKeAppTest` **63 tests、0 failures**，完整 `connectedDebugAndroidTest` **92 tests、0 failures／errors／skipped**（R4 基线 89 + 本轮 3）；文档测试 71 tests OK、`documentation.test.sh`／`repository-layout.test.sh` 与 `git diff --check` 通过。测试取样两处修正：先 `performScrollTo()` 再量 `boundsInRoot`（屏幕外节点返回 0）、可点击容器内的子节点用 `useUnmergedTree = true` 定位。
+- 截图：新建 `docs/Android/evidence/p3-06-a06-settings-r5/`（不覆盖 R4／R2 历史证据）：浅色与深色 01 面板展开日历、浅色首次设置正文（R3 恢复对照）；逐张目视结论与主机／设备记录见该目录 README 与 `host-and-device-verification-20260919.txt`。
+- 本机环境限制：本窗口在沙箱内以 root 运行 Gradle（工作区副本 `/private/tmp/qingke-r5`、`GRADLE_USER_HOME=/private/tmp/qingke-gradle`、`ANDROID_USER_HOME=/private/tmp/qingke-android-home`、JDK 17 与可写 `java.io.tmpdir`），避免与用户同时打开的 Android Studio 争夺 `Android/app/build`；结束时已核对无 root 所有文件、无遗留 Gradle／模拟器进程，并把设备恢复为 AVD 默认窗口、密度、字体比例与浅色模式。
+- 准确状态：**R5 已实现、已测试；Sol 复审与用户视觉验收均未进行**。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## P3-06／A06 设置页视觉返修 R4 已实施（Sol 复审发现两项问题）（历史，2026-09-18）
+
+> 状态更新（2026-09-19）：R4 提交 `94012b3` 经 Sol 复审发现展开日历缺分隔线与跨范围影响首次设置正文、课程编辑器两项问题；R5 已修正，见顶部最新节。R4 的 01／02 单面板、青线、折叠箭头、顶部保存与底部保存卡片视为已正确的保留项。
 
 R3 提交 `9fdec22` 已通过 Sol 技术复审，但**用户视觉验收未通过**：设置页与 iOS `TerminalFormSection` 的结构与视觉仍有差距（用户备忘录“APP 还有的问题”第 1、2、3、5 项）。本轮（R4）只修这四项视觉问题，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
 

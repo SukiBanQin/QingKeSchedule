@@ -1,0 +1,53 @@
+P3-06／A06 设置页视觉返修 R5：主机与设备验证记录
+日期：2026-09-19    分支：Android    开始基准：94012b3（= origin/Android）    工作区开始时干净
+
+== 环境说明 ================================================================
+沙箱内以 root 运行 Gradle，无法 su／sudo 切换到普通用户，因此使用工作区副本
+/private/tmp/qingke-r5（Android/ + ios/Shared/fixtures）构建与测试，避免与用户当时已打开的
+Android Studio Gradle daemon／共享 Android/app/build 冲突；构建环境：
+  GRADLE_USER_HOME=/private/tmp/qingke-gradle（gradle.properties 中 kotlin.daemon.jvmargs 指向可写 tmpdir）
+  ANDROID_USER_HOME=/private/tmp/qingke-android-home   HOME=/tmp/qingke-userhome
+  JAVA_HOME=.../ms-17.0.20.1/Contents/Home（Microsoft JDK 17）
+  -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp -Dfile.encoding=UTF-8
+设备为当时已在运行的 API 37 ARM64 AVD（emulator-5554，qemu-system-aarch64 -avd qingke-api37-r3-arm），
+窗口覆盖 1080x2400、密度 420；结束时恢复 AVD 默认窗口／密度、font_scale=1.0、浅色模式。
+
+== 主机侧 ==================================================================
+执行（工作区副本）：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+结果：BUILD SUCCESSFUL
+  testDebugUnitTest   tests=104 failures=0 errors=0 skipped=0
+  testReleaseUnitTest tests=104 failures=0 errors=0 skipped=0
+  lintDebug           errors=0 warnings=20
+  APK                  assembleDebug／assembleRelease／assembleDebugAndroidTest 均产出
+
+文档验证（仓库根目录）：
+  python3 docs/tests/android-documentation.test.py  → Ran 71 tests, OK
+  bash docs/tests/documentation.test.sh             → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh         → Repository layout tests passed.
+  git diff --check                                  → 通过（无输出）
+
+== 设备侧 ==================================================================
+定向（新增／受影响用例所在类）：
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.qingke.schedule.ui.QingKeAppTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=63 failures=0 errors=0 skipped=0
+完整：
+  ./gradlew connectedDebugAndroidTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=92 failures=0 errors=0 skipped=0
+  （R4 基线 89 + 本轮 3：展开日历分隔线／包含关系、首次设置正文 R3 视觉、课程编辑器序号度量）
+
+== 复用与还原证据 ==========================================================
+1) 设置页恢复 R3 的三处共享组件：DateControl／WeekControl／PeriodRow 与基准 9fdec22 逐字 diff 一致
+   （sed 抽取函数体后 diff 无输出），R4 的新样式只保留在 Settings* 专用组件与 TerminalFormSection 内。
+2) TerminalSectionHeader 增加 heavyIndex 参数（默认 false = R3 度量），只有 TerminalFormSection 传 true；
+   课程编辑器各分区自动回到 R3，并由 QingKeAppTest.courseEditorSectionIndexKeepsThePreviousMetrics 覆盖。
+3) 首次设置顶栏保留已授权的黑底黄字「保存」，正文其余部分（方框字段、带边框步进与节次按钮、⌄ 文本箭头、
+   黄色「保存并继续」）恢复 R3，见 p3-06-r5-onboarding-light-api37.png。
+
+== 测试取样注意事项（本轮修正）=============================================
+1) 先 performScrollTo() 让节点进入视口再量 boundsInRoot；屏幕外节点会返回 0（周数步进宽度一度为 0）。
+2) 位于可点击容器内的子节点（日期箭头文本）需要用 useUnmergedTree = true 定位。
+
+== 结束状态 ================================================================
+工作区本轮只新增源码／测试／文档改动；构建产物位于工作区副本，不向共享 Android/app/build 写入
+root 所有文件；截图后设备已恢复默认窗口、密度、字体比例与浅色模式，应用数据保留“默认学期（18 周、10 节）”。

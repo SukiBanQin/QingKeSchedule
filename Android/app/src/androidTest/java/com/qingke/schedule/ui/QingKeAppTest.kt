@@ -29,6 +29,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -1240,6 +1241,60 @@ class QingKeAppTest {
         assertCyanRail("settings-periods-panel")
     }
 
+    @Test fun settingsSemesterPanelKeepsTheInlineCalendarInsideTheSameRailPanel() {
+        var form by mutableStateOf(existingForm())
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(
+                updateStartDate = { form = form.copy(startDate = it) },
+            ))
+        }
+        assertDividersInsidePanel("settings-semester-divider", "settings-semester-panel", 2)
+        rule.onAllNodesWithTag("semester-start-date-calendar").assertCountEquals(0)
+        rule.onNodeWithTag("semester-start-date").performScrollTo().performClick(); rule.waitForIdle()
+        assertDividersInsidePanel("settings-semester-divider", "settings-semester-panel", 3)
+        assertInsidePanel("semester-start-date-calendar", "settings-semester-panel")
+        val dateRow = rule.onNodeWithTag("semester-start-date", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val calendar = rule.onNodeWithTag("semester-start-date-calendar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val dividers = rule.onAllNodesWithTag("settings-semester-divider", useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+        assertTrue("divider must sit between the date row and the calendar, tops=" + dividers.map { it.top }, dividers.any { it.top >= dateRow.bottom - 1f && it.bottom <= calendar.top + 1f })
+        assertCyanRail("settings-semester-panel")
+        rule.onNodeWithTag("semester-calendar-day-2026-09-15").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(LocalDate.parse("2026-09-15"), form.startDate)
+        rule.onNodeWithTag("semester-weeks-minus", useUnmergedTree = true).performScrollTo()
+        val settingsStepperWidth = dpWidth("semester-weeks-minus")
+        assertTrue("settings stepper must stay a 48dp borderless glyph, width=$settingsStepperWidth", settingsStepperWidth in 44f..50f)
+    }
+
+    @Test fun onboardingBodyKeepsTheAcceptedR3Controls() {
+        rule.setContent { QingKeAppContent(onboarding(), defaultForm(expanded = true), MainTab.TODAY, formActions()) }
+        rule.onNodeWithText("收起节次设置（10 节）").assertIsDisplayed()
+        rule.onNodeWithTag("period-p1-start").assertTextEquals("08:00")
+        rule.onNodeWithTag("period-p1-end").assertTextEquals("08:45")
+        rule.onNodeWithTag("period-p1-delete").assertTextEquals("删除第 1 节")
+        rule.onNodeWithTag("period-p1-delete").assert(hasContentDescription("删除第 1 节"))
+        rule.onNodeWithTag("add-period").performScrollTo().assertTextEquals("添加节次")
+        rule.onNodeWithTag("semester-start-date-chevron", useUnmergedTree = true).assertTextEquals("⌄")
+        rule.onNodeWithTag("semester-weeks-minus", useUnmergedTree = true).performScrollTo()
+        val stepperWidth = dpWidth("semester-weeks-minus")
+        assertTrue("onboarding stepper must stay a Material button, width=$stepperWidth", stepperWidth >= 52f)
+    }
+
+    @Test fun courseEditorSectionIndexKeepsThePreviousMetrics() {
+        var page by mutableStateOf("settings")
+        rule.setContent {
+            if (page == "settings") {
+                QingKeAppContent(settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions())
+            } else {
+                QingKeAppContent(settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.CREATE))
+            }
+        }
+        rule.onNodeWithTag("settings-semester-section-number", useUnmergedTree = true).performScrollTo()
+        val settingsIndex = dpHeight("settings-semester-section-number")
+        page = "editor"; rule.waitForIdle()
+        val editorIndex = dpHeight("course-info-section-number")
+        assertTrue("settings index=$settingsIndex editor index=$editorIndex", settingsIndex < editorIndex - 1f)
+    }
+
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
     ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
@@ -1314,6 +1369,10 @@ class QingKeAppTest {
 
     private fun dpHeight(tag: String): Float = with(rule.density) {
         rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.height.toDp().value
+    }
+
+    private fun dpWidth(tag: String): Float = with(rule.density) {
+        rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.width.toDp().value
     }
 
     private fun pixelCounts(tag: String): IntArray {
