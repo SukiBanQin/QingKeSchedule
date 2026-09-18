@@ -34,6 +34,15 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_deepseek_default_preserves_existing_review_gate(self):
+        rules = (ROOT / "AGENTS.md").read_text().split("# 角色与修改范围", 1)[1].split("# Codex 回退模式", 1)[0]
+        for marker in ("DeepSeek", "P3-05", "Sol 复审", "用户视觉验收", "不默认自动创建子 Agent", "由用户决定", "一个写入者"):
+            self.assertIn(marker, rules)
+        plan = (DOCS / "implementation-plan.md").read_text().split("## 当前默认流程", 1)[1].split("## Codex 回退时", 1)[0]
+        for marker in ("不创建 DeepSeek 子 Agent", "导入导出", "发布前检查", "不扩大当前开发授权"):
+            self.assertIn(marker, plan)
+
+
     def test_new_sol_handoff_records_p3_04_acceptance_and_keeps_p3_05_unlicensed(self):
         handoff = (DOCS / "handoff.md").read_text()
         latest = handoff.split(
@@ -75,7 +84,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, rules)
         plan = (DOCS / "implementation-plan.md").read_text()
         section = plan.split("### 完整实施后集中审查", 1)[1].split("### ", 1)[0]
-        for marker in ("阻塞", "不默认重复全部测试", "同一个 Terra", "用户新反馈"):
+        for marker in ("阻塞", "不默认重复全部测试", "同一个 DeepSeek", "用户新反馈"):
             self.assertIn(marker, section)
         self.assertIn("完整交付边界与提前回报的阻塞条件：", plan)
         self.assertIn("协作调整：完整实施后集中审查", (DOCS / "handoff.md").read_text())
@@ -297,11 +306,11 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(marker, rules)
         self.assertIn("远程同步：", (DOCS / "implementation-plan.md").read_text())
 
-    def test_current_workflow_uses_sol_main_and_terra_subagent(self):
+    def test_current_workflow_uses_deepseek_with_codex_fallback(self):
         for name in ("AGENTS.md", "docs/Android/implementation-plan.md", "docs/Android/handoff.md"):
             contents = (ROOT / name).read_text()
-            self.assertIn("Sol 主 Agent", contents, name)
-            self.assertIn("Terra 执行子 Agent", contents, name)
+            self.assertIn("DeepSeek 主力开发、自测，Sol 按需独立审查", contents, name)
+            self.assertIn("回退", contents, name)
         plan = (DOCS / "implementation-plan.md").read_text()
         for marker in ("gpt-5.6-terra", "主 Agent", "其他模型或档位调整", "用户决定"):
             self.assertIn(marker, plan)
