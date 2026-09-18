@@ -1,8 +1,28 @@
 # 安卓项目当前交接状态
 
-## P3-05／A03 周课表视觉返修 R1 已实施，待独立审查与用户视觉验收（最新，2026-09-18）
+## P3-05／A03 周课表视觉返修 R2 已实施，待 Sol 独立复审与用户视觉验收（最新，2026-09-18）
+
+本节回应 Sol 对 R1（`af825a1`）的独立审查意见。R1 未通过技术复审；本轮在同一允许路径内按三条意见集中修正，由当前主窗口实施、未创建子 Agent，实际模型与思考档位未核实（工具不能读取）。
+
+- 基准与工作区：分支 `Android`，开始基准 `af825a1`（`fix(android): align r1 week schedule visuals`），本地 HEAD 与 `origin/Android` 一致且工作区干净，未发现其他窗口改动。
+- 允许范围：`Android/app/src/main/java/com/qingke/schedule/ui/WeekScheduleScreen.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt`、本交接文件、`docs/Android/evidence/p3-05-visual-r1/README.md`（修正旧结论）与新增 `docs/Android/evidence/p3-05-visual-r2/`。未改 P3-04、其他阶段、iOS/Web、Room/schema、DataStore、共享协议、业务规则、设置、通知、导入导出与 `main`；继续复用既有展示模型与 `openCourseAt()`；testTag 全部保留，**没有重命名**。
+- 修正 1（130% 下 `ODD WEEK` 消失）：根因是面板对承载三行文字的 `Row` 施加了高度约束——实测 `height(64.dp)` 与 `heightIn(min = 64.dp)` 都会让内置 `Column` 把第三行压缩到剩余空间（`week-parity` 行盒仅 6.48dp，像素计数 0）。现改为纯内容高度 `Row` + `padding(vertical = 6.dp)`，iOS 的 64dp 视觉下限由左右箭头的 `heightIn(min = 64.dp)` 提供；三行补显式 `lineHeight`（14／21／12sp）与 `maxLines = 1`。浅／深色 100% 仍是 64dp，130% 下增高到约 77dp 且三行完整可见。
+- 修正 2（中部按钮遗漏 `followsCurrentWeek`）：`canReturn = currentWeek != null && (currentWeek != week || !followsCurrentWeek)`。手动切走再用箭头回到本周时中部重新可用，点击恢复自动跟随；手动浏览仍不会被时钟刷新重置。
+- 修正 3（分组间距）：对照只读 iOS `WeekScheduleView.swift` 的 `LazyVStack(spacing: 14)` 与 `.padding(.top, 12)`，滚动内容顶部 12dp、页面标题→教学周面板与面板→日期条各 14dp；矩阵分区间距、七日一屏与点击路由未变。
+- 新增测试 2 项：`weekControlsKeepAllTextVisibleAndSpacedAcrossFontScales`（100%／130% 下逐行断言实际行盒高度、三行完整落在面板内、分组间距 ≥ 12dp、130% 面板增高，并用像素断言证明 `ODD WEEK` 真的被绘制在面板中部）；`weekControlsRestoreAutoFollowAndManualBrowsingSurvivesClockRefresh`（切走→箭头回本周→中部可用→点击恢复跟随→时钟进入下一教学周自动更新；随后手动选到第 04 周，时钟推进到第 05 周仍停留 04）。既有 5 个周页用例未改名并继续通过。
+- 负向对照：把面板临时改回 R1 的 `height(64.dp)` 后新用例在 130% 失败，报错为 `fontScale=1.3 ODD/EVEN WEEK text must be painted inside the panel, cyanPixels=0`；恢复后同用例通过。证明测试检查的是真实渲染与布局，而不是仅断言语义文本存在。
+- 顺带修好 R1 的测试缺陷：R1 的两个像素断言把分隔线写成“比底色更暗”，设备处于深色主题时会失败（本轮完整套件第 2 次运行即复现：`lineColumns=0`、`top=90 middle=18`）。现改为与主题无关的亮度偏差判定（`|sample - baseline| >= 12`，取样仍限 ±3px），浅／深色均通过。该缺陷属于 R1 测试写法问题，不是产品行为问题。
+- 主机验证：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon` BUILD SUCCESSFUL；Debug／Release JVM 各 **92 tests、0 failures／errors／skipped**；`lintDebug` **0 errors、20 warnings**；文档 70 tests OK、两个文档脚本与 `git diff --check` 通过。
+- 设备验证：API 37 ARM64 `emulator-5556` 完整 `connectedDebugAndroidTest --no-daemon` **74 tests、0 failures／errors／skipped**（R1 的 72 + 本轮 2 项）；定向 `am instrument` 7 项周页用例 `OK (7 tests)`；并在 **dark／font_scale 1.3** 与 **light／1.0** 两种设备状态下分别复跑周页与像素用例均通过。
+- 截图证据：`docs/Android/evidence/p3-05-visual-r2/` 浅色 100%、浅色 130%、浅色 130% 日清单、深色 100%、深色 130% 共 5 张，逐张目视结论见该目录 README；`p3-05-visual-r1/README.md` 中“大字体不裁切”的错误结论已标注推翻，历史图与说明保留。
+- 已知差异（本轮未改，待决定）：iOS 中部按钮只恢复周，Android 仍会同时把选中日恢复为今天并重新开启日跟随，属 P3-05 首版行为。
+- 准确状态：**已实现、已测试、有 API 37 生产截图证据；等待 Sol 独立复审，用户视觉验收未进行**。不得据此宣称 R2 通过技术复审或 P3-05／A03 已验收，后续阶段仍未授权。
+
+## P3-05／A03 周课表视觉返修 R1 已实施，待独立审查与用户视觉验收（2026-09-18）
 
 本节由当前主窗口在用户明确指示下直接实施并记录；上一节给 DeepSeek V4.1 Flash 的交接内容已由本次实施覆盖，未另行委派，也未创建任何子 Agent。实际模型与思考档位未核实（当前工具不能读取）。
+
+> 状态更新（2026-09-18）：R1 未通过 Sol 独立复审，已由 R2（见上节）修正教学周面板 130% 裁切、中部按钮跟随状态与分组间距三点。本节其余范围、允许路径与验收清单仍为有效边界；R1 的 dark-font130 截图结论已在 `docs/Android/evidence/p3-05-visual-r1/README.md` 标注推翻。
 
 - 基准与工作区：分支 `Android`，开始基准 `2299e0b`（`docs(android): hand off p3-05 visual r1`）；开始时本地 HEAD 与 `origin/Android` 一致且工作区干净，未发现其他窗口的未提交改动或基准漂移。
 - 允许范围：只改 `Android/app/src/main/java/com/qingke/schedule/ui/WeekScheduleScreen.kt`、`Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt`、本交接文件与 `docs/Android/evidence/p3-05-visual-r1/`。未改 iOS、Web、Room/schema、DataStore、共享协议、业务规则、设置、通知、导入导出、P3-04 既有视觉与 `main`；继续复用 `WeekSchedulePresentation`、`WeekMatrixPresentation`、`ScheduleDisplayText`、`courseColor`、`TodayVisualSpec`、`openAddCourse()`、`openCourseAt()` 与 `AcademicCalendarPreferences`，未复制新的领域规则。

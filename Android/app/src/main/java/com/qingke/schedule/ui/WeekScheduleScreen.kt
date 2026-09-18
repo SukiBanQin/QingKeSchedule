@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -61,6 +60,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val WeekSignal = Color(0xFFFFD400)
+private val WeekArrowWidth = 44.dp
 private val WeekOnInverse = Color(0xFFF1F5F4)
 private val WeekOnAccent = Color(0xFF071013)
 
@@ -114,13 +114,15 @@ fun WeekScheduleScreen(
     PullToRefreshBox(refreshing, ::refresh, modifier.fillMaxSize().testTag("week-refresh-container")) {
         Column(Modifier.statusBarsPadding().testTag("week-schedule")) {
             BrandHeader(dark, code = "MATRIX / 02", tag = "week-brand-header")
-            Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp).verticalScroll(rememberScrollState())) {
                 WeekScreenTitle(selectedWeek, dark)
+                Spacer(Modifier.height(14.dp))
                 WeekControls(
                     semesterName = semester.name,
                     week = selectedWeek,
                     totalWeeks = semester.totalWeeks,
                     currentWeek = schedule.currentWeek,
+                    followsCurrentWeek = followsCurrentWeek,
                     dark = dark,
                     previous = { if (selectedWeek > 1) { selectedWeek--; followsCurrentWeek = false } },
                     next = { if (selectedWeek < semester.totalWeeks) { selectedWeek++; followsCurrentWeek = false } },
@@ -133,6 +135,7 @@ fun WeekScheduleScreen(
                         }
                     },
                 )
+                Spacer(Modifier.height(14.dp))
                 WeekDayStrip(schedule, selectedDay, dark) { selectedDay = it; followsCurrentDay = false }
                 WeekSectionHeader(
                     index = "05",
@@ -174,7 +177,7 @@ private fun dayManifestDetail(day: WeekDayPresentation): String = when {
 }
 
 @Composable private fun WeekScreenTitle(week: Int, dark: Boolean) = Row(
-    Modifier.fillMaxWidth().padding(top = 14.dp),
+    Modifier.fillMaxWidth(),
     verticalAlignment = Alignment.Bottom,
 ) {
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -208,43 +211,71 @@ private fun dayManifestDetail(day: WeekDayPresentation): String = when {
     week: Int,
     totalWeeks: Int,
     currentWeek: Int?,
+    followsCurrentWeek: Boolean,
     dark: Boolean,
     previous: () -> Unit,
     next: () -> Unit,
     current: () -> Unit,
 ) {
-    val canReturn = currentWeek != null && currentWeek != week
-    Row(
-        Modifier.fillMaxWidth().height(64.dp).background(weekSurface(dark)).border(1.dp, weekBorder(dark)).testTag("week-controls"),
-        verticalAlignment = Alignment.CenterVertically,
+    val canReturn = currentWeek != null && (currentWeek != week || !followsCurrentWeek)
+    Box(
+        Modifier.fillMaxWidth()
+            .background(weekSurface(dark))
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                val edge = WeekArrowWidth.toPx()
+                drawRect(weekBorder(dark), topLeft = Offset(edge, 0f), size = Size(stroke, size.height))
+                drawRect(weekBorder(dark), topLeft = Offset(size.width - edge, 0f), size = Size(stroke, size.height))
+            }
+            .border(1.dp, weekBorder(dark))
+            .testTag("week-controls"),
     ) {
-        WeekArrow("‹", "上一周", "week-previous", week > 1, dark, previous)
-        Box(Modifier.width(1.dp).fillMaxHeight().background(weekBorder(dark)))
-        Column(
-            Modifier.weight(1f).fillMaxHeight().clickable(enabled = canReturn, onClick = current).testTag("week-current")
-                .semantics { contentDescription = if (canReturn) "第 " + week + " 周，点按返回本周" else "第 " + week + " 周"; if (!canReturn) disabled() },
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(semesterName, color = weekSecondary(dark), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("week-semester-name"))
-            Text("第 " + "%02d".format(week) + " 教学周", color = weekForeground(dark), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.testTag("week-teaching-week"))
-            Text(
-                if (week % 2 == 0) "EVEN WEEK" else "ODD WEEK",
-                color = weekCyan(dark),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 8.sp,
-                letterSpacing = 1.sp,
-                modifier = Modifier.testTag("week-parity"),
-            )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WeekArrow("‹", "上一周", "week-previous", week > 1, dark, previous)
+            Column(
+                Modifier.weight(1f).clickable(enabled = canReturn, onClick = current).testTag("week-current")
+                    .semantics { contentDescription = if (canReturn) "第 " + week + " 周，点按返回本周" else "第 " + week + " 周"; if (!canReturn) disabled() }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    semesterName,
+                    color = weekSecondary(dark),
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("week-semester-name"),
+                )
+                Text(
+                    "第 " + "%02d".format(week) + " 教学周",
+                    color = weekForeground(dark),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("week-teaching-week"),
+                )
+                Text(
+                    if (week % 2 == 0) "EVEN WEEK" else "ODD WEEK",
+                    color = weekCyan(dark),
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 8.sp,
+                    lineHeight = 12.sp,
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
+                    modifier = Modifier.testTag("week-parity"),
+                )
+            }
+            WeekArrow("›", "下一周", "week-next", week < totalWeeks, dark, next)
         }
-        Box(Modifier.width(1.dp).fillMaxHeight().background(weekBorder(dark)))
-        WeekArrow("›", "下一周", "week-next", week < totalWeeks, dark, next)
     }
 }
 
 @Composable private fun WeekArrow(symbol: String, label: String, tag: String, enabled: Boolean, dark: Boolean, click: () -> Unit) = Box(
-    Modifier.width(44.dp).fillMaxHeight().clickable(enabled = enabled, onClick = click).testTag(tag)
+    Modifier.width(WeekArrowWidth).heightIn(min = 64.dp).clickable(enabled = enabled, onClick = click).testTag(tag)
         .semantics { contentDescription = label; if (!enabled) disabled() },
     contentAlignment = Alignment.Center,
 ) { Text(symbol, color = if (enabled) weekCyan(dark) else weekSecondary(dark), fontSize = 26.sp, lineHeight = 26.sp, fontWeight = FontWeight.Black) }

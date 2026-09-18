@@ -38,6 +38,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click as touchClick
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
@@ -202,6 +203,50 @@ class QingKeAppTest {
         rule.onNodeWithTag("week-list-0-0").performScrollTo().performClick()
         rule.onNodeWithTag("week-list-2-0").performScrollTo().performClick()
         assertEquals(listOf(0, 2), opened)
+    }
+
+    @Test fun weekControlsKeepAllTextVisibleAndSpacedAcrossFontScales() {
+        var fontScale by mutableStateOf(1f)
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, fontScale)) {
+                QingKeAppContent(readyToday(), null, MainTab.SCHEDULE, QingKeAppActions(), LocalDateTime.parse("2026-08-31T09:00"))
+            }
+        }
+        listOf(1f, 1.3f).forEach { scale ->
+            fontScale = scale
+            rule.waitForIdle()
+            assertParityTextPainted(scale)
+            assertWeekControlTextInsidePanel(scale)
+        }
+    }
+
+    @Test fun weekControlsRestoreAutoFollowAndManualBrowsingSurvivesClockRefresh() {
+        var now by mutableStateOf(LocalDateTime.parse("2026-08-31T09:00"))
+        rule.setContent { QingKeAppContent(readyToday(), null, MainTab.SCHEDULE, QingKeAppActions(), now) }
+        rule.onNodeWithTag("week-title").assertTextContains("01")
+        rule.onNodeWithTag("week-current").assertIsNotEnabled()
+        rule.onNodeWithTag("week-next").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-title").assertTextContains("02")
+        rule.onNodeWithTag("week-current").assertIsEnabled()
+        rule.onNodeWithTag("week-previous").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-title").assertTextContains("01")
+        rule.onNodeWithTag("week-current").assertIsEnabled()
+        rule.onNodeWithTag("week-current").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-current").assertIsNotEnabled()
+        now = LocalDateTime.parse("2026-09-07T09:00")
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-title").assertTextContains("02")
+        rule.onNodeWithTag("week-next").performClick()
+        rule.onNodeWithTag("week-next").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-title").assertTextContains("04")
+        now = LocalDateTime.parse("2026-09-28T09:00")
+        rule.waitForIdle()
+        rule.onNodeWithTag("week-title").assertTextContains("04")
+        rule.onNodeWithTag("week-current").assertIsEnabled()
     }
 
     @Test fun appendOverlayIsReadOnlyAndInFlightScheduleControlsAreDisabled() {
@@ -1191,6 +1236,58 @@ class QingKeAppTest {
         )
     }
 
+
+    private fun assertWeekControlTextInsidePanel(scale: Float) {
+        val panel = rule.onNodeWithTag("week-controls").getUnclippedBoundsInRoot()
+        listOf(
+            Triple("week-semester-name", 14.dp, 11.dp),
+            Triple("week-teaching-week", 21.dp, 17.dp),
+            Triple("week-parity", 12.dp, 9.dp),
+        ).forEach { (tag, lineHeight, minimumHeight) ->
+            val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+            val textHeight = bounds.bottom - bounds.top
+            assertTrue(
+                "fontScale=" + scale + " " + tag + " must keep its full line box: height=" + textHeight + " lineHeight=" + (lineHeight * scale),
+                textHeight >= minimumHeight * scale,
+            )
+            assertTrue(
+                "fontScale=" + scale + " " + tag + " must stay inside the week controls panel: text=" + bounds + " panel=" + panel,
+                bounds.top >= panel.top - 0.5.dp && bounds.bottom <= panel.bottom + 0.5.dp &&
+                    bounds.left >= panel.left - 0.5.dp && bounds.right <= panel.right + 0.5.dp,
+            )
+        }
+        val title = rule.onNodeWithTag("week-title").getUnclippedBoundsInRoot()
+        assertTrue(
+            "fontScale=" + scale + " week controls panel must keep the iOS group gap below the page title: gap=" + (panel.top - title.bottom),
+            panel.top - title.bottom >= 12.dp,
+        )
+        val strip = rule.onNodeWithTag("week-date-strip").getUnclippedBoundsInRoot()
+        assertTrue(
+            "fontScale=" + scale + " week controls panel must keep the iOS group gap above the date strip: gap=" + (strip.top - panel.bottom),
+            strip.top - panel.bottom >= 12.dp,
+        )
+        if (scale > 1f) {
+            val panelHeight = panel.bottom - panel.top
+            assertTrue("fontScale=" + scale + " panel must grow past the 64dp minimum, height=" + panelHeight, panelHeight > 66.dp)
+        }
+    }
+
+    private fun assertParityTextPainted(scale: Float) {
+        val bitmap = rule.onNodeWithTag("week-controls").captureToImage().asAndroidBitmap()
+        val edge = (44f * rule.density.density).toInt()
+        var cyan = 0
+        for (y in 0 until bitmap.height) {
+            for (x in edge until (bitmap.width - edge)) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = pixel shr 16 and 0xff
+                val green = pixel shr 8 and 0xff
+                val blue = pixel and 0xff
+                if (red <= 120 && green >= 140 && blue >= 170) cyan++
+            }
+        }
+        assertTrue("fontScale=" + scale + " ODD/EVEN WEEK text must be painted inside the panel, cyanPixels=" + cyan, cyan >= 20)
+    }
+
     private fun weekState(withLunchBreak: Boolean): ScheduleState {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
             Period(1, "08:00", "08:45"), Period(2, "09:00", "09:45"),
@@ -1231,8 +1328,8 @@ class QingKeAppTest {
         val stripMiddle = medianLuminance(bitmap, bitmap.height / 2, horizontal = true)
         val topRule = medianLuminance(bitmap, 1, horizontal = true)
         val bottomRule = medianLuminance(bitmap, bitmap.height - 2, horizontal = true)
-        assertTrue("day strip must draw a top rule, top=" + topRule + " middle=" + stripMiddle, topRule < stripMiddle - 12)
-        assertTrue("day strip must draw a bottom rule, bottom=" + bottomRule + " middle=" + stripMiddle, bottomRule < stripMiddle - 12)
+        assertTrue("day strip must draw a top rule distinguishable from the surface, top=" + topRule + " middle=" + stripMiddle, kotlin.math.abs(topRule - stripMiddle) >= 12)
+        assertTrue("day strip must draw a bottom rule distinguishable from the surface, bottom=" + bottomRule + " middle=" + stripMiddle, kotlin.math.abs(bottomRule - stripMiddle) >= 12)
         assertTrue("week date strip must render a signal-yellow selection underline in $tag, found $count px", count >= 20)
         return total.toFloat() / count
     }
@@ -1247,18 +1344,18 @@ class QingKeAppTest {
         assertTrue("week matrix canvas must be fully captured, height=" + bitmap.height, bitmap.height >= (headerHeight + rowHeight * 4).toInt() - 4)
         val sampleRowY = (headerHeight + rowHeight * 1.5f).toInt().coerceIn(0, bitmap.height - 1)
         val rowBaseline = medianLuminance(bitmap, sampleRowY, horizontal = true)
-        val darkerColumns = (0..7).count { column ->
+        val lineColumns = (0..7).count { column ->
             val x = (timeColumn + columnWidth * column).toInt().coerceIn(0, bitmap.width - 1)
-            darkestNear(bitmap, x, sampleRowY, horizontal = true) <= rowBaseline - 12
+            deviationNear(bitmap, x, sampleRowY, rowBaseline, horizontal = true) >= 12
         }
-        assertTrue("week matrix must draw vertical column lines, darkerColumns=$darkerColumns", darkerColumns >= 6)
+        assertTrue("week matrix must draw vertical column lines, lineColumns=$lineColumns", lineColumns >= 6)
         val sampleColumnX = (timeColumn + columnWidth * 3.5f).toInt().coerceIn(0, bitmap.width - 1)
         val columnBaseline = medianLuminance(bitmap, sampleColumnX, horizontal = false)
-        val darkerRows = (0..4).count { row ->
+        val lineRows = (0..4).count { row ->
             val y = (headerHeight + rowHeight * row).toInt().coerceIn(0, bitmap.height - 1)
-            darkestNear(bitmap, sampleColumnX, y, horizontal = false) <= columnBaseline - 12
+            deviationNear(bitmap, sampleColumnX, y, columnBaseline, horizontal = false) >= 12
         }
-        assertTrue("week matrix must draw a horizontal line before each period, darkerRows=$darkerRows", darkerRows >= 4)
+        assertTrue("week matrix must draw a horizontal line before each period, lineRows=$lineRows", lineRows >= 4)
     }
 
     private fun assertLunchBreakCyanStrip() {
@@ -1285,9 +1382,11 @@ class QingKeAppTest {
         return values.sorted()[values.size / 2]
     }
 
-    private fun darkestNear(bitmap: Bitmap, x: Int, y: Int, horizontal: Boolean): Int = (-3..3).minOf { delta ->
-        if (horizontal) luminance(bitmap, (x + delta).coerceIn(0, bitmap.width - 1), y)
+    /** Theme agnostic: a divider may be darker (light theme) or lighter (dark theme) than its surface. */
+    private fun deviationNear(bitmap: Bitmap, x: Int, y: Int, baseline: Int, horizontal: Boolean): Int = (-3..3).maxOf { delta ->
+        val sample = if (horizontal) luminance(bitmap, (x + delta).coerceIn(0, bitmap.width - 1), y)
         else luminance(bitmap, x, (y + delta).coerceIn(0, bitmap.height - 1))
+        kotlin.math.abs(sample - baseline)
     }
 
     private fun luminance(bitmap: Bitmap, x: Int, y: Int): Int {
