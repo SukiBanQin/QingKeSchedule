@@ -257,6 +257,45 @@ class DraftTest {
     }
 
     @Test
+    fun semesterDraftRejectsDeletionThatMovesAnotherPeriodOntoAReferencedNumber() {
+        val original = Semester("semester", "测试学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val courses = listOf(Course("course", "课", "", "#287B74", listOf(
+            CourseSchedule("s", 1, 2, 2, 1, 18, RepeatRule.EVERY, ""),
+        )))
+
+        val shifted = SemesterDraft.edit(original, ids("p1", "p2", "p3"))
+        shifted.removePeriod(shifted.periods.first().id)
+        assertEquals(listOf(1, 2), shifted.periods.map { it.number })
+        assertEquals("semester.periods", shifted.impactIssues(original, courses).single().path)
+
+        val trailingRemoved = SemesterDraft.edit(original, ids("p1", "p2", "p3"))
+        trailingRemoved.removePeriod(trailingRemoved.periods.last().id)
+        assertEquals(listOf(1, 2), trailingRemoved.periods.map { it.number })
+        assertEquals(emptyList<ValidationIssue>(), trailingRemoved.impactIssues(original, courses))
+
+        val appended = SemesterDraft.edit(original, ids("p1", "p2", "p3", "p4"))
+        appended.addPeriod()
+        assertEquals(listOf(1, 2, 3, 4), appended.periods.map { it.number })
+        assertEquals(emptyList<ValidationIssue>(), appended.impactIssues(original, courses))
+
+        val reversed = Semester("semester", "测试学期", "2026-09-01", 18, listOf(
+            Period(9, "08:55", "09:40"), Period(4, "10:00", "10:45"),
+        ))
+        val reversedCourses = listOf(Course("course", "课", "", "#287B74", listOf(
+            CourseSchedule("s", 1, 4, 4, 1, 18, RepeatRule.EVERY, ""),
+        )))
+        val renamed = SemesterDraft.edit(reversed, ids("r1", "r2")).apply { name = "改名" }
+        assertEquals(listOf(9, 4), renamed.semester().periods.map { it.number })
+        assertEquals(emptyList<ValidationIssue>(), renamed.impactIssues(reversed, reversedCourses))
+        val dropped = SemesterDraft.edit(reversed, ids("r1", "r2"))
+        dropped.removePeriod(dropped.periods.first().id)
+        assertEquals(listOf(1), dropped.periods.map { it.number })
+        assertEquals("semester.periods", dropped.impactIssues(reversed, reversedCourses).single().path)
+    }
+
+    @Test
     fun semesterDraftKeepsOnePeriodAndReportsTimeOverlapOrInvalidOrdering() {
         val draft = SemesterDraft.create(LocalDate.of(2026, 9, 1), ids("semester", *Array(12) { "p$it" }))
         draft.periods.drop(1).map { it.id }.forEach(draft::removePeriod)

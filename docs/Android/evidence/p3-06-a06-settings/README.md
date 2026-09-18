@@ -1,6 +1,20 @@
 # P3-06／A06 完整设置页与学期编辑证据（2026-09-18）
 
+> **2026-09-18 首轮 Sol 复审未通过，返修（R2）记录见下节**：首轮提交 `83d1a9f` 的四项问题（节次身份级课程引用保护、深色设置页裸文本前景色、证据目录权限、状态文档过时）已在本轮修正；深色设置首页与展开节次的生产截图已重新拍摄为 `p3-06-r2-settings-dark-api37.png`／`p3-06-r2-periods-dark-api37.png`，首轮深色截图保留作历史对照并标注为已推翻。
+
+## 首轮 Sol 复审问题与返修（R2）
+
+| 复审问题 | 根因 | 返修 | 回归与证据 |
+| --- | --- | --- | --- |
+| `impactIssues` 只检查引用编号是否仍存在 | 草稿删除节次后会重排编号，编号仍存在但已指向别的节次（例：1=A、2=B、3=C，课程引用 2，删除 A 后 C 变成第 2 节） | `PeriodDraft` 记录 `sourceNumber`（持久化学期中的原编号）；`impactIssues` 要求 `currentNumberBySource[引用编号] == 引用编号`，即引用必须仍指向同一节次；被占用或被删除都拒绝，仍不做时间比较 | `DraftTest.semesterDraftRejectsDeletionThatMovesAnotherPeriodOntoAReferencedNumber`（前置／中间删除拒绝、末尾未引用删除允许、新增不影响引用、反序编号保留）、`ScheduleViewModelTest.deletingAPeriodThatShiftsAReferencedNumberIsRejectedAndKeepsDraft`；负向对照：临时改回旧实现后两个新用例立即失败 |
+| 深色设置页「总周数：N」「第 N 节」黑字深底 | 这两个裸 `Text` 未指定颜色，Compose 的 `LocalContentColor` 默认为黑色 | `WeekControl`／`PeriodRow` 改为 `terminalText(dark)`，节次标签新增 `period-<id>-label`（仅新增）；引导页共用组件一并修复 | `QingKeAppTest.semesterLabelsUseThemeForegroundsInBothThemes`：深色断言浅色墨迹、浅色断言深色墨迹（像素，不是语义文本）；负向对照：临时去掉颜色后以 `inkPixels=0` 失败 |
+| 证据目录属 root、验证文本 0600 不可读 | 首轮以 root 身份创建证据文件 | `chown -R takagisan:staff` + 目录 755／文件 644，未改动内容；同时规范化 `p3-05-visual-r1`／`p3-05-visual-r2` | 见 host-and-device-verification 记录中的权限核对；`Android/app/build` 无 root 所有文件 |
+| 状态文档过时 | P3-05 验收与 P3-06 状态未写清 | 更新 `product-baseline.md`、`technical-design.md`、`implementation-plan.md`、`handoff.md`：P3-05／A03 已通过技术复审与用户验收；P3-06 已实施、已测试、首轮复审未通过并完成返修，等待再次复审与用户验收 | 文档测试 71 tests OK；未提前写成复审通过 |
+
+返修后的验证数字：Debug／Release JVM 各 **98 tests、0 failures／errors／skipped**；API 37 ARM64 完整 `connectedDebugAndroidTest` **84 tests、0 failures／errors／skipped**（首轮为 96／83，保留为历史）。
+
 ## 范围与基准
+
 
 - 仓库：/Users/takagisan/课表软件，分支 `Android`，开始基准 `0e2e937`（`docs(android): hand off after p3-05 acceptance`），本地 HEAD 与 `origin/Android` 一致、工作区干净
 - iOS 只读基准：/Users/takagisan/课表软件-IOS（`IOS` 分支 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001`）的 `SemesterFormView.swift`／`SemesterDraft.swift`；未修改 iOS、Web、共享协议
@@ -35,8 +49,8 @@
 
 ## 验证结果
 
-- 主机：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon` BUILD SUCCESSFUL；Debug／Release JVM 各 **96 tests、0 failures／errors／skipped**（P3-05 基线 92 + 本轮 4）；`lintDebug` **0 errors、20 warnings**
-- 设备：API 37 ARM64 AVD（`qingke-api37-r3-arm`，1080x2400，420dpi）完整 `connectedDebugAndroidTest --no-daemon` **83 tests、0 failures／errors／skipped**（P3-05 基线 74 + 本轮 9），结果 XML 见本目录
+- 主机（返修后）：`testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon` BUILD SUCCESSFUL；Debug／Release JVM 各 **98 tests、0 failures／errors／skipped**（首轮 96 + 返修 2）；`lintDebug` **0 errors、20 warnings**（首轮数字保留为历史）
+- 设备（返修后）：API 37 ARM64 AVD（`qingke-api37-r3-arm`，1080x2400，420dpi）完整 `connectedDebugAndroidTest --no-daemon` **84 tests、0 failures／errors／skipped**（首轮 83 + 返修 1），结果 XML 见本目录
 - 文档：`python3 docs/tests/android-documentation.test.py` 70 tests OK、`documentation.test.sh`／`repository-layout.test.sh` 通过、`git diff --check` 通过
 
 ## 截图清单（真实 debug 入口，真实数据）
@@ -47,8 +61,10 @@
 | --- | --- | --- |
 | p3-06-settings-light-api37.png | light／100% | 顶部「学期与节次 / SYSTEM CONFIG / 保存」+ 黄色下划线；品牌头 SYSTEM / 03；CONFIGURATION 标签 + 系统设置 + SYS 03；01 学期信息（名称、开始日期、总周数 18 −/+）；02 每日节次（PERIODS / 10、展开按钮、脚注）；底部「保存学期设置 / COMMIT CHANGES」；标签栏 设置 选中 |
 | p3-06-periods-light-api37.png | light／100% | 展开后每节一行：第 N 节 + 起止时间按钮 + 删除第 N 节，节次时间与默认 10 节一致 |
-| p3-06-settings-dark-api37.png | dark／100% | 深色面下结构、层级与对比正常，黄/青强调色保留 |
-| p3-06-periods-dark-api37.png | dark／100% | 深色展开态：收起按钮与各节时间、删除按钮完整可读 |
+| p3-06-settings-dark-api37.png | dark／100% | **首轮截图，结论已被推翻**：结构层级与强调色正常，但「总周数：18」为黑字深底不可读；保留作历史对照 |
+| p3-06-periods-dark-api37.png | dark／100% | **首轮截图，结论已被推翻**：「第 N 节」为黑字深底不可读；保留作历史对照 |
+| p3-06-r2-settings-dark-api37.png | dark／100% | 返修后深色设置首页：「总周数：18」为浅色可读，其余分区、按钮与标签栏正常 |
+| p3-06-r2-periods-dark-api37.png | dark／100% | 返修后深色展开态：「第 1—5 节」为浅色可读，起止时间与删除按钮完整 |
 | p3-06-settings-light-font130-api37.png | light／130% | 大字号下标题、分区标题、脚注换行、按钮均不重叠不裁切，内容可滚动 |
 | p3-06-settings-small-top-api37.png | light／100%，720x1280@320dpi | 小屏首屏 |
 | p3-06-settings-small-save-api37.png | light／100%，720x1280@320dpi | 小屏滚动到底部保存按钮完整可见且未被标签栏遮挡，顶部保存仍常驻 |

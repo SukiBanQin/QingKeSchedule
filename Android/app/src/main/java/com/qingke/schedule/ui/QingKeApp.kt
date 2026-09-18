@@ -333,10 +333,10 @@ fun QingKeAppContent(
     Column(Modifier.padding(padding).padding(16.dp).navigationBarsPadding().verticalScroll(rememberScrollState()).testTag("onboarding-screen")) {
         Text("建立你的第一个学期", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("onboarding-title"))
         OutlinedTextField(form.name, actions.updateName, Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 48.dp).testTag("semester-name"), label = { Text("学期名称") }, singleLine = true, shape = TerminalShape)
-        DateControl(form.startDate, actions.updateStartDate, dark); WeekControl(form.totalWeeks, actions.updateTotalWeeks)
+        DateControl(form.startDate, actions.updateStartDate, dark); WeekControl(form.totalWeeks, actions.updateTotalWeeks, dark)
         OutlinedButton(actions.togglePeriods, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("daily-periods-toggle"), shape = TerminalShape) { Text(if (form.periodsExpanded) "收起节次设置（${form.periods.size} 节）" else "展开节次设置（${form.periods.size} 节）") }
         if (form.periodsExpanded) {
-            form.periods.forEach { PeriodRow(it, form.periods.size, actions) }
+            form.periods.forEach { PeriodRow(it, form.periods.size, actions, dark) }
             OutlinedButton(actions.addPeriod, enabled = form.periods.size < 20, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("add-period"), shape = TerminalShape) { Text("添加节次") }
         }
         form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
@@ -404,16 +404,16 @@ fun QingKeAppContent(
     contentAlignment = Alignment.Center,
 ) { Text(symbol, color = SignalYellow, fontSize = 30.sp, lineHeight = 30.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.SansSerif) }
 
-@Composable private fun WeekControl(value: Int, update: (Int) -> Unit) = Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text("总周数：$value", Modifier.weight(1f).testTag("semester-total-weeks"))
+@Composable private fun WeekControl(value: Int, update: (Int) -> Unit, dark: Boolean) = Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Text("总周数：$value", color = terminalText(dark), modifier = Modifier.weight(1f).testTag("semester-total-weeks"))
     OutlinedButton({ update(value - 1) }, enabled = value > 1, modifier = Modifier.heightIn(min = 48.dp).testTag("semester-weeks-minus"), shape = TerminalShape) { Text("−") }
     Spacer(Modifier.width(8.dp)); OutlinedButton({ update(value + 1) }, enabled = value < 52, modifier = Modifier.heightIn(min = 48.dp).testTag("semester-weeks-plus"), shape = TerminalShape) { Text("+") }
 }
 
-@Composable private fun PeriodRow(period: PeriodFormState, count: Int, actions: QingKeAppActions) {
+@Composable private fun PeriodRow(period: PeriodFormState, count: Int, actions: QingKeAppActions, dark: Boolean) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("period-${period.id}-row")) {
-        Text("第 ${period.number} 节", fontWeight = FontWeight.Bold)
+        Text("第 ${period.number} 节", color = terminalText(dark), fontWeight = FontWeight.Bold, modifier = Modifier.testTag("period-${period.id}-label"))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton({ TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodStart(period.id, LocalTime.of(hour, minute)) }, period.start.hour, period.start.minute, true).show() }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("period-${period.id}-start"), shape = TerminalShape) { Text(period.start.toString()) }
             OutlinedButton({ TimePickerDialog(context, { _, hour, minute -> actions.updatePeriodEnd(period.id, LocalTime.of(hour, minute)) }, period.end.hour, period.end.minute, true).show() }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("period-${period.id}-end"), shape = TerminalShape) { Text(period.end.toString()) }
@@ -561,7 +561,7 @@ fun QingKeAppContent(
                         label = { Text("学期名称") }, singleLine = true, shape = TerminalShape,
                     )
                     DateControl(form.startDate, actions.updateStartDate, dark)
-                    WeekControl(form.totalWeeks, actions.updateTotalWeeks)
+                    WeekControl(form.totalWeeks, actions.updateTotalWeeks, dark)
 
                     TerminalSectionHeader("02", "每日节次", "PERIODS / " + form.periods.size, dark, "settings-periods-section")
                     OutlinedButton(
@@ -570,7 +570,7 @@ fun QingKeAppContent(
                         shape = TerminalShape,
                     ) { Text(if (form.periodsExpanded) "收起节次设置（" + form.periods.size + " 节）" else "展开节次设置（" + form.periods.size + " 节）") }
                     if (form.periodsExpanded) {
-                        form.periods.forEach { PeriodRow(it, form.periods.size, actions) }
+                        form.periods.forEach { PeriodRow(it, form.periods.size, actions, dark) }
                         OutlinedButton(
                             actions.addPeriod, enabled = form.periods.size < 20,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("add-period"), shape = TerminalShape,

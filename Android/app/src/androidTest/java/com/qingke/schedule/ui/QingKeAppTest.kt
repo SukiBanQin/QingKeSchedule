@@ -744,6 +744,22 @@ class QingKeAppTest {
         rule.onAllNodesWithTag("semester-validation-error").assertCountEquals(0)
     }
 
+    @Test fun semesterLabelsUseThemeForegroundsInBothThemes() {
+        var appearance by mutableStateOf(AppearanceMode.DARK)
+        rule.setContent {
+            QingKeAppContent(
+                settingsState().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)),
+                existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+            )
+        }
+        assertNodeHasLightInk("semester-total-weeks")
+        assertNodeHasLightInk("period-q1-label")
+        appearance = AppearanceMode.LIGHT
+        rule.waitForIdle()
+        assertNodeHasDarkInk("semester-total-weeks")
+        assertNodeHasDarkInk("period-q1-label")
+    }
+
     @Test fun settingsSuccessNoticeIsConsumedAfterDisplaying() {
         var notice by mutableStateOf<String?>("SYSTEM // 学期与节次设置已保存")
         rule.setContent {
@@ -1341,6 +1357,30 @@ class QingKeAppTest {
     private fun loading() = ScheduleState(loadStatus = LoadStatus.LOADING)
     private fun failed(message: String) = ScheduleState(loadStatus = LoadStatus.FAILED, error = message)
     private fun onboarding(saving: Boolean = false, error: String? = null) = ScheduleState(loadStatus = LoadStatus.READY, isSaving = saving, error = error)
+    private fun assertNodeHasLightInk(tag: String) = assertNodeInk(tag, minimumLuminance = 140, expectedLight = true)
+
+    private fun assertNodeHasDarkInk(tag: String) = assertNodeInk(tag, maximumLuminance = 90, expectedLight = false)
+
+    private fun assertNodeInk(
+        tag: String,
+        minimumLuminance: Int = 0,
+        maximumLuminance: Int = 255,
+        expectedLight: Boolean,
+    ) {
+        rule.onNodeWithTag(tag).performScrollTo()
+        val bitmap = rule.onNodeWithTag(tag).captureToImage().asAndroidBitmap()
+        var ink = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val luminance = ((pixel shr 16 and 0xff) * 299 + (pixel shr 8 and 0xff) * 587 + (pixel and 0xff) * 114) / 1000
+                if (luminance >= minimumLuminance && luminance <= maximumLuminance) ink++
+            }
+        }
+        val expectation = if (expectedLight) "light" else "dark"
+        assertTrue(tag + " must render " + expectation + " ink against its surface, inkPixels=" + ink, ink >= 20)
+    }
+
     private fun existingForm() = SemesterFormState(
         id = "term", name = "测试学期", startDate = LocalDate.parse("2026-09-01"), totalWeeks = 18,
         periods = listOf(

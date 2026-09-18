@@ -1,6 +1,20 @@
 # 安卓项目当前交接状态
 
-## P3-06／A06 完整设置页与学期编辑已实施，待 Sol 独立复审与用户验收（最新，2026-09-18）
+## P3-06／A06 首轮 Sol 复审未通过，返修完成待再次复审（最新，2026-09-18）
+
+Sol 对 `83d1a9f` 的首轮独立复审未通过。本轮在同一允许范围内完成四项修正，由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
+
+- 基准与范围：分支 `Android`，基准 `83d1a9f`（已推送 `origin/Android`），只新增修正提交，未改写历史、未强推、未合并 `main`；只修改 `Android/`、`docs/Android/` 与必要测试，未改 iOS、Web、共享协议与 Room schema。
+- 修正 1（节次身份级课程引用保护）：`PeriodDraft` 新增 `sourceNumber`（该节次在已持久化学期中的编号；草稿内新增节次为 null）。`impactIssues` 不再只检查编号是否存在，而是要求每个既有课程引用仍解析到**同一个节次**（`currentNumberBySource[引用编号] == 引用编号`）：编号被其他节次占用或该节次被删除都拒绝保存。不参与时间比较，因此修改已引用节次时间仍然允许。新增用例覆盖「删除前置／中间节次导致引用编号被别的节次占用 → 拒绝」「删除未被引用的末尾节次 → 允许」「新增节次不影响既有引用 → 允许」「反序／非连续编号在普通编辑中保留」，并在 ViewModel 层复现同一场景。负向对照：把检查临时改回旧实现后两个新用例立即失败，恢复后通过。
+- 修正 2（深色设置页可读性）：`WeekControl` 的「总周数：N」与 `PeriodRow` 的「第 N 节」原先未指定颜色，Compose 的 `LocalContentColor` 默认黑色，深色下等于黑字深底；现改为 `terminalText(dark)`，并为节次标签新增 `period-<id>-label`（仅新增标签）；引导页共用同一组件，一并修复。新增 Compose 像素回归 `semesterLabelsUseThemeForegroundsInBothThemes`：深色下断言两个节点存在足量浅色墨迹、切回浅色断言足量深色墨迹，而不是只断言语义文本存在。负向对照：临时去掉颜色后该用例以 `inkPixels=0` 失败，恢复后通过。
+- 修正 3（证据权限）：`docs/Android/evidence/p3-06-a06-settings/` 已 chown 为 `takagisan:staff`、目录 755、文件 644（原先属 root，验证文本 0600 不可读），未改动任何证据内容；同时一并规范化了此前记录的 root 所有的 `p3-05-visual-r1`／`p3-05-visual-r2` 证据目录。复核 `Android/app/build` 无 root 所有文件。
+- 修正 4（状态文档）：`product-baseline.md`、`technical-design.md`、`implementation-plan.md` 与本文件同步为——P3-05／A03 已通过技术复审与用户视觉验收；P3-06／A06 已实施、已测试、首轮复审未通过并完成本轮返修，**等待再次复审与用户视觉验收，尚未通过复审**。
+- 验证：Debug／Release JVM 各 **98 tests、0 failures／errors／skipped**（返修前 96，新增 2）；`lintDebug` **0 errors、20 warnings**；API 37 ARM64（1080x2400）完整 `connectedDebugAndroidTest` **84 tests、0 failures／errors／skipped**（返修前 83，新增 1）；文档测试 71 tests OK、两个文档脚本与 `git diff --check` 通过。深色设置首页与展开节次截图已重新拍摄并逐张目视核对（「总周数：18」「第 1—5 节」均为浅色可读），证据见 `docs/Android/evidence/p3-06-a06-settings/`。
+- 准确状态：**已实现、已测试、返修完成；等待 Sol 再次复审与用户视觉验收**。A07／A08／A10／A11、整个 P3 与完整 App 仍未验收，后续阶段未授权。
+
+## P3-06／A06 完整设置页与学期编辑已实施（首轮复审未通过）（2026-09-18）
+
+> 状态更新（2026-09-18）：本节提交 `83d1a9f` 的首轮 Sol 独立复审未通过（既有课程引用的节次身份保护、深色设置页前景色、证据目录权限、状态文档四项），返修见上一节；本节的实现说明与验证数字保留为历史记录。
 
 本轮按用户明确任务实施 P3-06／A06：用真实设置页替换 `SETTINGS` 壳层，支持编辑学期名、开始日期、1—52 周、1—20 节、节次展开收起、增删与起止时间。由当前窗口实施并自测，未创建子 Agent；实际服务、模型与思考参数未核实（工具不能读取）。
 

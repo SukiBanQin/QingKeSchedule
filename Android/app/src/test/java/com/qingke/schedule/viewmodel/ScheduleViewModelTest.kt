@@ -140,6 +140,22 @@ class ScheduleViewModelTest {
         assertEquals("改名", model.form.value!!.name)
     }
 
+    @Test fun deletingAPeriodThatShiftsAReferencedNumberIsRejectedAndKeepsDraft() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("s", 1, 2, 2, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "")))
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods.first().id)
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertTrue(model.form.value!!.validationMessage!!.contains("请先在课程编辑中调整"))
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        assertEquals(semester, repository.data.semester)
+    }
+
     @Test fun onboardingSaveKeepsDraftWithoutPublishingSettingsNotice() = runTest {
         val repository = FakeScheduleRepository()
         val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()

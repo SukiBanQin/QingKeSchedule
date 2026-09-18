@@ -11,7 +11,14 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-data class PeriodDraft(val id: String, var number: Int, var startTime: LocalTime, var endTime: LocalTime)
+data class PeriodDraft(
+    val id: String,
+    var number: Int,
+    var startTime: LocalTime,
+    var endTime: LocalTime,
+    /** Number this period carried in the persisted semester; null for periods added inside the draft. */
+    val sourceNumber: Int? = null,
+)
 
 class SemesterDraft private constructor(
     var id: String,
@@ -28,9 +35,11 @@ class SemesterDraft private constructor(
 
     /**
      * Reports structural changes that would silently change the meaning of already saved
-     * courses. Changing only the name, date, weeks or the times of periods that courses
-     * already reference stays valid; removing a referenced number or shrinking the term
-     * does not.
+     * courses. Every course reference must still resolve to the very same period, which is
+     * tracked through [PeriodDraft.sourceNumber]; a number that merely still exists after a
+     * deletion is not enough, because the periods behind it may have shifted. Changing only
+     * the name, date, weeks or the times of periods that courses already reference stays
+     * valid.
      */
     fun impactIssues(previous: Semester?, courses: List<Course>): List<ValidationIssue> {
         if (previous == null || courses.isEmpty()) return emptyList()
@@ -41,11 +50,16 @@ class SemesterDraft private constructor(
                 "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。",
             )
         }
-        val numbers = periods.mapTo(mutableSetOf()) { it.number }
-        if (courses.any { course -> course.schedules.any { it.startPeriod !in numbers || it.endPeriod !in numbers } }) {
+        val currentNumberBySource = periods
+            .mapNotNull { period -> period.sourceNumber?.let { source -> source to period.number } }
+            .toMap()
+        val referencedNumbers = courses
+            .flatMap { course -> course.schedules.flatMap { schedule -> listOf(schedule.startPeriod, schedule.endPeriod) } }
+            .toSet()
+        if (referencedNumbers.any { currentNumberBySource[it] != it }) {
             issues += ValidationIssue(
                 "semester.periods",
-                "删除或改变节次会影响已有课程引用的节次，请先在课程编辑中调整相关课程。",
+                "删除或重排节次会改变已有课程引用的节次，请先在课程编辑中调整相关课程。",
             )
         }
         return issues
@@ -77,7 +91,12 @@ class SemesterDraft private constructor(
 
         fun edit(semester: Semester, idFactory: () -> String = { UUID.randomUUID().toString() }): SemesterDraft = SemesterDraft(
             semester.id, semester.name, LocalDate.parse(semester.startDate), semester.totalWeeks,
-            semester.periods.map { PeriodDraft(idFactory(), it.number, LocalTime.parse(it.startTime), LocalTime.parse(it.endTime)) }.toMutableList(), idFactory,
+            semester.periods.map {
+                PeriodDraft(
+                    idFactory(), it.number, LocalTime.parse(it.startTime), LocalTime.parse(it.endTime),
+                    sourceNumber = it.number,
+                )
+            }.toMutableList(), idFactory,
         )
 
         private val DEFAULT_TIMES = listOf(
