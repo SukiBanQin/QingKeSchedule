@@ -1,5 +1,83 @@
 # 安卓项目当前交接状态
 
+## DeepSeek V4.1 Flash 实施交接：P3-05／A03 周课表视觉返修 R1（2026-09-18）
+
+### 交接目的
+
+用户已查看 P3-05 生产截图，并在 macOS“备忘录”的《APP 还有的问题》中提出 7 组周课表视觉问题。由于当前中转站 Terra／Luna 不稳定，用户明确决定将后续实施交给 **DeepSeek V4.1 Flash**；本节是可独立执行的交接，不要求等待 Terra 恢复。Terra 恢复后仍可回到本 Sol 主窗口继续复审，但不得与 DeepSeek 同时写入共享工作区。
+
+### 当前代码基准与工作区
+
+- 仓库：`/Users/takagisan/课表软件`
+- 分支：`Android`；禁止合并 `main`
+- 基准提交：`f6d2a80`（`docs(android): close p3-05 technical review`）
+- 本地 HEAD、`origin/Android`、远程 `refs/heads/Android` 在交接前一致；工作区干净。
+- iOS 只读视觉／结构基准：`/Users/takagisan/课表软件-IOS/ios`，当前参考提交 `fc3ddfb`；不得修改 iOS 工作区。
+- 当前没有运行中的 Gradle、模拟器或连接设备。Android SDK 的 `adb` 不在默认 PATH；如需设备验证，使用已配置 SDK 的绝对路径并在结束后关闭模拟器、确认 `adb devices` 为空。
+
+### 已完成事项（不要重复实施）
+
+- P3-01 展示模型、P3-04 课程编辑／ADD 路由和 P3-05 第一版真实周课表均已实现；相关实现提交为 `26f2fab`、`b36532e`、`477eae6`、`865ef6e`、`ce5c1b6`，均已推送。
+- P3-05 第一版已通过 Sol 技术复审；用户已实际查看生产截图并提出本轮 R1 视觉返修意见，但尚未验收 R1。
+- 不能重复改动或重新验收 P3-04 已关闭的用户视觉范围。
+
+### 本次授权范围：只实施 P3-05 视觉返修 R1
+
+允许修改：
+
+- `Android/app/src/main/java/com/qingke/schedule/ui/WeekScheduleScreen.kt`
+- `Android/app/src/androidTest/java/com/qingke/schedule/ui/QingKeAppTest.kt` 或与本轮周页契约直接相关的测试文件
+- 必要的 `docs/Android/handoff.md`、`docs/Android/evidence/` 交接／证据文件
+
+不得修改：iOS、Web、Room/schema、DataStore、共享协议、业务规则、设置页、通知、导入导出、P3-04 既有视觉实现、`main`，以及与本轮周页无关的 Android 模块。不要复制一套新的周课表领域规则；继续复用 `WeekSchedulePresentation`、`WeekMatrixPresentation`、`ScheduleDisplayText`、既有 `openAddCourse()`／`openCourseAt()` 和 `AcademicCalendarPreferences`。
+
+### R1 具体验收清单
+
+1. `SCHEDULE :// WEEK MATRIX` 对齐 iOS：黑底、白色粗体标签。
+2. 顶部标题对齐 iOS：左侧粗体“课表”，右侧 `WEEK` 与两位教学周数字；数字随选中教学周变化。
+3. 教学周控件使用 iOS 同款白底细边框结构：左右箭头、中间学期名、`第 03 教学周`、`ODD WEEK/EVEN WEEK`；中部点击返回当前周；不保留错位的独立“返回当前周”布局。
+4. 七日日期条增加上下细横线、每日竖分隔线；选中日期保留反相背景并在日期下方显示黄色下划线。
+5. 周视图标题改为 `05 周视图`，右侧动态显示 `MON–SUN / N PERIODS`，其中 `N` 取真实节次数。
+6. 周矩阵对齐 iOS：七列竖线、横向行线；`TIME`、星期、节次编号／时间使用黑色粗体并居中；行高和表头高度足以让课程块可读。午休只在设置启用且展示模型产生 break 时显示，使用青色底、上下细边框、左侧标题／分隔线／时间；不得改变午休业务规则。
+7. 日清单标题删除完整日期（如 `2026-09-16`），改为 iOS 风格的编号、周几和条目数；课程卡片增大到可读尺寸，显示序号、起止时间、节次、课程名、教室／教师和右箭头，继续支持点击编辑。
+
+### 必须验证与回报
+
+- 先核对 `git status --short --branch`、`git log --oneline -n 12`、`git ls-remote --heads origin Android`，确认基准未漂移。
+- 先读本节、`docs/Android/product-baseline.md` 的周课表相关章节、`docs/Android/technical-design.md` 与 `docs/Android/implementation-plan.md` 的必要章节，再读 iOS `WeekScheduleView.swift`／相关 `CourseStyle.swift` 和 Android 当前周页；不要无理由全量复制文档。
+- 新增或更新 Compose 契约／回归测试，至少覆盖：黑底白字周页标题、教学周动态文本及箭头／返回当前周、日期条分隔与选中下划线、`05 周视图`／动态 periods、矩阵列／行线和午休条件显示、日清单无 ISO 日期及课程点击路由。
+- 运行与改动相符的 Debug／Release JVM、AndroidTest APK、`lintDebug`、文档测试和 `git diff --check`。如有设备，补做 API 37 浅色／深色／大字体视觉核对；没有设备时如实记录限制。
+- 完成后只暂存本任务文件，创建 Git commit 并推送 `origin/Android`；回报实际提交、测试结果、截图／设备限制和未解决问题。不得声称用户视觉验收完成。
+- 当前已知的完整 connected 套件历史失败仍是两个既有 P3-04 测试：`chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales`、`r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`。不要把它们静默改入 R1；若重跑仍失败，单独报告。
+
+### 可直接发送给 DeepSeek V4.1 Flash 的提示词
+
+```text
+你是本仓库 Android 分支的唯一实施者。请在 /Users/takagisan/课表软件 上实施 P3-05／A03 周课表视觉返修 R1。
+
+基准：分支 Android，HEAD／origin/Android 预期为 f6d2a80；不合并 main。开始先运行：
+DEVELOPER_DIR=/Library/Developer/CommandLineTools git status --short --branch
+DEVELOPER_DIR=/Library/Developer/CommandLineTools git log --oneline -n 12
+DEVELOPER_DIR=/Library/Developer/CommandLineTools git ls-remote --heads origin Android
+若基准或工作区有变化，先停止并报告，不覆盖其他窗口改动。
+
+用户已授权本次只修改 P3-05 周课表视觉层和对应测试／交接证据。允许路径：Android/app/src/main/java/com/qingke/schedule/ui/WeekScheduleScreen.kt、与周页直接相关的 Android 测试文件、必要的 docs/Android/handoff.md 与 docs/Android/evidence/。禁止修改 iOS、Web、Room/schema、DataStore、共享协议、业务规则、设置、通知、导入导出、P3-04 既有视觉范围和 main。你是唯一写入者，不要创建其他 Agent。
+
+先增量阅读 docs/Android/handoff.md 本节、product-baseline.md／technical-design.md／implementation-plan.md 的周课表相关章节；只读参考 /Users/takagisan/课表软件-IOS/ios 的 WeekScheduleView.swift、CourseStyle.swift（iOS 当前参考 fc3ddfb）。继续复用 Android 的 WeekSchedulePresentation、WeekMatrixPresentation、ScheduleDisplayText、AcademicCalendarPreferences、openAddCourse() 与 openCourseAt()；不要复制新的领域规则。
+
+必须完成以下视觉返修：
+1. SCHEDULE :// WEEK MATRIX 改为 iOS 同款黑底白色粗体标签；左侧标题为粗体“课表”，右侧为动态 WEEK＋两位教学周数字。
+2. 教学周控件改为白底细边框面板，含左右箭头、学期名、第 XX 教学周、ODD WEEK/EVEN WEEK；中间点击返回当前周。
+3. 日期条增加上下横线和每日竖分隔线；选中日期下方有黄色下划线。
+4. 周视图标题为 05 周视图，右侧动态显示 MON–SUN / N PERIODS。
+5. 矩阵补齐七列竖线和行线；TIME、星期、节次编号／时间黑色粗体居中；提高表头／行高使课程块可读；午休仅在设置启用且展示模型产生 break 时显示，使用青色底和细边框，不改业务规则。
+6. 日清单标题移除完整 ISO 日期，改为编号／周几／条目数；课程卡片增大并显示序号、起止时间、节次、课程名、教室／教师和右箭头，点击仍路由到既有课程编辑。
+
+新增或更新 Compose 契约测试覆盖上述结构、动态周文本、选中下划线、矩阵线框、午休条件、日清单无日期与点击路由。运行 Debug／Release JVM、AndroidTest APK、lintDebug、文档测试和 git diff --check；有可用 API 37 设备时做浅色／深色／大字体截图核对，没有设备要如实记录。完整 connected 套件已有两个与 P3-04 相关的历史失败，不要擅自修复或混入本任务；若重跑失败请单独列出。
+
+完成后只暂存本任务文件，创建 commit 并推送 origin/Android。最终回报实际 diff、提交号、测试／截图证据、限制和未解决问题；不要声称用户视觉验收完成。
+```
+
 ## P3-05／A03 周课表 UI 已通过 Sol 技术复审，待用户视觉验收（2026-09-15）
 
 本轮在 `Android` 分支将 `SCHEDULE` 从“课表（壳层）”替换为周课表垂直切片。实现只使用既有
