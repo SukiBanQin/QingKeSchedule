@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
@@ -1263,7 +1264,7 @@ private fun lunchBreakConflictMessage(conflict: LunchBreakConflict): String {
     tagPrefix: String = "terminal-time-picker",
 ) {
     BackHandler { onCancel() }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag(tagPrefix + "-backdrop"), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).modalScrim().testTag(tagPrefix + "-backdrop"), contentAlignment = Alignment.Center) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).widthIn(max = 420.dp).terminalModalSurface(dark, QingKeCyan).testTag(tagPrefix)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("TIME SELECT", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.testTag(tagPrefix + "-code"))
@@ -1765,7 +1766,23 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
     dismiss = if (tag == "course-discard-confirm") "继续编辑" else if (tag == "course-delete-confirm") "取消" else "返回修改", title = title, message = message, confirm = confirm, onConfirm = onConfirm, onDismiss = onDismiss, tag = tag, dark = dark,
 )
 
-@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES", enabled: Boolean = true) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
+
+/**
+ * P3-04-R8-R1: a modal scrim has to swallow every pointer event. Attaching a pointer-input node makes the
+ * scrim the hit target for the whole screen, so the controls painted behind it are never hit tested, and
+ * consuming the changes stops any pointer stream that still reaches the scrim. No clickable is involved, so
+ * the scrim adds no accessibility click action; the dialog's own buttons keep working because the Main pass
+ * reaches children before this parent.
+ */
+private fun Modifier.modalScrim(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Main).changes.forEach { it.consume() }
+        }
+    }
+}
+
+@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES", enabled: Boolean = true) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).modalScrim().testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
     val tone = if (danger) Danger else SignalYellow
     Column(Modifier.padding(24.dp).fillMaxWidth().terminalModalSurface(dark = dark, accent = tone).padding(16.dp).testTag(tag)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = tone, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(tone, androidx.compose.foundation.shape.CircleShape).testTag("$tag-status-dot")) }

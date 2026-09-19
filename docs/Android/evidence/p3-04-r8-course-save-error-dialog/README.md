@@ -41,6 +41,17 @@
 `pixel-verification-20260919.txt` 记录上述区域分类：四个变体的单个操作按钮高均为 121px（46dp）、
 危险红 95.1%—98.0%；冲突框保持信号黄双按钮。
 
+## R1 修正说明（2026-09-19）
+
+P3-04-R8 首轮 Sol 复审发现共享 `TerminalDialog` 遮罩没有消费指针事件（点击面板外会命中底层课程编辑器
+控件）。R1 只修正输入拦截：为共享 `TerminalDialog` 与共享时间选择器加上全屏 `modalScrim()`
+（`pointerInput` 在主通道消费指针事件，不使用空 `clickable`），并更正文档状态。**视觉、按钮布局、
+BackHandler 与全部弹窗文案都没有变化，因此本目录的 6 张截图与像素／节点记录沿用首轮结果，本轮没有
+重新采集、也没有改动这些文件**；触摸拦截由设备测试断言（`QingKeAppTest` 的
+`invalidDialogScrimBlocksTouchesToTheEditorBehindIt`／`conflictDialogButtonsStayClickableUnderTheScrim`／
+`timePickerScrimBlocksTouchesToTheSettingsPageBehindIt`），其中第一项在移除 `modalScrim()` 时会失败
+（底层保存回调被触发 1 次），可反向验证回归有效。
+
 ## 说明与限制
 
 1. 本目录截图来自同一份 debug APK 的证据用例，属程序化核对（Compose 断言 + 节点 bounds + 像素分类），

@@ -42,6 +42,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click as touchClick
@@ -2346,6 +2347,104 @@ class QingKeAppTest {
      * asserted by tests instead of a fabricated screenshot.
      */
     /** P3-04-R8 evidence: the real blocked-save flow plus the unchanged conflict box. */
+    /**
+     * P3-04-R8-R1: the shared TerminalDialog scrim must really block the covered screen. The two controls
+     * behind the modal are touched at their raw screen coordinates through the root node, never through their
+     * semantics click action, so a pass-through scrim would fire them.
+     */
+    /** P3-04-R8-R1: the shared time picker is the other full-screen scrim and must block the page behind it. */
+    @Test fun timePickerScrimBlocksTouchesToTheSettingsPageBehindIt() {
+        var form by mutableStateOf(existingForm().copy(periodsExpanded = true))
+        var saves = 0
+        var starts = 0
+        rule.setContent {
+            QingKeAppContent(
+                settingsState(), form, MainTab.SETTINGS,
+                QingKeAppActions(saveSemester = { saves++ }, updatePeriodStart = { _, _ -> starts++ }),
+            )
+        }
+        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-time-picker-backdrop", useUnmergedTree = true).assertHasNoClickAction()
+
+        val saveBounds = rule.onNodeWithTag("semester-save-toolbar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        touchAt(saveBounds.center)
+        rule.waitForIdle()
+        assertEquals(0, saves)
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(1, starts)
+        rule.onAllNodesWithTag("terminal-time-picker").assertCountEquals(0)
+    }
+
+    @Test fun invalidDialogScrimBlocksTouchesToTheEditorBehindIt() {
+        val schedule = CourseScheduleFormState("blocked", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var editor by mutableStateOf<CourseEditorState?>(CourseEditorState(CourseEditorMode.EDIT, name = "被阻断", schedules = listOf(schedule)))
+        var saves = 0
+        var closes = 0
+        var dismissals = 0
+        rule.setContent {
+            QingKeAppContent(
+                readyToday(), null, MainTab.TODAY,
+                QingKeAppActions(
+                    saveCourse = { saves++ }, closeCourseEditor = { closes++ },
+                    dismissCourseConfirmation = { dismissals++; editor = editor?.copy(confirmation = null) },
+                ),
+                editor = editor,
+            )
+        }
+        val saveBounds = rule.onNodeWithTag("course-save-toolbar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val closeBounds = rule.onNodeWithTag("course-editor-close", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+
+        editor = CourseEditorState(
+            CourseEditorMode.EDIT, name = "被阻断", schedules = listOf(schedule),
+            confirmation = CourseEditorConfirmation.Invalid("该上课安排已存在，请勿重复添加。"),
+        )
+        rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithTag("course-save-error-backdrop", useUnmergedTree = true).assertHasNoClickAction()
+
+        touchAt(saveBounds.center)
+        touchAt(closeBounds.center)
+        rule.waitForIdle()
+        assertEquals(0, saves)
+        assertEquals(0, closes)
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        assertEquals("被阻断", editor!!.name)
+        assertEquals(1, editor!!.schedules.size)
+
+        // the dialog's own action is still reachable and fires exactly once
+        rule.onNodeWithTag("course-save-error-dismiss").performClick(); rule.waitForIdle()
+        assertEquals(1, dismissals)
+        rule.onAllNodesWithTag("course-save-error").assertCountEquals(0)
+    }
+
+    @Test fun conflictDialogButtonsStayClickableUnderTheScrim() {
+        val schedule = CourseScheduleFormState("conflict", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var confirms = 0
+        var dismissals = 0
+        var editor by mutableStateOf<CourseEditorState?>(
+            CourseEditorState(
+                CourseEditorMode.EDIT, name = "冲突", schedules = listOf(schedule),
+                confirmation = CourseEditorConfirmation.Conflicts(Course("candidate", "候选", "", "#287B74", emptyList()), emptyList()),
+            ),
+        )
+        rule.setContent {
+            QingKeAppContent(
+                readyToday(), null, MainTab.TODAY,
+                QingKeAppActions(confirmSaveDespiteConflicts = { confirms++ }, dismissCourseConfirmation = { dismissals++ }),
+                editor = editor,
+            )
+        }
+        rule.onNodeWithTag("course-conflict-confirm").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-dialog-dismiss").performClick(); rule.waitForIdle()
+        assertEquals(0, confirms)
+        assertEquals(1, dismissals)
+        rule.onNodeWithTag("course-conflict-confirm-confirm").performClick(); rule.waitForIdle()
+        assertEquals(1, confirms)
+    }
+
     @Test fun p3r04R8CourseSaveErrorDialogEvidence() {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
         val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
@@ -2726,6 +2825,11 @@ class QingKeAppTest {
         rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
         rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
         rule.onNodeWithTag("semester-save-success").assertIsDisplayed()
+    }
+
+    /** Raw coordinate touch inside the root node; never a semantic performClick. */
+    private fun touchAt(offset: Offset) {
+        rule.onRoot().performTouchInput { touchClick(offset) }
     }
 
     private fun r8EvidenceDirectory(): File = File(

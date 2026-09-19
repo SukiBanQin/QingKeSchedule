@@ -8,6 +8,30 @@
   未推进 A08／A10／A11。提交号见交付消息或 `git log`（本文档不自引用尚未产生的提交号）。
 - 证据目录：[evidence/p3-04-r8-course-save-error-dialog/](evidence/p3-04-r8-course-save-error-dialog/README.md)。
 
+## R1 修正（首轮 Sol 复审两项问题）
+
+首轮 Sol 复审未通过，问题与本轮处理如下；本轮只改共享弹窗的输入拦截与文档状态，未改课程保存的校验、
+弹窗文案与视觉。
+
+1. **共享 `TerminalDialog` 遮罩触摸穿透**：原实现的全屏遮罩只有 background 与 testTag，没有消费指针
+   事件，点击面板外会命中底层课程编辑器的保存／取消／步进／删除控件，违反“真正模态、只能返回修改、
+   无旁路”。现在共享 `TerminalDialog` 使用独立的全屏拦截层 `modalScrim()`：该层是一个
+   `pointerInput` 节点，在主通道消费全部指针事件——命中测试停在遮罩上（其后的同级控件不再被命中），
+   即使事件到达遮罩也会被消费；面板内按钮不受影响，因为主通道先到子节点再到父节点。没有使用空
+   `clickable`，因此不产生无意义的 accessibility click 语义；视觉、按钮布局、`BackHandler` 与全部
+   弹窗文案均未改变。同类缺陷也存在于共享时间选择器 `TerminalTimePickerOverlay` 的遮罩，本轮一并
+   使用同一 `modalScrim()`（同类扩展，已单独回归，可单独回退）。
+2. **文档状态矛盾**：`product-baseline.md` 开头准确状态仍写“A06 R6 已通过……但 R7 待实施”，
+   `implementation-plan.md` 当前默认流程误写“P3-07／A07 原实现及 R1 功能修正均已通过技术复审与用户视觉
+   验收”。现已更正为：P3-06-R7、R1、R2 已完成并已通过 Sol 技术复审与用户视觉验收；P3-07/A07 原实现已
+   通过技术复审、视觉风格已获用户确认；P3-07-R1 已通过技术复审，但其新增警告框与文案仍待用户视觉验收。
+
+R1 测试（设备）：`invalidDialogScrimBlocksTouchesToTheEditorBehindIt`（经根节点坐标点击底层
+`course-save-toolbar`／`course-editor-close` 中心，两者回调为 0、Invalid 弹窗仍在、草稿不变；弹窗自身
+「返回修改」dismiss 恰好 1 次）、`conflictDialogButtonsStayClickableUnderTheScrim`、`timePickerScrimBlocksTouchesToTheSettingsPageBehindIt`，
+并断言遮罩节点没有 click 语义。反向验证：临时移除 `modalScrim()` 时第一项用例失败（底层保存回调触发
+1 次），加回后通过。视觉无变化，复用首轮截图，README 已注明。
+
 ## 只读审计结论
 
 按“点击主动操作后被错误阻止、却仍在页面底部显示”的口径在当前基准重新定向搜索
@@ -83,6 +107,7 @@
 
 ## 准确状态
 
-P3-04-R8 已实现并自测（JVM 169、设备 125、lint 0 errors、6 张截图与节点／像素证据齐备）；**Sol 独立复审
-与用户视觉验收均未进行**。P3-06-R7（含 R1／R2）已通过 Sol 技术复审与用户视觉验收。A08／A10／A11、
+P3-04-R8 已实现并自测（首轮：JVM 169、设备 125、lint 0 errors、6 张截图与节点／像素证据齐备）。
+首轮 Sol 复审未通过；**R1 修正已实现并自测（JVM 169、设备 128），尚未经 Sol 再复审**；P3-04-R8 整体的
+用户视觉验收仍未进行。P3-06-R7（含 R1／R2）已通过 Sol 技术复审与用户视觉验收。A08／A10／A11、
 整个 P3 与完整 App 仍未完成、未授权。

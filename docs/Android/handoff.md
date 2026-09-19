@@ -1,6 +1,43 @@
 # 安卓项目当前交接状态
 
-## P3-04-R8 课程保存阻断错误改为居中红色弹窗已实施（最新，2026-09-19）
+## P3-04-R8-R1 共享弹窗遮罩触摸拦截与文档状态修正已实施（最新，2026-09-19）
+
+P3-04-R8 首轮 Sol 复审未通过，提出两项问题，本轮由同一 DeepSeek 执行窗口修正。
+
+- 当前代码基准：分支 `Android`，开始基准 `075c436`（P3-04-R8 首轮实现，已推送 `origin/Android`），开始时
+  工作区干净。本轮只新增修正提交，未改写历史、未强推、未合并 `main`；未改 iOS／Web／Room schema／
+  DataStore 结构／共享 JSON schema／版本 1／课程领域校验规则。提交号见交付消息或 `git log`。
+- 复审问题 1（触摸穿透）：共享 `TerminalDialog` 的全屏遮罩只有背景与 testTag，没有消费指针事件的层，
+  点击弹窗面板以外的区域会继续命中底层课程编辑器的保存／取消／步进／删除控件，违反“真正模态、只能
+  返回修改、无旁路”。本轮为共享 `TerminalDialog` 增加独立的全屏触摸拦截层 `modalScrim()`
+  （`pointerInput` 在主通道消费全部指针事件）：弹窗面板外触摸全部消费、面板内按钮不受影响，不使用空
+  `clickable`，因此不产生额外的 accessibility click 语义；视觉、按钮布局、BackHandler 与全部弹窗文案
+  均未改变。同一类缺陷也存在于共享时间选择器 `TerminalTimePickerOverlay` 的遮罩，本轮一并加上同一
+  `modalScrim()`（同类扩展，已单独回归；如需更小改动范围可单独回退这一行）。
+- 复审问题 2（文档状态矛盾）：`product-baseline.md` 开头准确状态仍写“A06 R6 已通过……但 R7 待实施”，
+  `implementation-plan.md` 当前默认流程误写“P3-07／A07 原实现及 R1 功能修正均已通过技术复审与用户视觉
+  验收”。本轮更正为：P3-06-R7、R1、R2 已完成并已通过 Sol 技术复审与用户视觉验收；P3-07/A07 原实现已
+  通过技术复审、视觉风格已获用户确认；P3-07-R1 已通过技术复审，但其新增警告框与文案仍待用户视觉验收。
+- 回归测试（设备，API 37 ARM64）：`invalidDialogScrimBlocksTouchesToTheEditorBehindIt`（取得底层
+  `course-save-toolbar`／`course-editor-close` 的 bounds，经根节点坐标点击其中心，断言两者回调均为 0、
+  Invalid 弹窗保持显示、草稿不变；再点弹窗自己的「返回修改」，dismiss 恰好 1 次）、
+  `conflictDialogButtonsStayClickableUnderTheScrim`（冲突框「返回修改／仍然保存」仍可点）、
+  `timePickerScrimBlocksTouchesToTheSettingsPageBehindIt`（时间选择器遮罩阻挡底层设置页工具栏保存，
+  选择器自身「确认」仍写入 1 次）；并断言遮罩节点没有 click 语义。**反向验证**：临时移除 `modalScrim()`
+  时该用例失败（底层保存回调被触发 1 次），加回后通过，证明回归有效。
+- 验证：Debug／Release JVM 各 **169 tests、0 failures／errors／skipped**；API 37 ARM64
+  `connectedDebugAndroidTest` **128 tests、0 failures／errors／skipped**；`assembleDebug`／`assembleRelease`／
+  `assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／20 warnings；文档测试 71 tests OK 与两个脚本、
+  `git diff --check` 通过。
+- 证据：共享弹窗视觉未变化，复用 `docs/Android/evidence/p3-04-r8-course-save-error-dialog/` 首轮截图，
+  README 已注明本轮只修正触摸拦截、未重新采集截图。
+- 准确状态：**P3-04-R8-R1 已实现并自测；本轮修正尚未经 Sol 再复审，P3-04-R8 的用户视觉验收仍未进行**。
+  A08／A10／A11、整个 P3 与完整 App 仍未完成、未授权。
+
+## P3-04-R8 课程保存阻断错误改为居中红色弹窗已实施（历史，2026-09-19）
+
+> 后续状态：首轮 Sol 复审未通过（共享弹窗遮罩触摸穿透、文档状态矛盾），已由 P3-04-R8-R1 修正，见本文档首节。
+
 
 用户确认：点击保存、添加、删除、导入等主动操作后若被错误阻止，主要反馈应为居中红色弹窗；成功提示、
 普通说明、持续状态与字段输入过程中的即时辅助提示仍保持内联。只读审计结论：当前唯一仍把“点击后被阻止”
