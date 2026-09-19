@@ -32,6 +32,40 @@ R1 测试（设备）：`invalidDialogScrimBlocksTouchesToTheEditorBehindIt`（�
 并断言遮罩节点没有 click 语义。反向验证：临时移除 `modalScrim()` 时第一项用例失败（底层保存回调触发
 1 次），加回后通过。视觉无变化，复用首轮截图，README 已注明。
 
+## R2 修正（共享模态遮罩导致弹窗内部无法真实滑动）
+
+用户实测 R1 后反馈：首次设置与正式设置的时间选择器无法上下拖动小时与分钟，只能点击当前可见的几个数值，
+本次交互验收因此未通过（用户说明“目前没有发现其他问题”，不构成验收结论）。
+
+- 根因：R1 把 `modalScrim()` 装在同时包含弹窗内容的父 Box 上并在 Main 通道消费指针事件。面板外触摸
+  穿透被挡住，但子级 `verticalScroll` 的真实拖动同时被中断；既有时间选择测试用 `performScrollTo()`
+  语义动作，绕过了真实指针分发，所以 R1 自测没有发现。
+- 修正：新增共享模态宿主 `ModalScrimHost`，把全屏拦截层改为**面板之后的独立 sibling 底层**，面板、
+  按钮与内部滚动内容位于其上方；`TerminalDialog`（含级联摘要等内部 `verticalScroll`）与
+  `TerminalTimePickerOverlay`（首次设置／正式设置／午休共用）都改为该结构。面板外手势仍由遮罩消费，
+  遮罩仍不使用空 `clickable`、无 accessibility click 语义，视觉、按钮布局、`BackHandler`、文案与
+  时间业务规则均未改变。
+- **关键发现（如实记录）**：Compose 注入的手势（`performTouchInput` 的 swipe／drag）**无法复现**该缺陷
+  ——在 R1 与 R2 两种结构下小时列都会滚动。只有真实输入管线能复现：`adb shell input swipe` 在 R1 结构下
+  小时列 bounds 不变（11/12/13/14），在 R2 结构下滚动到 07—11；设备测试
+  `timePickerHourColumnScrollsWithRealSystemInput` 用 `Instrumentation#sendPointerSync`（400px／80 步／
+  5ms）注入真实事件，在临时恢复 R1 结构时失败（`hour 07 must appear after real system swipes, swipes=6`），
+  恢复 R2 后通过（临时改动未提交）。因此本任务的回归门是真实系统输入测试与 adb 对照记录。
+- 新增／调整的设备测试：首次设置节次开始时间 08:00→07:20、正式设置 07:20→06:35（两条都覆盖小时与分钟
+  两列，目标在滑动前均不可见）、午休结束时间 14:00→13:30（真实滑动后写偏好 1 次、无冲突框）、
+  `cascadeSummaryScrollsInternallyWithManyAffectedCourses` 改为真实拖动到达第 20 门课程（不再用
+  `performScrollTo()`）；R1 的遮罩回归（底层坐标点击回调为 0、遮罩无 click action、Invalid 弹窗
+  「返回修改」、冲突框两个按钮）全部保留并通过。
+- 颜色弹窗测量（要求 6）：目标尺寸下面板高 1488px < 窗口 2400px，`clipped=false`，真实滑动后模式标签
+  位置不变（901→901）→ 该尺寸下内容不溢出、不需要内部滚动，未制造假场景；如将来内容增高，同一宿主
+  结构已保证其内部 `verticalScroll` 由真实子控件接收。
+- 验证：Debug／Release JVM 各 **169 tests、0 failures／errors／skipped**；API 37 ARM64
+  `connectedDebugAndroidTest` **133 tests、0 failures／errors／skipped**；`assembleDebug`／
+  `assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／20 warnings；文档测试
+  71 tests OK 与两个脚本、`git diff --check` 通过。
+- 证据：新建 `docs/Android/evidence/p3-04-r8-r2-modal-scroll/`（5 张真实流程截图＋节点／状态／写入计数
+  记录＋adb 真实输入 R1／R2 对照＋README），不覆盖首轮 R8 截图。
+
 ## 只读审计结论
 
 按“点击主动操作后被错误阻止、却仍在页面底部显示”的口径在当前基准重新定向搜索
@@ -108,6 +142,8 @@ R1 测试（设备）：`invalidDialogScrimBlocksTouchesToTheEditorBehindIt`（�
 ## 准确状态
 
 P3-04-R8 已实现并自测（首轮：JVM 169、设备 125、lint 0 errors、6 张截图与节点／像素证据齐备）。
-首轮 Sol 复审未通过；**R1 修正已实现并自测（JVM 169、设备 128），尚未经 Sol 再复审**；P3-04-R8 整体的
-用户视觉验收仍未进行。P3-06-R7（含 R1／R2）已通过 Sol 技术复审与用户视觉验收。A08／A10／A11、
+首轮 Sol 复审未通过；R1 修正（JVM 169、设备 128）已通过 Sol 技术复审，但**用户真机交互发现遮罩同时拦截
+了弹窗内部拖动，该结论已被新证据重新打开**；R2 修正已实现并自测（JVM 169、设备 133、lint 0 errors、
+5 张新截图＋adb 真实输入对照），**尚待 Sol 再复审与用户重新验收**；P3-04-R8 整体的用户视觉／交互验收
+仍未进行。P3-06-R7（含 R1／R2）已通过 Sol 技术复审与用户视觉验收。A08／A10／A11、
 整个 P3 与完整 App 仍未完成、未授权。

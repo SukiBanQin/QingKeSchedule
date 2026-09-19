@@ -5,6 +5,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.os.Build
 import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.content.res.Configuration
 import android.util.Xml
 import androidx.activity.ComponentActivity
@@ -55,6 +57,8 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeWithVelocity
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -809,7 +813,14 @@ class QingKeAppTest {
         rule.onNodeWithTag("semester-cascade-summary").assertHeightIsEqualTo(250.dp)
         rule.onNodeWithTag("semester-cascade-confirm").assertIsDisplayed()
         rule.onNodeWithTag("semester-cascade-dismiss").assertIsDisplayed()
-        rule.onNodeWithText("课程19", substring = true).performScrollTo().assertIsDisplayed()
+        assertFalse("课程19 must start outside the summary viewport", isTextDisplayed("课程19"))
+        var drags = 0
+        while (!isTextDisplayed("课程19") && drags < 10) {
+            rule.onNodeWithTag("semester-cascade-summary").performTouchInput { swipeUp(durationMillis = 400) }
+            rule.waitForIdle()
+            drags++
+        }
+        assertTrue("课程19 must be reachable with real drags, drags=$drags", isTextDisplayed("课程19"))
         rule.onNodeWithTag("semester-cascade-confirm").assertIsDisplayed()
         rule.onNodeWithTag("semester-cascade-dismiss").assertIsDisplayed()
     }
@@ -2013,9 +2024,11 @@ class QingKeAppTest {
     private class HostPreferencesRepository : SchedulePreferencesRepository {
         private var stored = SchedulePreferences.defaults
         var failUpdate = false
+        var updates = 0
         override suspend fun load(): SchedulePreferences = stored
         override suspend fun save(preferences: SchedulePreferences): SchedulePreferences {
             if (failUpdate) error("injected preferences failure")
+            updates++
             return preferences.also { stored = it }
         }
         override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences): SchedulePreferences = save(transform(stored))
@@ -2352,6 +2365,307 @@ class QingKeAppTest {
      * behind the modal are touched at their raw screen coordinates through the root node, never through their
      * semantics click action, so a pass-through scrim would fire them.
      */
+    /**
+     * P3-04-R8-R2 evidence: one real first-boot → save → settings flow in which every time value is reached
+     * with real Android system swipes (Instrumentation#sendPointerSync), never with a semantic scroll action.
+     */
+    @Test fun p3r04R8R2ModalScrollEvidence() {
+        val repository = HostScheduleRepository(ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-20T09:00") }, uniqueIds())
+        val evidence = mutableListOf("P3-04-R8-R2 real-gesture evidence (API 37 ARM64 1080x2400@420dpi, font_scale 1.0)")
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        // 1) first boot period 1 (08:00-08:45): 08:00 → 07:20, both targets outside the initial viewport
+        rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        val periodId = model.form.value!!.periods.first().id
+        rule.onNodeWithTag("period-" + periodId + "-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("08:00")
+        assertFalse("hour 07 must start outside the first-boot viewport", isDisplayed("terminal-time-picker-hour-07"))
+        val bootHourSwipes = systemSwipeUntilDisplayed("terminal-time-picker-hour-list", "terminal-time-picker-hour-07", down = true)
+        systemTapOn("terminal-time-picker-hour-07"); rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:00")
+        assertFalse("minute 20 must start outside the first-boot viewport", isDisplayed("terminal-time-picker-minute-20"))
+        val bootMinuteSwipes = systemSwipeUntilDisplayed("terminal-time-picker-minute-list", "terminal-time-picker-minute-20", down = false)
+        systemTapOn("terminal-time-picker-minute-20"); rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:20")
+        evidence.add("first boot picker: hour swipes=" + bootHourSwipes + " minute swipes=" + bootMinuteSwipes + " " + nodeLine("terminal-time-picker"))
+        saveR8R2Screenshot("p3-04-r8-r2-01-first-boot-picker-after-real-swipes.png")
+
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(LocalTime.of(7, 20), model.form.value!!.periods.first().start)
+        rule.onNodeWithTag("period-" + periodId + "-start").performScrollTo()
+        evidence.add("first boot draft after confirm: start=" + model.form.value!!.periods.first().start + " writes=" + repository.writes)
+        saveR8R2Screenshot("p3-04-r8-r2-02-first-boot-draft-after-confirm.png")
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick()
+        rule.waitUntil(5_000) { repository.writes == 1 }
+
+        // 2) the real settings page repeats the same gesture: 07:20 → 06:35
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        if (!model.form.value!!.periodsExpanded) {
+            rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        }
+        rule.onNodeWithTag("period-" + periodId + "-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:20")
+        assertFalse("hour 06 must start outside the settings viewport", isDisplayed("terminal-time-picker-hour-06"))
+        val settingsHourSwipes = systemSwipeUntilDisplayed("terminal-time-picker-hour-list", "terminal-time-picker-hour-06", down = true)
+        systemTapOn("terminal-time-picker-hour-06"); rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("06:20")
+        assertFalse("minute 35 must start outside the settings viewport", isDisplayed("terminal-time-picker-minute-35"))
+        val settingsMinuteSwipes = systemSwipeUntilDisplayed("terminal-time-picker-minute-list", "terminal-time-picker-minute-35", down = false)
+        systemTapOn("terminal-time-picker-minute-35"); rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("06:35")
+        evidence.add("settings picker: hour swipes=" + settingsHourSwipes + " minute swipes=" + settingsMinuteSwipes + " " + nodeLine("terminal-time-picker"))
+        saveR8R2Screenshot("p3-04-r8-r2-03-settings-picker-after-real-swipes.png")
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(LocalTime.of(6, 35), model.form.value!!.periods.first().start)
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick()
+        rule.waitUntil(5_000) { repository.writes == 2 }
+        evidence.add("settings save: period start=" + repository.data.semester!!.periods.first().startTime + " writes=" + repository.writes)
+
+        // 3) the lunch break picker shares the same overlay: 14:00 → 13:30 (still conflict-free with periods)
+        rule.onNodeWithTag("settings-calendar-lunch-end").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("14:00")
+        assertFalse("hour 13 must start outside the lunch viewport", isDisplayed("terminal-lunch-time-picker-hour-13"))
+        val lunchHourSwipes = systemSwipeUntilDisplayed("terminal-lunch-time-picker-hour-list", "terminal-lunch-time-picker-hour-13", down = true)
+        systemTapOn("terminal-lunch-time-picker-hour-13"); rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("13:00")
+        assertFalse("minute 30 must start outside the lunch viewport", isDisplayed("terminal-lunch-time-picker-minute-30"))
+        val lunchMinuteSwipes = systemSwipeUntilDisplayed("terminal-lunch-time-picker-minute-list", "terminal-lunch-time-picker-minute-30", down = false)
+        systemTapOn("terminal-lunch-time-picker-minute-30"); rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("13:30")
+        evidence.add("lunch picker: hour swipes=" + lunchHourSwipes + " minute swipes=" + lunchMinuteSwipes + " " + nodeLine("terminal-lunch-time-picker"))
+        saveR8R2Screenshot("p3-04-r8-r2-04-lunch-picker-after-real-swipes.png")
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals("13:30", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+        assertEquals(null, model.lunchBreakConflict.value)
+        evidence.add("lunch preferences: end=" + model.state.value.preferences.academicCalendar.lunchBreak.endTime + " updates=" + preferences.updates)
+
+        // 4) measure whether the colour dialog really needs internal scrolling at this size
+        rule.onNodeWithTag("today-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("today-add-course").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-custom-color").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-color-dialog").assertIsDisplayed()
+        val windowHeight = rule.onRoot().fetchSemanticsNode().boundsInRoot.height
+        val dialogBounds = rule.onNodeWithTag("course-color-dialog", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val tabsBefore = rule.onNodeWithTag("course-color-mode-SLIDERS", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        systemSwipeOn("course-color-dialog", down = false, distancePx = 300f)
+        val tabsAfter = rule.onNodeWithTag("course-color-mode-SLIDERS", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        evidence.add(
+            "color dialog: panel height=%.0f window=%.0f clipped=%s tabs top %.0f -> %.0f".format(
+                dialogBounds.height, windowHeight, dialogBounds.height >= windowHeight - 2f, tabsBefore.top, tabsAfter.top,
+            ),
+        )
+        saveR8R2Screenshot("p3-04-r8-r2-05-color-dialog-measured.png")
+
+        saveR8R2Text("node-and-state-verification-20260919.txt", evidence.joinToString("\n") + "\n")
+    }
+
+    private fun systemSwipeUntilDisplayed(listTag: String, itemTag: String, down: Boolean, limit: Int = 18): Int {
+        var swipes = 0
+        while (!isDisplayed(itemTag) && swipes < limit) {
+            systemSwipeOn(listTag, down = down)
+            swipes++
+        }
+        assertTrue("$itemTag must appear after real system swipes, swipes=$swipes", isDisplayed(itemTag))
+        return swipes
+    }
+
+    private fun r8r2EvidenceDirectory(): File = File(
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: rule.activity.cacheDir.absolutePath,
+        "p3-04-r8-r2-modal-scroll",
+    ).also { check(it.exists() || it.mkdirs()) }
+
+    private fun saveR8R2Screenshot(name: String) {
+        File(r8r2EvidenceDirectory(), name).outputStream().use { output ->
+            check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+        }
+    }
+
+    private fun saveR8R2Text(name: String, content: String) {
+        File(r8r2EvidenceDirectory(), name).writeText(content)
+    }
+
+    /**
+     * P3-04-R8-R2: the Compose test injection does not reproduce the field defect, so this case drives the
+     * real Android input pipeline via Instrumentation#sendPointerSync. With the R1 parent-scrim structure the
+     * column does not move at all under real input; with the scrim behind the panel it scrolls.
+     */
+    @Test fun timePickerHourColumnScrollsWithRealSystemInput() {
+        var form by mutableStateOf(
+            existingForm().copy(periods = existingForm().periods.map { if (it.id == "q1") it.copy(start = LocalTime.of(11, 40), end = LocalTime.of(12, 40)) else it }),
+        )
+        var start: Pair<String, LocalTime>? = null
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(updatePeriodStart = { id, value -> start = id to value }))
+        }
+        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        assertFalse("hour 07 must start outside the viewport", isDisplayed("terminal-time-picker-hour-07"))
+
+        var swipes = 0
+        while (!isDisplayed("terminal-time-picker-hour-07") && swipes < 6) {
+            systemSwipeOn("terminal-time-picker-hour-list", down = true)
+            swipes++
+        }
+        assertTrue("hour 07 must appear after real system swipes, swipes=$swipes", isDisplayed("terminal-time-picker-hour-07"))
+        systemTapOn("terminal-time-picker-hour-07")
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:40")
+
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals("q1", start?.first)
+        assertEquals(LocalTime.of(7, 40), start?.second)
+    }
+
+    /** Injects a real touch swipe through the Android input pipeline (not Compose test input). */
+    private fun systemSwipeOn(tag: String, down: Boolean, distancePx: Float = 400f, steps: Int = 80) {
+        val root = rule.onRoot().fetchSemanticsNode().boundsInWindow
+        val bounds = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val x = root.left + bounds.center.x
+        val startY = root.top + if (down) bounds.center.y - distancePx / 2f else bounds.center.y + distancePx / 2f
+        val endY = startY + if (down) distancePx else -distancePx
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val downTime = SystemClock.uptimeMillis()
+        var eventTime = downTime
+        instrumentation.sendPointerSync(touchEvent(downTime, eventTime, MotionEvent.ACTION_DOWN, x, startY))
+        for (step in 1..steps) {
+            eventTime += 5
+            val fraction = step.toFloat() / steps
+            instrumentation.sendPointerSync(touchEvent(downTime, eventTime, MotionEvent.ACTION_MOVE, x, startY + (endY - startY) * fraction))
+        }
+        eventTime += 16
+        instrumentation.sendPointerSync(touchEvent(downTime, eventTime, MotionEvent.ACTION_UP, x, endY))
+        rule.waitForIdle()
+    }
+
+    private fun systemTapOn(tag: String) {
+        val root = rule.onRoot().fetchSemanticsNode().boundsInWindow
+        val bounds = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val x = root.left + bounds.center.x
+        val y = root.top + bounds.center.y
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val downTime = SystemClock.uptimeMillis()
+        instrumentation.sendPointerSync(touchEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x, y))
+        instrumentation.sendPointerSync(touchEvent(downTime, downTime + 60, MotionEvent.ACTION_UP, x, y))
+        rule.waitForIdle()
+    }
+
+    private fun touchEvent(downTime: Long, eventTime: Long, action: Int, x: Float, y: Float): MotionEvent =
+        MotionEvent.obtain(downTime, eventTime, action, x, y, 0).also { it.source = InputDevice.SOURCE_TOUCHSCREEN }
+
+    /** Real finger swipes on a picker column until [itemTag] is visible; never a semantic scrollTo. */
+    /**
+     * P3-04-R8-R2: a real finger drag on a picker column. The gesture is a coordinate drag through
+     * [performTouchInput] with zero end velocity so the test controls the scroll step and can prove that the
+     * target was outside the viewport before the drag; no semantic scroll action is used anywhere.
+     */
+    private fun dragColumn(listTag: String, up: Boolean, distancePx: Float = 300f) {
+        rule.onNodeWithTag(listTag).performTouchInput {
+            val dy = if (up) -distancePx else distancePx
+            swipeWithVelocity(Offset(centerX, centerY), Offset(centerX, centerY + dy), 0f, durationMillis = 400)
+        }
+        rule.waitForIdle()
+    }
+
+    private fun swipeUntilDisplayed(listTag: String, itemTag: String, up: Boolean, limit: Int = 10): Int {
+        var swipes = 0
+        while (!isDisplayed(itemTag) && swipes < limit) {
+            dragColumn(listTag, up)
+            swipes++
+        }
+        assertTrue("$itemTag must become visible after real drags, drags=$swipes", isDisplayed(itemTag))
+        return swipes
+    }
+
+    private fun isTextDisplayed(text: String): Boolean =
+        runCatching { rule.onNodeWithText(text, substring = true).assertIsDisplayed() }.isSuccess
+
+    private fun isDisplayed(tag: String): Boolean =
+        rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() &&
+            runCatching { rule.onNodeWithTag(tag).assertIsDisplayed() }.isSuccess
+
+    @Test fun onboardingTimePickerColumnsScrollWithRealSwipes() {
+        var form by mutableStateOf(defaultForm(count = 3, expanded = true))
+        var start: Pair<String, LocalTime>? = null
+        rule.setContent {
+            QingKeAppContent(onboarding(), form, MainTab.TODAY, QingKeAppActions(updatePeriodStart = { id, value -> start = id to value }))
+        }
+        rule.onNodeWithTag("period-p1-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+
+        // the columns start on 08:00, so both targets are outside the initial viewport
+        assertFalse("hour 18 must start outside the viewport", isDisplayed("terminal-time-picker-hour-18"))
+        // one plain full-height swipeUp first (the literal gesture the user failed to make), then measured drags
+        rule.onNodeWithTag("terminal-time-picker-hour-list").performTouchInput { swipeUp() }
+        rule.waitForIdle()
+        swipeUntilDisplayed("terminal-time-picker-hour-list", "terminal-time-picker-hour-18", up = true)
+        rule.onNodeWithTag("terminal-time-picker-hour-18").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("18:00")
+
+        assertFalse("minute 20 must start outside the viewport", isDisplayed("terminal-time-picker-minute-20"))
+        swipeUntilDisplayed("terminal-time-picker-minute-list", "terminal-time-picker-minute-20", up = true)
+        rule.onNodeWithTag("terminal-time-picker-minute-20").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("18:20")
+
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals("p1", start?.first)
+        assertEquals(LocalTime.of(18, 20), start?.second)
+        rule.onAllNodesWithTag("terminal-time-picker").assertCountEquals(0)
+    }
+
+    @Test fun settingsTimePickerColumnsScrollWithRealSwipes() {
+        var form by mutableStateOf(
+            existingForm().copy(periods = existingForm().periods.map { if (it.id == "q1") it.copy(start = LocalTime.of(11, 40), end = LocalTime.of(12, 40)) else it }),
+        )
+        var start: Pair<String, LocalTime>? = null
+        rule.setContent {
+            QingKeAppContent(settingsState(), form, MainTab.SETTINGS, QingKeAppActions(updatePeriodStart = { id, value -> start = id to value }))
+        }
+        rule.onNodeWithTag("period-q1-start").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("11:40")
+
+        // hour 07 is before the visible window, so it needs a real downward swipe
+        assertFalse("hour 07 must start outside the viewport", isDisplayed("terminal-time-picker-hour-07"))
+        swipeUntilDisplayed("terminal-time-picker-hour-list", "terminal-time-picker-hour-07", up = false)
+        rule.onNodeWithTag("terminal-time-picker-hour-07").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:40")
+
+        // minute 20 is before the visible window as well (the picker opened on 40)
+        assertFalse("minute 20 must start outside the viewport", isDisplayed("terminal-time-picker-minute-20"))
+        swipeUntilDisplayed("terminal-time-picker-minute-list", "terminal-time-picker-minute-20", up = false)
+        rule.onNodeWithTag("terminal-time-picker-minute-20").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-time-picker-value").assertTextEquals("07:20")
+
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals("q1", start?.first)
+        assertEquals(LocalTime.of(7, 20), start?.second)
+    }
+
+    @Test fun lunchBreakTimePickerColumnsScrollWithRealSwipes() {
+        var requested: Pair<LocalTime, LocalTime>? = null
+        rule.setContent {
+            QingKeAppContent(
+                settingsState(), existingForm(), MainTab.SETTINGS,
+                QingKeAppActions(requestLunchBreakTimes = { from, to -> requested = from to to }),
+            )
+        }
+        rule.onNodeWithTag("settings-calendar-lunch-end").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-lunch-time-picker").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("14:00")
+
+        // 23:00 is far below the 14:00 the end picker opens on, and 23:20 keeps the range valid
+        assertFalse("hour 23 must start outside the lunch picker viewport", isDisplayed("terminal-lunch-time-picker-hour-23"))
+        swipeUntilDisplayed("terminal-lunch-time-picker-hour-list", "terminal-lunch-time-picker-hour-23", up = true)
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-23").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("23:00")
+
+        assertFalse("minute 20 must start outside the lunch picker viewport", isDisplayed("terminal-lunch-time-picker-minute-20"))
+        swipeUntilDisplayed("terminal-lunch-time-picker-minute-list", "terminal-lunch-time-picker-minute-20", up = true)
+        rule.onNodeWithTag("terminal-lunch-time-picker-minute-20").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("terminal-lunch-time-picker-value").assertTextEquals("23:20")
+
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(LocalTime.of(11, 40) to LocalTime.of(23, 20), requested)
+    }
+
     /** P3-04-R8-R1: the shared time picker is the other full-screen scrim and must block the page behind it. */
     @Test fun timePickerScrimBlocksTouchesToTheSettingsPageBehindIt() {
         var form by mutableStateOf(existingForm().copy(periodsExpanded = true))

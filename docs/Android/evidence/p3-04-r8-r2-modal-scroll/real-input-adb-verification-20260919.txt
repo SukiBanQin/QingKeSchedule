@@ -1,0 +1,28 @@
+P3-04-R8-R2 real-input verification on the emulator (adb shell input, not Compose test injection)
+====================================================================================================
+
+Why this file exists: Compose test injection (performTouchInput) does NOT reproduce the field defect - the
+hour/minute columns scroll under both the R1 parent-scrim structure and the R2 structure. The defect and its
+fix are reproducible only through the real Android input pipeline, so the same gesture was replayed with
+`adb shell input swipe` on both builds. A device test that injects real events through
+Instrumentation#sendPointerSync with a fine move profile (400 px, 80 steps, 5 ms) reproduces it as well:
+`QingKeAppTest#timePickerHourColumnScrollsWithRealSystemInput` fails on the R1 structure and passes on R2.
+
+Environment: emulator-5554, API 37 ARM64, wm size 1080x2400, density 420, font_scale 1.0.
+Flow: fresh install (adb shell pm clear) -> first boot -> expand "每日节次" -> tap the lunch start cell
+(lunch 开始时间 11:40) -> picker opens -> swipe inside the hour column at x=290 from y=1050 to y=1450
+(400 ms) -> uiautomator dump.
+
+A. R1 structure (modalScrim on the parent Box that also contains the panel) - build 6aa6693 + temporary revert:
+   visible hours before the swipe:  11 [47,995][538,1121]  12 [47,1121][538,1247]  13 [47,1247][538,1373]  14 [47,1373][538,1499]
+   visible hours after  the swipe:  11 [47,995][538,1121]  12 [47,1121][538,1247]  13 [47,1247][538,1373]  14 [47,1373][538,1499]
+   -> identical bounds: the column did not move at all, matching the user report "无法上下拖动".
+
+B. R2 structure (scrim is a full-screen sibling painted behind the panel) - this commit:
+   visible hours before the swipe:  11 [47,995][538,1121]  12 [47,1121][538,1247]  13 [47,1247][538,1373]  14 [47,1373][538,1499]
+   visible hours after  the swipe:  07 [47,995][538,1087]  08 [47,1087][538,1213]  09 [47,1213][538,1339]  10 [47,1339][538,1465]  11 [47,1465][538,1515]
+   -> the list scrolled by four items, so 07-10 became reachable and selectable.
+
+Compose-test negative as well: temporarily restoring the R1 structure makes
+`QingKeAppTest#timePickerHourColumnScrollsWithRealSystemInput` fail with
+"hour 07 must appear after real system swipes, swipes=6"; the temporary change was never committed.

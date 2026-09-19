@@ -1,6 +1,41 @@
 # 安卓项目当前交接状态
 
-## P3-04-R8-R1 共享弹窗遮罩触摸拦截与文档状态修正已实施（最新，2026-09-19）
+## P3-04-R8-R2 共享模态遮罩内部滚动回归已修正（最新，2026-09-19）
+
+用户实测 R1（`6aa6693`）后反馈：首次设置与正式设置的时间选择器**无法上下拖动**小时与分钟，只能点击当前
+可见的几个数值，本次交互验收因此未通过；用户同时说明“目前没有发现其他问题”，这不构成本轮验收结论。
+
+- 当前代码基准：分支 `Android`，开始基准 `6aa6693`（R1 修正，已推送 `origin/Android`），开始时工作区
+  干净。本轮只新增修正提交，未改写历史、未强推、未合并 `main`；未改 iOS／Web／Room schema／DataStore
+  结构／共享 JSON schema／版本 1／A08／A10／A11，也未改时间业务规则与课程／学期／教学日历领域规则。
+  提交号见交付消息或 `git log`。
+- 根因：R1 把 `modalScrim()` 装在同时包含弹窗内容的父 Box 上并在 Main 通道消费指针事件，面板外触摸
+  穿透被挡住，但子级 `verticalScroll` 的真实拖动被中断。**Compose 注入的 swipe／drag 无法复现该缺陷**
+  （两种结构下都会滚动），只有真实 Android 输入管线能复现：`adb shell input swipe` 在 R1 结构下小时列
+  bounds 完全不变，在 R2 结构下滚动到 07—11。
+- 修正：新增共享模态宿主 `ModalScrimHost`，把全屏拦截层改为**面板之后的独立 sibling 底层**，
+  弹窗面板、按钮与内部滚动内容位于其上方；`TerminalDialog` 与 `TerminalTimePickerOverlay` 共用该结构。
+  面板外触摸仍被消费，遮罩仍无 click action，视觉、按钮布局、`BackHandler`、弹窗文案与时间选择器视觉
+  均未改变。
+- 测试：JVM Debug／Release 各 **169 tests、0 failures／errors／skipped**；API 37 ARM64
+  `connectedDebugAndroidTest` **133 tests、0 failures／errors／skipped**；`assembleDebug`／
+  `assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／20 warnings；文档测试
+  71 tests OK 与两个脚本、`git diff --check` 通过。新增真实手势用例：首次设置／正式设置／午休选择器分别
+  用真实滑动到达原本不可见的小时与分钟并写库；`timePickerHourColumnScrollsWithRealSystemInput` 用
+  `sendPointerSync` 注入真实事件（临时恢复 R1 结构时失败、恢复 R2 后通过，临时改动未提交）；
+  `cascadeSummaryScrollsInternallyWithManyAffectedCourses` 改为真实拖动（不再用语义 `performScrollTo`）。
+- 证据：新建 `docs/Android/evidence/p3-04-r8-r2-modal-scroll/`（5 张真实流程截图、节点／状态／写入计数
+  记录、`adb shell input` 真实输入 R1／R2 对照记录、README 说明“截图只证明滑动后的结果”），不覆盖首轮
+  R8 截图。
+- 准确状态：**R1 曾通过 Sol 技术复审，但用户真实操作发现遮罩拦截了弹窗内部拖动，该结论已被新证据重新
+  打开；R2 修正已实施并自测，尚待 Sol 再复审与用户重新验收**。P3-04-R8 整体的用户视觉／交互验收仍未
+  进行。
+
+## P3-04-R8-R1 共享弹窗遮罩触摸拦截与文档状态修正已实施（历史，2026-09-19）
+
+> 后续状态：R1 通过 Sol 技术复审后，用户在真机交互中发现遮罩同时拦截了弹窗内部的真实拖动，该结论被
+> P3-04-R8-R2 重新打开并修正；见本文档首节。
+
 
 P3-04-R8 首轮 Sol 复审未通过，提出两项问题，本轮由同一 DeepSeek 执行窗口修正。
 

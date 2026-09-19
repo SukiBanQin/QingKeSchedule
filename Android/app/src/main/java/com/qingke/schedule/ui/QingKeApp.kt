@@ -1264,7 +1264,7 @@ private fun lunchBreakConflictMessage(conflict: LunchBreakConflict): String {
     tagPrefix: String = "terminal-time-picker",
 ) {
     BackHandler { onCancel() }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).modalScrim().testTag(tagPrefix + "-backdrop"), contentAlignment = Alignment.Center) {
+    ModalScrimHost(tagPrefix + "-backdrop") {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).widthIn(max = 420.dp).terminalModalSurface(dark, QingKeCyan).testTag(tagPrefix)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("TIME SELECT", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp, modifier = Modifier.testTag(tagPrefix + "-code"))
@@ -1767,6 +1767,21 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
 )
 
 
+
+/**
+ * P3-04-R8-R2: the shared modal host. The interception layer is a full-screen sibling *behind* the panel, so
+ * a touch outside the panel lands on the scrim and cannot reach the page behind the modal, while the panel
+ * above it keeps receiving real pointer gestures for its buttons and scrollable content. The scrim is a
+ * pointer-input node rather than a clickable, so it exposes no accessibility click action.
+ */
+@Composable private fun ModalScrimHost(backdropTag: String, content: @Composable () -> Unit) = Box(
+    Modifier.fillMaxSize(),
+    contentAlignment = Alignment.Center,
+) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).modalScrim().testTag(backdropTag))
+    content()
+}
+
 /**
  * P3-04-R8-R1: a modal scrim has to swallow every pointer event. Attaching a pointer-input node makes the
  * scrim the hit target for the whole screen, so the controls painted behind it are never hit tested, and
@@ -1782,7 +1797,7 @@ private fun Modifier.modalScrim(): Modifier = pointerInput(Unit) {
     }
 }
 
-@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES", enabled: Boolean = true) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).modalScrim().testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
+@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES", enabled: Boolean = true) = ModalScrimHost("$tag-backdrop") {
     val tone = if (danger) Danger else SignalYellow
     Column(Modifier.padding(24.dp).fillMaxWidth().terminalModalSurface(dark = dark, accent = tone).padding(16.dp).testTag(tag)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = tone, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(tone, androidx.compose.foundation.shape.CircleShape).testTag("$tag-status-dot")) }
