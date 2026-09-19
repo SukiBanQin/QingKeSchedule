@@ -32,4 +32,6 @@
 
 完整命令、结果与设备记录见 `host-and-device-verification-20260919.txt`。摘要：Debug／Release JVM 各 127 tests、0 failures／errors／skipped；`connectedDebugAndroidTest` 107 tests、0 failures／errors／skipped；`lintDebug` 0 errors、20 warnings；`assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 通过；文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
 
-限制：本次只完成实现与自测，**Sol 独立复审与用户视觉验收（含红色警告框与提示文案的观感）均未进行**；`TerminalDialog` 的按钮沿用既有 46dp 最小高度（与已验收的 ADD 冲突框一致），本轮未改动该共享视觉；冲突判定以**已持久化节次**为准（周课表展示的就是持久化节次），首次设置在保存学期前没有已持久化节次，因此首次设置阶段不会弹冲突框，但保存后若仍冲突会在「03 教学日历」区显示提示；切换标签后日历选择态仍会回到默认值（P3-07 已知交互限制，未在 R1 处理）。
+Sol 已完成首轮独立复审，结论为**未通过**，详见 [`p3-07-r1-review.md`](../../p3-07-r1-review.md)。上述顶部／间隙／底部、重叠隐藏、正式设置红色确认成功主路径和截图证据均已核实；仍须修正：（1）首次设置及当前节次草稿未参与冲突确认；（2）「仍然保存」写入失败时界面保留未写入候选时间且确认已消失。
+
+限制：用户视觉验收（含红色警告框与提示文案的观感）尚未进行；`TerminalDialog` 的按钮沿用既有 46dp 最小高度（与已验收的 ADD 冲突框一致），本轮未改动该共享视觉；切换标签后日历选择态仍会回到默认值（P3-07 已知交互限制，未在 R1 处理）。
