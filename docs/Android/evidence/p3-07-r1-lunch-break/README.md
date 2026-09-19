@@ -40,6 +40,6 @@
 
 完整命令、结果与设备记录见 `host-and-device-verification-20260919.txt`。摘要：Debug／Release JVM 各 132 tests、0 failures／errors／skipped；`connectedDebugAndroidTest` 110 tests、0 failures／errors／skipped；`lintDebug` 0 errors、20 warnings；`assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 通过；文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
 
-Sol 的首轮独立复审结论为**未通过**，列出的两项修正已在本轮完成并自测，详见 [`p3-07-r1-review.md`](../../p3-07-r1-review.md)；**复审结果与用户视觉验收仍待进行**。
+Sol 的首轮独立复审结论为**未通过**，列出的两项修正已在 `31b48d1` 完成；随后核对实际代码、测试和本目录证据并独立运行定向 JVM，**再复审通过**，详见 [`p3-07-r1-review.md`](../../p3-07-r1-review.md)。用户对本轮新增红色警告框与提示文案的视觉／观感验收仍待进行。
 
 限制：用户视觉验收（含红色警告框与提示文案的观感）尚未进行；`TerminalDialog` 的按钮沿用既有 46dp 最小高度（与已验收的 ADD 冲突框一致），本轮未改动该共享视觉；冲突判定在草稿与已持久化节次不一致时按两者并集提示，周表仍按持久化数据显示；首次设置阶段没有已持久化节次，因此提示文案说明「保存学期设置后才会隐藏」；切换标签后日历选择态仍会回到默认值（P3-07 已知交互限制，未在 R1 处理）。
