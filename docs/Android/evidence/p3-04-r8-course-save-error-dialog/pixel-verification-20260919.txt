@@ -1,0 +1,14 @@
+P3-04-R8 pixel classification (AVD 1080x2400@420dpi, font_scale 1.0 unless the file name says 130%)
+dialog panels from the device node records: 01/04 = (105,941)-(975,1459); 03 conflict = (105,910)-(975,1491); 05 font130 = (105,868)-(975,1533); 06 narrow = (105,613)-(735,1278)
+1- dialog panel: size=870x518 danger=26.6% signal=0.0% light=68.0% dark=2.6%
+1- single danger action button: y 1336..1456 (height 121) -> size=870x121 danger=98.0% signal=0.0% light=0.0% dark=1.5%
+4- dialog panel: size=870x518 danger=26.7% signal=0.0% light=2.1% dark=68.3%
+4- single danger action button: y 1336..1456 (height 121) -> size=870x121 danger=98.0% signal=0.0% light=0.0% dark=1.5%
+5- dialog panel: size=870x665 danger=22.1% signal=0.0% light=2.1% dark=72.5%
+5- single danger action button: y 1410..1530 (height 121) -> size=870x121 danger=96.5% signal=0.0% light=0.0% dark=2.9%
+6- dialog panel: size=630x665 danger=23.5% signal=0.0% light=68.1% dark=4.0%
+6- single danger action button: y 1155..1275 (height 121) -> size=630x121 danger=95.1% signal=0.0% light=0.0% dark=4.1%
+03 conflict panel: size=870x581 danger=0.0% signal=14.6% light=77.0% dark=3.0%
+03 conflict signal button 仍然保存: y 1368..1488 (height 121) -> size=365x121 danger=0.0% signal=95.2% light=0.0% dark=3.3%
+03 conflict outlined button 返回修改: size=495x121 danger=0.0% signal=10.1% light=80.3% dark=2.5%
+02 editor after 返回修改 (full page): size=1080x2400 danger=0.2% signal=0.6% light=78.2% dark=9.6%

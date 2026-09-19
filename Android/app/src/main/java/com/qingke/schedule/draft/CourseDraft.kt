@@ -61,7 +61,7 @@ class CourseDraft private constructor(
         val candidate = course()
         if (hasNewDuplicateSchedule(candidate)) {
             return CourseSaveEvaluation.Invalid(
-                listOf(ValidationIssue("courses.0.schedules", "该上课安排已存在，请勿重复添加")),
+                listOf(ValidationIssue("courses.0.schedules", "该上课安排已存在，请勿重复添加。")),
             )
         }
         val conflicts = com.qingke.schedule.domain.ScheduleRules.conflicts(candidate, existingCourses, excludedIndex)

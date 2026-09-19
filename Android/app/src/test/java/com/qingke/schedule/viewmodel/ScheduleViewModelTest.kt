@@ -447,13 +447,62 @@ class ScheduleViewModelTest {
         assertNull(model.editor.value)
     }
 
-    @Test fun courseInvalidAndDuplicateKeepEditorWithoutWriting() = runTest {
+    @Test fun blockedCourseSaveBecomesOneModalErrorAndKeepsTheWholeDraft() = runTest {
         val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
-        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
-        model.openAddCourse(); model.saveCourse()
-        assertEquals(0, repository.courseWrites); assertNotNull(model.editor.value!!.validationMessage)
-        model.updateCourseName("课程"); val first = model.editor.value!!.schedules.single(); model.addCourseSchedule(); model.updateCourseScheduleDay(model.editor.value!!.schedules.last().id, first.dayOfWeek)
-        model.saveCourse(); assertEquals(0, repository.courseWrites); assertEquals("该上课安排已存在，请勿重复添加", model.editor.value!!.validationMessage)
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-02T09:00") }, idFactory = ids()); advanceUntilIdle()
+        model.openAddCourse(); model.updateCourseName("  ")
+        model.saveCourse()
+        assertEquals(0, repository.courseWrites)
+        assertEquals("请填写课程名称", (model.editor.value!!.confirmation as CourseEditorConfirmation.Invalid).message)
+
+        // "返回修改" only closes the dialog: the draft, the editor and the retry path survive.
+        model.dismissEditorConfirmation()
+        assertNull(model.editor.value!!.confirmation)
+        assertEquals("  ", model.editor.value!!.name)
+
+        model.updateCourseName("课程")
+        val first = model.editor.value!!.schedules.single()
+        model.addCourseSchedule()
+        model.updateCourseScheduleDay(model.editor.value!!.schedules.last().id, first.dayOfWeek)
+        model.saveCourse()
+        assertEquals(0, repository.courseWrites)
+        assertEquals("该上课安排已存在，请勿重复添加。", (model.editor.value!!.confirmation as CourseEditorConfirmation.Invalid).message)
+
+        // System back closes the visible error instead of asking to discard, and the draft is untouched.
+        model.onEditorBack()
+        assertNull(model.editor.value!!.confirmation)
+        assertEquals(2, model.editor.value!!.schedules.size)
+
+        model.updateCourseScheduleDay(model.editor.value!!.schedules.last().id, first.dayOfWeek + 1)
+        model.saveCourse(); advanceUntilIdle()
+        assertEquals(1, repository.courseWrites)
+        assertEquals("课程", repository.lastCourse!!.name)
+        assertEquals("SYSTEM // 课程添加成功", model.courseSuccess.value)
+        assertNull(model.editor.value)
+    }
+
+    @Test fun aPeriodNumberThatDoesNotExistInTheSparseSemesterBlocksTheSaveAsAModalError() = runTest {
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(
+            Period(9, "08:00", "08:45"), Period(4, "08:55", "09:40"), Period(20, "10:00", "10:45"),
+        ))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, emptyList(), "now") }
+        val model = ScheduleViewModel(appState(repository), now = { LocalDateTime.parse("2026-09-02T09:00") }, idFactory = ids()); advanceUntilIdle()
+
+        model.openNewCourse(); model.updateCourseName("稀疏")
+        val schedule = model.editor.value!!.schedules.single()
+        model.updateCourseScheduleStartPeriod(schedule.id, 5)
+        assertEquals(5, model.editor.value!!.schedules.single().startPeriod)
+        model.saveCourse(); advanceUntilIdle()
+
+        assertEquals(0, repository.courseWrites)
+        assertEquals("请选择有效的起止节次", (model.editor.value!!.confirmation as CourseEditorConfirmation.Invalid).message)
+        assertNull(model.state.value.error)
+
+        model.updateCourseScheduleStartPeriod(schedule.id, 9)
+        model.updateCourseScheduleEndPeriod(schedule.id, 9)
+        model.saveCourse(); advanceUntilIdle()
+        assertEquals(1, repository.courseWrites)
+        assertEquals(9, repository.lastCourse!!.schedules.single().startPeriod)
     }
 
     @Test fun conflictingConfirmationFreezesCandidateAndSaveFailureKeepsDraft() = runTest {

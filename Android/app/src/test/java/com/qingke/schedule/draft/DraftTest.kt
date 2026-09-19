@@ -158,7 +158,7 @@ class DraftTest {
         assertFalse(result is CourseSaveEvaluation.Conflicting)
         val issues = (result as CourseSaveEvaluation.Invalid).issues
         assertTrue(issues.any { it.path == "courses.0.name" && it.message == "请填写课程名称" })
-        assertFalse(issues.any { it.message == "该上课安排已存在，请勿重复添加" })
+        assertFalse(issues.any { it.message == "该上课安排已存在，请勿重复添加。" })
     }
 
     @Test
@@ -409,7 +409,7 @@ class DraftTest {
         val result = draft.evaluateSave(semester, emptyList())
         assertTrue(result is CourseSaveEvaluation.Invalid)
         assertEquals("courses.0.schedules", (result as CourseSaveEvaluation.Invalid).issues.single().path)
-        assertEquals("该上课安排已存在，请勿重复添加", result.issues.single().message)
+        assertEquals("该上课安排已存在，请勿重复添加。", result.issues.single().message)
     }
 
     private fun defaultPeriods() = listOf(

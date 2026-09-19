@@ -3,9 +3,11 @@ package com.qingke.schedule.ui
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import android.os.SystemClock
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -30,6 +32,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -119,6 +123,54 @@ class P3R2ActivityRecreationTest {
         rule.onNodeWithTag("course-color-dialog").assertIsDisplayed(); rule.onNodeWithTag("course-discard-confirm").assertIsDisplayed()
     }
 
+    @Test fun activityRecreationKeepsTheBlockedCourseSaveDialogAndItsDraft() {
+        var ids = 0
+        val repository = HostRepository(ScheduleData(1, Semester("term", "学期", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"))), emptyList(), "now"))
+        val preferences = object : SchedulePreferencesRepository {
+            override suspend fun load() = SchedulePreferences.defaults
+            override suspend fun save(preferences: SchedulePreferences) = preferences
+            override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences) = transform(SchedulePreferences.defaults)
+        }
+        val factory = object : ViewModelProvider.Factory { @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>) = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-01T09:00") }, { "r8-${ids++}" }) as T }
+        val original = ViewModelProvider(rule.activity, factory)[ScheduleViewModel::class.java]
+        rule.setContent { QingKeApp(original) }
+        rule.waitUntil(5_000) { original.state.value.loadStatus.name == "READY" }
+
+        original.openAddCourse(); original.updateCourseName("重建课程"); original.addCourseSchedule(); original.saveCourse()
+        rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        assertEquals(0, repository.courseWrites)
+
+        rule.activityRule.scenario.recreate()
+        lateinit var recreated: ScheduleViewModel
+        rule.activityRule.scenario.onActivity { activity ->
+            recreated = ViewModelProvider(activity, factory)[ScheduleViewModel::class.java]
+            assertSame(original, recreated)
+            activity.setContent { QingKeApp(recreated) }
+        }
+
+        val editor = recreated.editor.value!!
+        assertEquals("重建课程", editor.name)
+        assertEquals(2, editor.schedules.size)
+        assertEquals("该上课安排已存在，请勿重复添加。", (editor.confirmation as CourseEditorConfirmation.Invalid).message)
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals(0, repository.courseWrites)
+
+        rule.onNodeWithTag("course-save-error-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("course-save-error").assertCountEquals(0)
+        assertNotNull(recreated.editor.value)
+        assertEquals(2, recreated.editor.value!!.schedules.size)
+        assertEquals(0, repository.courseWrites)
+
+        val duplicate = recreated.editor.value!!.schedules.last().id
+        recreated.removeCourseSchedule(duplicate)
+        recreated.saveCourse()
+        rule.waitUntil(5_000) { repository.courseWrites == 1 }
+        assertNull(recreated.editor.value)
+        assertEquals(listOf("重建课程"), repository.loadedCourses())
+    }
+
     @Test fun todayClockTicksOnlyWhileStartedRefreshesImmediatelyAndKeepsOneActivityModelAfterRecreate() {
         var clock = LocalDateTime.parse("2026-08-31T09:41:52")
         val repository = HostRepository(
@@ -175,12 +227,20 @@ class P3R2ActivityRecreationTest {
         private var data: ScheduleData = ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z"),
     ) : ScheduleRepository {
         var loads = 0
+        var courseWrites = 0
         override suspend fun load() = data.also { loads++ }
         override suspend fun replace(data: ScheduleData) = data.also { this.data = it }
         override suspend fun saveSemester(semester: Semester) = data.copy(semester = semester).also { data = it }
         override suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>) =
             data.copy(semester = semester, courses = courses).also { data = it }
-        override suspend fun saveCourse(course: Course) = data
+        fun loadedCourses(): List<String> = data.courses.map { it.name }
+
+        override suspend fun saveCourse(course: Course): ScheduleData {
+            courseWrites++
+            val index = data.courses.indexOfFirst { it.id == course.id }
+            return data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course }).also { data = it }
+        }
+
         override suspend fun deleteCourse(id: String) = data
     }
 }

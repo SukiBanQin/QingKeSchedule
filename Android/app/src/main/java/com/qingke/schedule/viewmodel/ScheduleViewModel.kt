@@ -94,6 +94,13 @@ sealed interface CourseEditorConfirmation {
     data object Discard : CourseEditorConfirmation
     data object Delete : CourseEditorConfirmation
     data class Conflicts(val candidate: Course, val conflicts: List<ScheduleConflict>) : CourseEditorConfirmation
+
+    /**
+     * P3-04-R8: a save blocked by non-continuable input. It lives in the same modal hierarchy as the other
+     * course-editor confirmations so it survives recreation, renders as one centered dialog and can never be
+     * bypassed by a "save anyway" action.
+     */
+    data class Invalid(val message: String) : CourseEditorConfirmation
 }
 
 data class CourseEditorState(
@@ -107,7 +114,6 @@ data class CourseEditorState(
     val isColorDialogOpen: Boolean = false,
     val schedules: List<CourseScheduleFormState> = emptyList(),
     val originalScheduleCount: Int = 0,
-    val validationMessage: String? = null,
     val confirmation: CourseEditorConfirmation? = null,
     val isInFlight: Boolean = false,
 ) {
@@ -411,7 +417,7 @@ class ScheduleViewModel(
     fun requestCloseEditor() {
         val current = courseDraft
         if (editorInFlight) return
-        if (current == null || !current.isDirty) closeEditor() else updateEditor { it.copy(confirmation = CourseEditorConfirmation.Discard, validationMessage = null) }
+        if (current == null || !current.isDirty) closeEditor() else updateEditor { it.copy(confirmation = CourseEditorConfirmation.Discard) }
     }
 
     fun dismissEditorConfirmation() = updateEditor { it.copy(confirmation = null) }
@@ -462,8 +468,8 @@ class ScheduleViewModel(
         val semester = state.value.data.semester ?: return
         if (editorInFlight) return
         when (val evaluation = current.evaluateSave(semester, state.value.data.courses, editorSourceIndex)) {
-            is CourseSaveEvaluation.Invalid -> updateEditor { it.copy(validationMessage = evaluation.issues.firstOrNull()?.message, confirmation = null) }
-            is CourseSaveEvaluation.Conflicting -> updateEditor { it.copy(validationMessage = null, confirmation = CourseEditorConfirmation.Conflicts(current.course(), evaluation.conflicts)) }
+            is CourseSaveEvaluation.Invalid -> updateEditor { it.copy(confirmation = CourseEditorConfirmation.Invalid(evaluation.issues.first().message)) }
+            is CourseSaveEvaluation.Conflicting -> updateEditor { it.copy(confirmation = CourseEditorConfirmation.Conflicts(current.course(), evaluation.conflicts)) }
             CourseSaveEvaluation.Ready -> submitCourse(current.course())
         }
     }
@@ -476,7 +482,7 @@ class ScheduleViewModel(
     private fun submitCourse(candidate: Course) {
         if (editorInFlight) return
         editorInFlight = true
-        updateEditor { it.copy(isInFlight = true, confirmation = null, validationMessage = null) }
+        updateEditor { it.copy(isInFlight = true, confirmation = null) }
         val source = editorSourceIndex; val fingerprint = editorFingerprint; val mode = mutableEditor.value?.mode
         viewModelScope.launch {
             try {
@@ -523,7 +529,7 @@ class ScheduleViewModel(
             isColorDialogOpen = previous?.isColorDialogOpen ?: false,
             schedules = value.schedules.map { CourseScheduleFormState(it.id, it.dayOfWeek, it.startPeriod, it.endPeriod, it.startWeek, it.endWeek, it.repeatRule, it.classroom) },
             originalScheduleCount = if (mode == CourseEditorMode.APPEND) editorFingerprint?.schedules?.size ?: 0 else 0,
-            validationMessage = previous?.validationMessage, confirmation = previous?.confirmation, isInFlight = editorInFlight)
+            confirmation = previous?.confirmation, isInFlight = editorInFlight)
     }
     private fun closeEditor() { courseDraft = null; editorSourceIndex = null; editorFingerprint = null; mutableEditor.value = null }
 

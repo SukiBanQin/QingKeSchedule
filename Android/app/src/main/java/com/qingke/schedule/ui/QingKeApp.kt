@@ -1468,15 +1468,6 @@ internal fun Modifier.terminalModalSurface(dark: Boolean, accent: Color): Modifi
         .drawBehind { drawRect(accent, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
 }
 
-@Composable private fun ValidationNotice(message: String, dark: Boolean, tag: String) = Row(
-    Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 52.dp).terminalPanel(dark, Danger, TerminalSurfaceLevel.ELEVATED)
-        .padding(horizontal = 14.dp, vertical = 9.dp).testTag(tag),
-    verticalAlignment = Alignment.CenterVertically,
-) {
-    Text("▲", color = Danger, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, modifier = Modifier.testTag("$tag-icon"))
-    Spacer(Modifier.width(10.dp))
-    Text(message, color = Danger, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).testTag("$tag-message"))
-}
 
 private fun statusText(item: TodayCourseItem): String = when (item.status) {
     CourseStatus.FINISHED -> "COMPLETE"
@@ -1571,13 +1562,22 @@ private fun courseDetails(occurrence: CourseOccurrence): String = listOf(
                     }
                 }
                 Button(actions.addCourseSchedule, Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 48.dp).testTag("course-add-schedule"), shape = TerminalShape, enabled = !editor.isInFlight, colors = ButtonDefaults.buttonColors(containerColor = SignalYellow, contentColor = InverseSurface)) { Text("+  添加上课安排", fontWeight = FontWeight.Black) }
-                editor.validationMessage?.let { ValidationNotice(it, dark, "course-validation") }
                 if (editor.mode == CourseEditorMode.EDIT) { TerminalSectionHeader("99", "危险操作", "DANGER", dark, "course-danger-header"); Column(Modifier.fillMaxWidth().terminalPanel(dark, Danger).padding(12.dp).testTag("course-danger-zone")) { OutlinedButton(actions.deleteCourse, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("course-delete"), enabled = !editor.isInFlight, shape = TerminalShape) { Text("删除课程", color = Danger) } }; Text("删除后，这门课程的所有上课安排都会一并移除。", color = terminalSecondary(dark), style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth().padding(start = 3.dp, top = 8.dp, bottom = 20.dp).testTag("course-danger-footer")) }
                 }
             }
         }
         }
+        /* Exactly one course-editor dialog at a time: a blocked save (DANGER, single "返回修改") outranks the
+           conflict confirmation, and the global write-failure dialog is rendered by the app shell after this
+           overlay, so it can never hide behind the editor while the editor is still on screen. */
         when (val confirmation = editor.confirmation) {
+            is CourseEditorConfirmation.Invalid -> TerminalDialog(
+                code = "DANGER / INVALID INPUT", status = "CANNOT SAVE", title = "无法保存课程",
+                message = confirmation.message, confirm = "返回修改",
+                onConfirm = actions.dismissCourseConfirmation, onDismiss = actions.dismissCourseConfirmation,
+                tag = "course-save-error", dismissTag = null, confirmTag = "course-save-error-dismiss",
+                danger = true, dark = dark,
+            )
             CourseEditorConfirmation.Discard -> EditorDialog("放弃未保存的修改？", "当前编辑内容尚未保存。放弃后，本次修改不会保留。", "放弃修改", actions.discardCourseEditor, actions.dismissCourseConfirmation, "course-discard-confirm", dark)
             CourseEditorConfirmation.Delete -> EditorDialog("删除这门课程？", "课程及其所有上课安排都会被删除，这项操作无法撤销。", "确认删除", actions.confirmDeleteCourse, actions.dismissCourseConfirmation, "course-delete-confirm", dark)
             is CourseEditorConfirmation.Conflicts -> EditorDialog("检测到课程冲突", "${conflictMessage(confirmation.conflicts)} 冲突会被标记，但仍可保存。", "仍然保存", actions.confirmSaveDespiteConflicts, actions.dismissCourseConfirmation, "course-conflict-confirm", dark)

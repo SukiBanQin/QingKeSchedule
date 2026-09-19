@@ -38,6 +38,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -329,6 +330,21 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-conflict-confirm-backdrop").assertIsDisplayed()
         rule.onNodeWithText("检测到课程冲突", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("仍可保存", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        // The conflict box keeps its two actions: "返回修改" plus the explicit "仍然保存".
+        rule.onAllNodesWithTag("terminal-dialog-dismiss").assertCountEquals(1)
+        rule.onAllNodesWithTag("course-conflict-confirm-confirm").assertCountEquals(1)
+        // P3-04-R8: a blocked save is one red dialog with a single close action and never a "save anyway".
+        editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Invalid("该上课安排已存在，请勿重复添加。"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithTag("course-save-error-status").assertTextContains("CANNOT SAVE")
+        rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("该上课安排已存在，请勿重复添加。", useUnmergedTree = true).assertIsDisplayed()
+        rule.onAllNodesWithTag("course-save-error-dismiss").assertCountEquals(1)
+        rule.onAllNodesWithTag("terminal-dialog-dismiss").assertCountEquals(0)
+        rule.onAllNodesWithText("返回修改", useUnmergedTree = true).assertCountEquals(1)
+        rule.onAllNodesWithText("仍然保存", useUnmergedTree = true).assertCountEquals(0)
+        rule.onAllNodesWithTag("course-validation").assertCountEquals(0)
         editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Discard)
         rule.waitForIdle(); rule.onNodeWithTag("course-discard-confirm-status").assertTextContains("DISCARD CHANGES"); rule.onNodeWithText("放弃未保存的修改？", useUnmergedTree = true).assertIsDisplayed(); rule.onNodeWithText("继续编辑", useUnmergedTree = true).assertIsDisplayed(); rule.onNodeWithText("放弃修改", useUnmergedTree = true).assertIsDisplayed()
         editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Delete)
@@ -577,18 +593,20 @@ class QingKeAppTest {
         rule.onNodeWithTag("course-delete").performScrollTo().performClick(); assertEquals(1, deletes)
     }
 
-    @Test fun dangerFooterFollowsDeletePanelAndValidationUsesAcrylicDangerCard() {
+    @Test fun dangerFooterFollowsDeletePanelAndBlockedSaveUsesTheCenteredRedDialog() {
         val schedule = CourseScheduleFormState("danger", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
         var appearance by mutableStateOf(AppearanceMode.LIGHT)
         var scale by mutableStateOf(1f)
-        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), validationMessage = "请填写课程名称")) } }
+        rule.setContent { CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) { QingKeAppContent(readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(), editor = CourseEditorState(CourseEditorMode.EDIT, schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Invalid("请填写课程名称"))) } }
         listOf(AppearanceMode.LIGHT, AppearanceMode.DARK).forEach { mode ->
             appearance = mode; scale = 1.3f; rule.waitForIdle()
-            rule.onNodeWithTag("course-validation").performScrollTo().assertIsDisplayed()
-            rule.onNodeWithTag("course-validation-icon", useUnmergedTree = true).assertIsDisplayed()
-            val validation = rule.onNodeWithTag("course-validation", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-            assertTrue("validation height=${validation.height}", validation.height >= 52f)
-            assertDangerCardHasCoralIconAndRail()
+            rule.onAllNodesWithTag("course-validation").assertCountEquals(0)
+            rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+            rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+            rule.onNodeWithText("请填写课程名称", useUnmergedTree = true).assertIsDisplayed()
+            rule.onAllNodesWithTag("course-save-error-dismiss").assertCountEquals(1)
+            rule.onAllNodesWithText("仍然保存", useUnmergedTree = true).assertCountEquals(0)
+            assertDialogHasDangerActionButton()
             rule.onNodeWithTag("course-danger-zone").performScrollTo()
             rule.onNodeWithTag("course-danger-footer").performScrollTo()
             val delete = rule.onNodeWithTag("course-delete", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -1965,8 +1983,9 @@ class QingKeAppTest {
         rule.onNodeWithTag("week-manifest-detail").assertTextContains("OFF DAY")
     }
 
-    private class HostScheduleRepository(private var data: ScheduleData) : ScheduleRepository {
+    private class HostScheduleRepository(var data: ScheduleData) : ScheduleRepository {
         var writes = 0
+        var courseWrites = 0
         var failWrite = false
         override suspend fun load(): ScheduleData = data
         override suspend fun replace(data: ScheduleData): ScheduleData = data.also { this.data = it }
@@ -1976,8 +1995,16 @@ class QingKeAppTest {
             if (failWrite) error("injected semester write failure")
             return data.copy(semester = semester, courses = courses).also { data = it }
         }
-        override suspend fun saveCourse(course: Course): ScheduleData = data
-        override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData = data
+        override suspend fun saveCourse(course: Course): ScheduleData {
+            courseWrites++
+            val index = data.courses.indexOfFirst { it.id == course.id }
+            return data.copy(courses = if (index < 0) data.courses + course else data.courses.toMutableList().also { it[index] = course }).also { data = it }
+        }
+
+        override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData {
+            courseWrites++
+            return data.copy(courses = data.courses.toMutableList().also { it[index] = course }).also { data = it }
+        }
         override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData = data
         override suspend fun deleteCourse(id: String): ScheduleData = data
     }
@@ -2249,13 +2276,20 @@ class QingKeAppTest {
         assertTrue("ADD plus top=$topArm bottom=$bottomArm", kotlin.math.abs(topArm - bottomArm) <= 1.5f)
     }
 
-    private fun assertDangerCardHasCoralIconAndRail() {
-        val bitmap = rule.onNodeWithTag("course-validation", useUnmergedTree = true).captureToImage().asAndroidBitmap()
-        val coralPixels = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x ->
-            val pixel = bitmap.getPixel(x, y); val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
-            red > 175 && green in 50..125 && blue in 45..125
-        } }
-        assertTrue("validation coral pixels=$coralPixels", coralPixels >= 20)
+    /** P3-04-R8: the blocked-save dialog must carry a real danger-filled action button. */
+    private fun assertDialogHasDangerActionButton(tag: String = "course-save-error-dismiss") {
+        val bitmap = rule.onNodeWithTag(tag, useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        var danger = 0
+        var total = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = pixel shr 16 and 0xff; val green = pixel shr 8 and 0xff; val blue = pixel and 0xff
+                total++
+                if (red >= 150 && green <= 130 && blue <= 130) danger++
+            }
+        }
+        assertTrue("$tag danger pixels=$danger/$total", danger * 100 >= total * 80)
     }
 
     private fun assertModalSurfaceIsOpaque(appearance: AppearanceMode) {
@@ -2311,6 +2345,88 @@ class QingKeAppTest {
      * produces the screenshots. Write failures cannot be injected in the production app, so that path stays
      * asserted by tests instead of a fabricated screenshot.
      */
+    /** P3-04-R8 evidence: the real blocked-save flow plus the unchanged conflict box. */
+    @Test fun p3r04R8CourseSaveErrorDialogEvidence() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        val evidence = mutableListOf("P3-04-R8 API 37 ARM64 1080x2400@420dpi node verification")
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("today-add-course").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-name").performTextReplacement("重复安排课程")
+        rule.onNodeWithTag("course-add-schedule").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("该上课安排已存在，请勿重复添加。", useUnmergedTree = true).assertIsDisplayed()
+        evidence.add(nodeLine("course-save-error"))
+        evidence.add(nodeLine("course-save-error-dismiss"))
+        saveR8Screenshot("p3-04-r8-01-duplicate-blocked-dialog.png")
+
+        rule.onNodeWithTag("course-save-error-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("course-save-error").assertCountEquals(0)
+        rule.onNodeWithTag("course-schedule-" + model.editor.value!!.schedules.last().id).performScrollTo()
+        evidence.add("after 返回修改: name=" + model.editor.value!!.name + " schedules=" + model.editor.value!!.schedules.size + " writes=" + repository.courseWrites)
+        saveR8Screenshot("p3-04-r8-02-return-keeps-draft.png")
+
+        rule.onNodeWithTag("course-editor-close").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-discard-confirm-confirm").performClick(); rule.waitForIdle()
+        repository.data = repository.data.copy(courses = listOf(Course("existing", "已有课程", "", "#287B74", listOf(CourseSchedule("existing-slot", 6, 1, 1, 1, 18, RepeatRule.EVERY, "A101")))))
+        model.retryLoad(); rule.waitForIdle()
+        model.openNewCourse(); rule.waitForIdle()
+        rule.onNodeWithTag("course-name").performTextReplacement("冲突课程")
+        rule.onNodeWithTag("course-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-conflict-confirm").assertIsDisplayed()
+        rule.onNodeWithTag("terminal-dialog-dismiss").assertIsDisplayed()
+        evidence.add(nodeLine("course-conflict-confirm"))
+        saveR8Screenshot("p3-04-r8-03-conflict-box-unchanged.png")
+
+        saveR8Text("node-verification-20260919.txt", evidence.joinToString("\n") + "\n")
+    }
+
+    /** P3-04-R8 evidence: dark theme, 130% font scale and a 320dp narrow host for the same dialog. */
+    @Test fun p3r04R8DialogVariantEvidence() {
+        val schedule = CourseScheduleFormState("r8", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")
+        var appearance by mutableStateOf(AppearanceMode.DARK)
+        var scale by mutableStateOf(1f)
+        var narrow by mutableStateOf(false)
+        val evidence = mutableListOf("P3-04-R8 dialog variants")
+        rule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(rule.density.density, scale)) {
+                val page = @Composable {
+                    QingKeAppContent(
+                        readyToday().copy(preferences = SchedulePreferences.defaults.copy(appearanceMode = appearance)), null, MainTab.TODAY, QingKeAppActions(),
+                        editor = CourseEditorState(CourseEditorMode.EDIT, name = "昼夜课程", schedules = listOf(schedule), confirmation = CourseEditorConfirmation.Invalid("该上课安排已存在，请勿重复添加。")),
+                    )
+                }
+                if (narrow) Box(Modifier.size(320.dp, 720.dp).testTag("narrow-root")) { page() } else page()
+            }
+        }
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        evidence.add("dark: " + nodeLine("course-save-error") + " | " + nodeLine("course-save-error-dismiss"))
+        saveR8Screenshot("p3-04-r8-04-dark-dialog.png")
+
+        scale = 1.3f; rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("该上课安排已存在，请勿重复添加。", useUnmergedTree = true).assertIsDisplayed()
+        evidence.add("font130: " + nodeLine("course-save-error") + " | " + nodeLine("course-save-error-dismiss"))
+        saveR8Screenshot("p3-04-r8-05-font130-dialog.png")
+
+        appearance = AppearanceMode.LIGHT; narrow = true; rule.waitForIdle()
+        rule.onNodeWithTag("narrow-root").assertIsDisplayed()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithTag("course-save-error-dismiss").assertIsDisplayed()
+        assertFitsInside("course-save-error", "narrow-root")
+        rule.onNodeWithText("该上课安排已存在，请勿重复添加。", useUnmergedTree = true).assertIsDisplayed()
+        evidence.add("narrow light: " + nodeLine("course-save-error") + " | " + nodeLine("course-save-error-dismiss"))
+        saveR8Screenshot("p3-04-r8-06-narrow-320dp-dialog.png")
+
+        saveR8Text("node-verification-variants-20260919.txt", evidence.joinToString("\n") + "\n")
+    }
+
     @Test fun p3r06R7SettingsSaveDialogEvidence() {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
             Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
@@ -2485,6 +2601,45 @@ class QingKeAppTest {
      * P3-06-R7-R1 evidence and regression: a legal reversed persisted order (9, 4, 20) cannot express a
      * 4-9 arrangement after the first deletion, so both entries show the red error dialog and write nothing.
      */
+    @Test fun duplicateScheduleBlocksTheSaveWithOneCenteredDialogAndReturnKeepsTheDraft() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("today-add-course").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-editor-toolbar").assertIsDisplayed()
+        rule.onNodeWithTag("course-name").performTextReplacement("重复安排课程")
+        rule.onNodeWithTag("course-add-schedule").performScrollTo().performClick(); rule.waitForIdle()
+        val duplicate = model.editor.value!!.schedules.last().id
+        assertEquals(2, model.editor.value!!.schedules.size)
+
+        rule.onNodeWithTag("course-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("course-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法保存课程", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("该上课安排已存在，请勿重复添加。", useUnmergedTree = true).assertIsDisplayed()
+        rule.onAllNodesWithTag("course-save-error-dismiss").assertCountEquals(1)
+        rule.onAllNodesWithTag("course-validation").assertCountEquals(0)
+        rule.onAllNodesWithTag("course-conflict-confirm").assertCountEquals(0)
+        assertEquals(0, repository.courseWrites)
+        assertEquals(emptyList<Course>(), model.state.value.data.courses)
+
+        rule.onNodeWithTag("course-save-error-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("course-save-error").assertCountEquals(0)
+        assertNotNull(model.editor.value)
+        assertEquals("重复安排课程", model.editor.value!!.name)
+        assertEquals(2, model.editor.value!!.schedules.size)
+
+        rule.onNodeWithTag("course-remove-schedule-" + duplicate).performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(1, model.editor.value!!.schedules.size)
+        rule.onNodeWithTag("course-save-toolbar").performClick()
+        rule.waitUntil(5_000) { repository.courseWrites == 1 }
+        assertNull(model.editor.value)
+        assertEquals(listOf("重复安排课程"), model.state.value.data.courses.map { it.name })
+        assertEquals("SYSTEM // 课程添加成功", model.courseSuccess.value)
+    }
+
     @Test fun p3r06R7ReversedPeriodsBlockedEvidence() {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
             Period(9, "08:00", "08:45"), Period(4, "08:55", "09:40"), Period(20, "10:00", "10:45"),
@@ -2571,6 +2726,21 @@ class QingKeAppTest {
         rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
         rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
         rule.onNodeWithTag("semester-save-success").assertIsDisplayed()
+    }
+
+    private fun r8EvidenceDirectory(): File = File(
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: rule.activity.cacheDir.absolutePath,
+        "p3-04-r8-course-save-error-dialog",
+    ).also { check(it.exists() || it.mkdirs()) }
+
+    private fun saveR8Screenshot(name: String) {
+        File(r8EvidenceDirectory(), name).outputStream().use { output ->
+            check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+        }
+    }
+
+    private fun saveR8Text(name: String, content: String) {
+        File(r8EvidenceDirectory(), name).writeText(content)
     }
 
     private fun evidenceDirectory(): File = File(

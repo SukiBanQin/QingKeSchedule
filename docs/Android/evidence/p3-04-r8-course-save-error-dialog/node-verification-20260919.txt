@@ -1,0 +1,5 @@
+P3-04-R8 API 37 ARM64 1080x2400@420dpi node verification
+course-save-error bounds=(l=105.0,t=941.0,r=975.0,b=1459.0) size=870.0x518.0 texts=[]
+course-save-error-dismiss bounds=(l=105.0,t=1336.0,r=975.0,b=1457.0) size=870.0x121.0 texts=[]
+after 返回修改: name=重复安排课程 schedules=2 writes=0
+course-conflict-confirm bounds=(l=105.0,t=910.0,r=975.0,b=1491.0) size=870.0x581.0 texts=[]

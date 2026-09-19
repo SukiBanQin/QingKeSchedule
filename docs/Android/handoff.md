@@ -1,6 +1,44 @@
 # 安卓项目当前交接状态
 
-## 分析审查职责转交新窗口，P3-06-R7 增补设置保存错误弹窗规则（最新，2026-09-19）
+## P3-04-R8 课程保存阻断错误改为居中红色弹窗已实施（最新，2026-09-19）
+
+用户确认：点击保存、添加、删除、导入等主动操作后若被错误阻止，主要反馈应为居中红色弹窗；成功提示、
+普通说明、持续状态与字段输入过程中的即时辅助提示仍保持内联。只读审计结论：当前唯一仍把“点击后被阻止”
+的失败放在页面底部红卡的生产路径，是课程编辑器的 `CourseEditorState.validationMessage` → `ValidationNotice`
+（用户提供的现象截图即“该上课安排已存在，请勿重复添加”底部红卡）。本轮按此修正并同步更正文档中
+P3-06-R7 的过期状态。
+
+- 当前代码基准：分支 `Android`，开始基准 `f0c0d8e`（P3-06-R7-R2 稀疏编号性能修正，已推送
+  `origin/Android`），开始时工作区干净。本轮只新增实现提交，未改写历史、未强推、未合并 `main`，未改
+  iOS／Web／Room schema／DataStore 结构／共享 JSON schema／版本 1／课程领域校验规则／`main`。
+  提交号见交付消息或 `git log`（本文档不自引用尚未产生的提交号）。
+- **P3-06-R7 状态更正（用户已确认）**：R7 首轮实现 `b61b02f`（级联确认、原子保存、设置保存错误统一弹窗）、
+  R1 修正 `c7fd877`（反序／非连续编号阻止保存、确认旁路封闭）、R2 修正 `f0c0d8e`（稀疏编号性能）均已
+  实现并自测；**Sol 技术复审已通过，用户视觉验收也已通过**。本文档下方历史小节里“P3-06-R7 尚未实施／
+  待验收”的写法仅代表当时状态。
+- P3-04-R8 实现：删除 `CourseEditorState.validationMessage` 与页面底部 `course-validation` 卡片及不再使用的
+  `ValidationNotice`；不可继续的课程保存统一进入课程编辑器既有模态状态
+  `CourseEditorConfirmation.Invalid`，渲染为居中红色 `TerminalDialog`（标题「无法保存课程」、内容取对应
+  校验错误、唯一按钮「返回修改」，不提供“仍然保存”）。重复安排文案按任务要求保持
+  「该上课安排已存在，请勿重复添加。」。
+- 保持不变：跨课程冲突仍是既有双按钮「返回修改／仍然保存」确认框；删除课程与放弃编辑确认不变；真实
+  持久化失败继续使用全局错误弹窗并保留草稿；保存写入单飞不变；成功反馈仍非阻断；午休时间范围、自定义
+  颜色格式等编辑当下即可判断的字段即时提示继续内联。弹窗优先级：写入中不出现任何编辑确认；不可继续
+  错误与冲突确认互斥且一次只渲染一个；全局写入失败弹窗在课程编辑器之上渲染。
+- 测试与验证：Debug／Release JVM 各 **169 tests、0 failures／errors／skipped**；API 37 ARM64 AVD
+  （基准覆盖 1080x2400／420dpi／font_scale 1.0）`connectedDebugAndroidTest` **125 tests、0 failures／errors／
+  skipped**；`assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／
+  20 warnings；文档测试 71 tests OK 与 `documentation.test.sh`／`repository-layout.test.sh` 通过。
+- 证据：新建 `docs/Android/evidence/p3-04-r8-course-save-error-dialog/`（不覆盖 P3-04 与 R1—R7 历史证据）：
+  6 张真实 debug 截图（重复安排阻断弹窗、返回修改后的草稿、未改动的冲突框、深色、130% 字号、320dp 窄屏）
+  ＋2 份节点记录＋像素分类记录＋README。
+- 准确状态：**P3-04-R8 已实现、已测试；Sol 独立复审与用户视觉验收均未进行**，不得写成已复审或已验收。
+  A08／A10／A11、整个 P3 与完整 App 仍未完成、未授权。
+
+## 分析审查职责转交新窗口，P3-06-R7 增补设置保存错误弹窗规则（历史，2026-09-19）
+
+> 后续状态：P3-06-R7 已实施（`b61b02f`）并完成 R1／R2 修正（`c7fd877`／`f0c0d8e`），Sol 技术复审与用户
+> 视觉验收均已通过；本节其余内容保留当时状态。
 
 用户决定把当前 Sol 分析／独立审查职责转交新的 Sol 或 Astra 窗口；旧窗口停止后续工作，不与新窗口或 DeepSeek 执行窗口并行写入。此前生成的 P3-06-R7 DeepSeek 实施提示词**尚未发送、任务尚未开始**，必须先纳入本节新增产品决定，再由新分析审查窗口整理最终实施交接。
 
@@ -23,7 +61,7 @@
 - 证据：更新 `docs/Android/evidence/p3-07-r1-lunch-break/`——首轮 6 张截图按修正后的构建重新采集，新增首次设置冲突框截图 1 张（共 7 张），节点 bounds 记录与像素分类结论、命令与设备记录同步更新；写入失败路径无法在真实 App 注入 DataStore 故障，由设备测试断言记录。
 - 已知限制：用户视觉验收（含红色警告框与提示文案观感）仍未进行；`TerminalDialog` 按钮沿用既有 46dp 最小高度（未改动已验收的 ADD 冲突框视觉）；草稿与已存节次不一致时按并集提示，周表仍按持久化数据显示；切换标签后日历选择态回默认（P3-07 已知交互限制）；设备按项目基准 `1080x2400`／420dpi 验证（AVD 原生 1080x1920）；沙箱要求 `GRADLE_USER_HOME`／`HOME`／`TMPDIR` 指向 /tmp 并使用 `-Duser.home`。
 - Sol 再复审：核对 `546b61b..31b48d1` 的实际生产代码、JVM／设备测试和 7 张截图证据；两项首轮阻断均闭环。独立运行定向 `ScheduleViewModelTest` 通过，详见 [P3-07-R1 独立技术复审](p3-07-r1-review.md)。
-- 准确状态：**两项修正已实现、已测试并通过 Sol 再复审；用户对本轮红色警告框与提示文案的视觉／观感验收仍未进行**。P3-06-R7 已授权但尚未实施，下一步可交原 DeepSeek V4.1 FLASH 窗口独立实施；该任务涉及破坏性数据与原子状态，必须另作提交、测试和 Sol 独立复审。A08／A10／A11、整个 P3 与完整 App 仍未验收。
+- 准确状态：**两项修正已实现、已测试并通过 Sol 再复审；用户对本轮红色警告框与提示文案的视觉／观感验收仍未进行**。P3-06-R7 已授权但尚未实施（该判断仅代表当时；后续 P3-06-R7 已实施并通过 Sol 技术复审与用户视觉验收，见本文档首节）。A08／A10／A11、整个 P3 与完整 App 仍未验收。
 
 ## P3-07-R1 首轮 Sol 复审未通过，需修正冲突节次来源与失败收口（历史，2026-09-19）
 
@@ -50,7 +88,7 @@ Sol 已复审 `b9a0af9..1c5c05d`，结论为未通过，详见 [P3-07-R1 独立�
 - 验证结果：工作区 `./gradlew -Duser.home=… testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **127 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**（既有警告未新增）；API 37 ARM64 AVD（emulator-5554）`connectedDebugAndroidTest` **107 tests、0 failures／errors／skipped**（上一次基线 104 + 本轮 3）。文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 均通过。
 - 证据：新建 `docs/Android/evidence/p3-07-r1-lunch-break/`（不覆盖 A07 与 R2—R6 历史证据），6 张真实 debug 入口截图（周表午休在间隙／全部节次前／全部节次后、红色冲突警告框、仍然保存后的持续提示、冲突下隐藏午休条）与逐张像素＋节点核对结论见该目录 README，节点 bounds 见 `node-verification-20260919.txt`，命令与设备记录见 `host-and-device-verification-20260919.txt`。关键量化：三张周表青色条带 3.1%／2.7%／2.8%，冲突隐藏态 0.0%；冲突框含 2.9% 危险红且无信号黄。
 - 已知限制：本窗口无图形界面，截图检查为程序化核对（像素分类渲染 + uiautomator 节点／bounds），红色警告框与提示文案的观感仍须用户验收；`TerminalDialog` 按钮沿用既有 46dp 最小高度（与已验收的 ADD 冲突框一致），本轮未改动该共享视觉；设备按项目基准 `1080x2400`／420dpi 验证（AVD 原生 1080x1920）；沙箱要求 `GRADLE_USER_HOME`／`HOME`／`TMPDIR` 指向 /tmp 并使用 `-Duser.home`。
-- 准确状态：**R1 已实现、已测试；Sol 独立复审与用户视觉验收均未进行，不得写成已复审或已验收**。P3-06-R7 尚未实施；A08／A10／A11、整个 P3 与完整 App 仍未验收。
+- 准确状态：**R1 已实现、已测试；Sol 独立复审与用户视觉验收均未进行，不得写成已复审或已验收**（本节为当时状态；P3-06-R7 后续已实施并通过复审与验收，见本文档首节）。A08／A10／A11、整个 P3 与完整 App 仍未验收。
 
 ## P3-07-R1 午休显示修正已授权，之后另做 P3-06-R7 节次级联确认（历史，2026-09-19）
 
