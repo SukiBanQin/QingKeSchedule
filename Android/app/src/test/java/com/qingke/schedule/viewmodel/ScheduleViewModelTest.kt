@@ -569,7 +569,10 @@ class ScheduleViewModelTest {
         model.requestLunchBreakTimes(LocalTime.of(8, 30), LocalTime.of(9, 0))
         advanceUntilIdle()
         assertEquals(0, preferences.updateCalls)
-        assertEquals(LunchBreakConflict("08:30", "09:00", listOf(1, 2)), model.lunchBreakConflict.value)
+        assertEquals(
+            LunchBreakConflict("08:30", "09:00", persistedPeriodNumbers = listOf(1, 2), draftPeriodNumbers = listOf(1, 2)),
+            model.lunchBreakConflict.value,
+        )
         assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
 
         model.confirmLunchBreakDespiteConflicts()
@@ -614,6 +617,156 @@ class ScheduleViewModelTest {
         assertEquals(1, preferences.updateCalls)
         assertEquals("09:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
         assertEquals("10:00", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+    }
+
+    @Test
+    fun firstBootLunchConflictUsesTheVisibleDraftPeriodsAndWaitsForConfirmation() = runTest {
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), now = { LocalDateTime.parse("2026-07-01T09:00") }, idFactory = ids())
+        advanceUntilIdle()
+        val form = model.form.value!!
+        assertEquals(10, form.periods.size)
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 40), LocalTime.of(9, 0))
+        advanceUntilIdle()
+
+        assertEquals(0, preferences.updateCalls)
+        val conflict = model.lunchBreakConflict.value!!
+        assertEquals("08:40", conflict.startTime)
+        assertEquals("09:00", conflict.endTime)
+        assertEquals(emptyList<Int>(), conflict.persistedPeriodNumbers)
+        assertEquals(listOf(1, 2), conflict.draftPeriodNumbers)
+        assertFalse("the still unsaved semester cannot hide a week row yet", conflict.hidesWeekMatrixRow)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+        assertEquals(1, preferences.updateCalls)
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals("08:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertEquals("09:00", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+    }
+
+    @Test
+    fun settingsDraftPeriodEditsParticipateInTheLunchConflictCheck() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+        val periods = model.form.value!!.periods
+        assertEquals(listOf(1, 2), periods.map { it.number })
+
+        model.updatePeriodStart(periods[0].id, LocalTime.of(7, 0))
+        model.updatePeriodEnd(periods[0].id, LocalTime.of(7, 45))
+        model.requestLunchBreakTimes(LocalTime.of(8, 20), LocalTime.of(8, 30))
+        advanceUntilIdle()
+
+        val persistedOnly = model.lunchBreakConflict.value!!
+        assertEquals("the saved semester still overlaps the candidate", listOf(1), persistedOnly.persistedPeriodNumbers)
+        assertEquals("the edited draft no longer overlaps it", emptyList<Int>(), persistedOnly.draftPeriodNumbers)
+        assertTrue(persistedOnly.hidesWeekMatrixRow)
+        assertEquals(0, preferences.updateCalls)
+
+        model.updatePeriodEnd(periods[0].id, LocalTime.of(8, 45))
+        model.dismissLunchBreakConfirmation()
+        model.requestLunchBreakTimes(LocalTime.of(8, 20), LocalTime.of(8, 30))
+        advanceUntilIdle()
+        val bothSources = model.lunchBreakConflict.value!!
+        assertEquals(listOf(1), bothSources.persistedPeriodNumbers)
+        assertEquals(listOf(1), bothSources.draftPeriodNumbers)
+        assertEquals(listOf(1), bothSources.periodNumbers)
+
+        model.updatePeriodStart(periods[0].id, LocalTime.of(7, 0))
+        model.updatePeriodEnd(periods[0].id, LocalTime.of(7, 45))
+        model.updatePeriodEnd(periods[1].id, LocalTime.of(12, 0))
+        model.dismissLunchBreakConfirmation()
+        model.requestLunchBreakTimes(LocalTime.of(11, 40), LocalTime.of(14, 0))
+        advanceUntilIdle()
+
+        val draftOnly = model.lunchBreakConflict.value!!
+        assertEquals(emptyList<Int>(), draftOnly.persistedPeriodNumbers)
+        assertEquals(listOf(2), draftOnly.draftPeriodNumbers)
+        assertFalse("the saved semester still shows the row", draftOnly.hidesWeekMatrixRow)
+        assertEquals(0, preferences.updateCalls)
+
+        model.dismissLunchBreakConfirmation()
+        model.requestLunchBreakTimes(LocalTime.of(12, 30), LocalTime.of(13, 30))
+        advanceUntilIdle()
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals(1, preferences.updateCalls)
+        assertEquals("12:30", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+    }
+
+    @Test
+    fun confirmLunchBreakWriteFailureKeepsARetryableConfirmationAndTheStoredValue() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository().also { it.failUpdate = true }
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 30), LocalTime.of(9, 0))
+        advanceUntilIdle()
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+
+        assertEquals(1, preferences.updateCalls)
+        val conflict = model.lunchBreakConflict.value
+        assertNotNull("a failed write must stay retryable", conflict)
+        assertEquals("08:30", conflict!!.startTime)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+        assertFalse(model.state.value.isSaving)
+        assertNotNull(model.state.value.error)
+
+        preferences.failUpdate = false
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+
+        assertEquals(2, preferences.updateCalls)
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals("08:30", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertEquals("09:00", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+        assertNull(model.state.value.error)
+        assertFalse(model.state.value.isSaving)
+    }
+
+    @Test
+    fun cancelledLunchBreakConfirmationKeepsTheStoredValueAndThePendingWarning() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository().also { it.cancelUpdate = true }
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 30), LocalTime.of(9, 0))
+        advanceUntilIdle()
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+
+        assertNotNull(model.lunchBreakConflict.value)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+        assertNull(model.state.value.error)
+        assertFalse(model.state.value.isSaving)
+    }
+
+    @Test
+    fun lunchBreakConfirmationIsSingleFlightAndIgnoresDismissWhileWriting() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository().also { it.updateGate = CompletableDeferred() }
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 30), LocalTime.of(9, 0))
+        advanceUntilIdle()
+        model.confirmLunchBreakDespiteConflicts()
+        model.confirmLunchBreakDespiteConflicts()
+        model.dismissLunchBreakConfirmation()
+        assertEquals(1, preferences.updateCalls)
+        assertNotNull(model.lunchBreakConflict.value)
+
+        preferences.updateGate!!.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, preferences.updateCalls)
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals("08:30", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
     }
 
     @Test
@@ -663,9 +816,11 @@ class ScheduleViewModelTest {
         var updateCalls = 0
         var failUpdate = false
         var cancelUpdate = false
+        var updateGate: CompletableDeferred<Unit>? = null
         override suspend fun load(): SchedulePreferences = preferences
         override suspend fun save(preferences: SchedulePreferences): SchedulePreferences {
             updateCalls++
+            updateGate?.await()
             if (cancelUpdate) throw CancellationException("preferences")
             if (failUpdate) error("preferences")
             this.preferences = preferences

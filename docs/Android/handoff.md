@@ -1,6 +1,19 @@
 # 安卓项目当前交接状态
 
-## P3-07-R1 首轮 Sol 复审未通过，需修正冲突节次来源与失败收口（最新，2026-09-19）
+## P3-07-R1 首轮复审两项修正已实施并自测，等待 Sol 再复审（最新，2026-09-19）
+
+本轮由原 DeepSeek 执行窗口（同一 P3-07 窗口）集中修正首轮 Sol 复审的两项阻断缺口，未创建新窗口或子 Agent，未实施 P3-06-R7，未推进 A08／A10／A11；实际服务、模型标识与思考参数未核实（工具不能读取）。
+
+- 当前基准：分支 `Android`，开始基准 `546b61b`（首轮复审记录，已推送 `origin/Android`），首轮实现提交 `1c5c05d`；只新增本次修正提交，未改写历史、未强推、未合并 `main`；本次提交号见交付消息或 `git log`（本文档不自引用尚未产生的提交号）。
+- 修正 1（冲突判断纳入当前可见节次配置，复审问题 1）：`ScheduleViewModel` 新增 `lunchBreakConflictFor`，同时检查**已持久化学期节次**与**当前 `SemesterDraft` 草稿节次**（草稿 LocalTime 规范为 HH:mm），任一来源与候选午休范围重叠即进入一次红色确认；`LunchBreakConflict` 由单一 `periodNumbers` 拆为 `persistedPeriodNumbers` 与 `draftPeriodNumbers`，并提供 `periodNumbers`（并集）与 `hidesWeekMatrixRow`。首次设置（持久化学期为空）与正式设置先改节次时间再设午休都会弹框；周表仍只按持久化节次展示，未破坏该边界。冲突文案按来源区分：仅草稿重叠时说明「这些节次时间尚未保存到学期设置……保存学期设置后才会隐藏该午休条」，草稿与已存一致时保持精简措辞。
+- 修正 2（仍然保存的写入失败收口，复审问题 2）：`confirmLunchBreakDespiteConflicts` 改为在 `appState.updatePreferences` 返回成功后、且待确认对象未被替换时才清除 `LunchBreakConflict`；失败或取消时保留待确认状态（可重试）并沿用既有错误反馈，界面不再把未写入的候选时间显示成已保存。新增 `lunchBreakConfirmationInFlight` 单飞：写入进行中重复点按只写一次，期间忽略「返回修改」，避免确认与显示状态互串。
+- 测试：JVM 新增 5 项（首次设置按草稿节次弹确认并在确认前不写入；正式设置草稿改时间后仅持久化重叠／两者都重叠／仅草稿重叠／无冲突直接写入；仍然保存写入失败后已存值不变且确认可重试、修复后重试成功；取消不改已存值且不报普通错误；确认单飞且写入中忽略返回修改）。设备端新增 3 项（真机首次设置冲突端到端：弹框、返回修改不写入、仍然保存后写入；正式设置先改节次时间再设午休 → 弹框且返回修改不写入、周表仍按已保存节次显示午休条；仍然保存失败 → 错误框与确认框同时存在、已存值不变，修复后重试成功）。
+- 验证结果：工作区 `./gradlew -Duser.home=… testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **132 tests、0 failures／errors／skipped**（首轮 127 + 5），`lintDebug` **0 errors、20 warnings**；API 37 ARM64 AVD（emulator-5554）`connectedDebugAndroidTest` **110 tests、0 failures／errors／skipped**（首轮 107 + 3）。文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 均通过。
+- 证据：更新 `docs/Android/evidence/p3-07-r1-lunch-break/`——首轮 6 张截图按修正后的构建重新采集，新增首次设置冲突框截图 1 张（共 7 张），节点 bounds 记录与像素分类结论、命令与设备记录同步更新；写入失败路径无法在真实 App 注入 DataStore 故障，由设备测试断言记录。
+- 已知限制：用户视觉验收（含红色警告框与提示文案观感）仍未进行；`TerminalDialog` 按钮沿用既有 46dp 最小高度（未改动已验收的 ADD 冲突框视觉）；草稿与已存节次不一致时按并集提示，周表仍按持久化数据显示；切换标签后日历选择态回默认（P3-07 已知交互限制）；设备按项目基准 `1080x2400`／420dpi 验证（AVD 原生 1080x1920）；沙箱要求 `GRADLE_USER_HOME`／`HOME`／`TMPDIR` 指向 /tmp 并使用 `-Duser.home`。
+- 准确状态：**两项修正已实现、已测试；Sol 再复审与用户视觉验收均未进行，不得写成已通过复审或已验收**。P3-06-R7 尚未实施；A08／A10／A11、整个 P3 与完整 App 仍未验收。
+
+## P3-07-R1 首轮 Sol 复审未通过，需修正冲突节次来源与失败收口（历史，2026-09-19）
 
 Sol 已复审 `b9a0af9..1c5c05d`，结论为未通过，详见 [P3-07-R1 独立技术复审](p3-07-r1-review.md)。午休顶部／间隙／底部显示、重叠隐藏、红色确认框、返回修改和仍然保存成功主路径均正确；独立定向 Debug JVM 测试通过，6 张截图与既有完整测试报告一致。但存在两项阻断缺口：
 

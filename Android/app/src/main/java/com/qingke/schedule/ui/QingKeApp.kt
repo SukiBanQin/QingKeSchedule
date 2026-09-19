@@ -1138,7 +1138,7 @@ private fun calendarExceptionDateLabel(date: String): String {
         code = "WARNING / CONFLICT",
         status = "PERIOD OVERLAP",
         title = "午休与节次重叠",
-        message = "与第 " + value.periodNumbers.joinToString("、") + " 节时间重叠。节次优先：仍然保存后周课表不会显示该午休条。",
+        message = lunchBreakConflictMessage(value),
         confirm = "仍然保存",
         dismiss = "返回修改",
         onDismiss = {
@@ -1153,6 +1153,28 @@ private fun calendarExceptionDateLabel(date: String): String {
         danger = true,
         dark = dark,
     )
+}
+
+/**
+ * P3-07-R1 message: the saved semester and the form can disagree while period times are unsaved, so the
+ * wording states which periods overlap and whether the week matrix will hide the lunch row afterwards.
+ */
+private fun lunchBreakConflictMessage(conflict: LunchBreakConflict): String {
+    val saved = conflict.persistedPeriodNumbers
+    val draft = conflict.draftPeriodNumbers
+    val overlap = when {
+        saved.isEmpty() ->
+            "与当前节次设置的第 " + draft.joinToString("、") + " 节时间重叠，这些节次时间尚未保存到学期设置。"
+        draft.isEmpty() || draft == saved -> "与第 " + saved.joinToString("、") + " 节时间重叠。"
+        else ->
+            "与已保存的第 " + saved.joinToString("、") + " 节以及当前节次设置的第 " + draft.joinToString("、") + " 节时间重叠。"
+    }
+    val consequence = if (conflict.hidesWeekMatrixRow) {
+        "节次优先：仍然保存后周课表不会显示该午休条。"
+    } else {
+        "节次优先：周课表按已保存的节次时间判断，保存学期设置后才会隐藏该午休条。"
+    }
+    return overlap + consequence
 }
 
 /** Shared time-picker host: it renders only while the target period still exists, so add／remove can never address the wrong row. */

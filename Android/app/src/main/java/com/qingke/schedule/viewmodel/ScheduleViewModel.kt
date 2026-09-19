@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.qingke.schedule.ScheduleAppDependencies
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.domain.Course
+import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleConflict
 import com.qingke.schedule.domain.withLunchBreakEnabled
@@ -48,12 +49,21 @@ data class SemesterFormState(
 
 enum class CourseEditorMode { CHOOSER, CREATE, EDIT, APPEND }
 
-/** P3-07-R1: a valid lunch range that overlaps persisted periods waits for one explicit confirmation. */
+/**
+ * P3-07-R1: a valid lunch range that overlaps the currently visible or the saved periods waits for one
+ * explicit confirmation before it is written.
+ */
 data class LunchBreakConflict(
     val startTime: String,
     val endTime: String,
-    val periodNumbers: List<Int>,
-)
+    /** Periods of the saved semester that overlap; the week matrix hides its lunch row while any exist. */
+    val persistedPeriodNumbers: List<Int>,
+    /** Periods of the current form configuration, which may still carry unsaved time edits. */
+    val draftPeriodNumbers: List<Int>,
+) {
+    val periodNumbers: List<Int> get() = (persistedPeriodNumbers + draftPeriodNumbers).distinct().sorted()
+    val hidesWeekMatrixRow: Boolean get() = persistedPeriodNumbers.isNotEmpty()
+}
 
 data class CourseScheduleFormState(
     val id: String, val dayOfWeek: Int, val startPeriod: Int, val endPeriod: Int,
@@ -111,6 +121,7 @@ class ScheduleViewModel(
     private var editorFingerprint: Course? = null
     private var editorInFlight = false
     private var saveRequested = false
+    private var lunchBreakConfirmationInFlight = false
     private var loadJob: Job? = null
 
     init { loadInitial() }
@@ -213,22 +224,59 @@ class ScheduleViewModel(
         val start = startTime.toString()
         val end = endTime.toString()
         if (!LunchBreakSettings.isValidRange(start, end)) return
-        val overlapping = lunchBreakOverlappingPeriods(start, end, state.value.data.semester?.periods.orEmpty())
-        if (overlapping.isEmpty()) {
+        val conflict = lunchBreakConflictFor(start, end)
+        if (conflict == null) {
             updateCalendar { it.withLunchBreakTimes(start, end) ?: it }
             return
         }
-        mutableLunchBreakConflict.value = LunchBreakConflict(start, end, overlapping.map { it.number }.sorted())
+        mutableLunchBreakConflict.value = conflict
     }
 
+    /**
+     * The form configuration and the saved semester can differ while the settings page carries unsaved
+     * period edits, and the week matrix keeps rendering the saved periods. A candidate range therefore
+     * needs confirmation when either source overlaps it, and the conflict records which source did.
+     */
+    private fun lunchBreakConflictFor(start: String, end: String): LunchBreakConflict? {
+        val persisted = lunchBreakOverlappingPeriods(start, end, state.value.data.semester?.periods.orEmpty())
+            .map { it.number }.distinct().sorted()
+        val draftPeriods = draft?.periods.orEmpty().map { period ->
+            Period(period.number, timeText(period.startTime), timeText(period.endTime))
+        }
+        val draftOverlap = lunchBreakOverlappingPeriods(start, end, draftPeriods).map { it.number }.distinct().sorted()
+        if (persisted.isEmpty() && draftOverlap.isEmpty()) return null
+        return LunchBreakConflict(start, end, persisted, draftOverlap)
+    }
+
+    private fun timeText(value: LocalTime): String = "%02d:%02d".format(value.hour, value.minute)
+
+    /**
+     * P3-07-R1: the confirmation is completed only by a successfully stored range. A failed or cancelled
+     * write keeps the pending confirmation retryable (and keeps the ordinary error feedback), so the page
+     * never shows an unsaved candidate range as saved.
+     */
     fun confirmLunchBreakDespiteConflicts() {
         val conflict = mutableLunchBreakConflict.value ?: return
-        mutableLunchBreakConflict.value = null
-        updateCalendar { it.withLunchBreakTimes(conflict.startTime, conflict.endTime) ?: it }
+        if (lunchBreakConfirmationInFlight) return
+        lunchBreakConfirmationInFlight = true
+        viewModelScope.launch {
+            try {
+                val written = appState.updatePreferences { preferences ->
+                    preferences.copy(
+                        academicCalendar = preferences.academicCalendar
+                            .withLunchBreakTimes(conflict.startTime, conflict.endTime) ?: preferences.academicCalendar,
+                    )
+                }
+                if (written && mutableLunchBreakConflict.value == conflict) mutableLunchBreakConflict.value = null
+            } finally {
+                lunchBreakConfirmationInFlight = false
+            }
+        }
     }
 
     /** "返回修改": the conflicting range is dropped and the stored lunch break stays unchanged. */
     fun dismissLunchBreakConfirmation() {
+        if (lunchBreakConfirmationInFlight) return
         mutableLunchBreakConflict.value = null
     }
 

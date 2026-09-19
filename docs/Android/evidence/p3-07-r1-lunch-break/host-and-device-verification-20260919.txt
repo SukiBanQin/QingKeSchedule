@@ -63,3 +63,36 @@ P3-07-R1 午休显示修正 主机与设备验证记录（2026-09-19）
 - 设备恢复为 AVD 默认窗口与密度（wm size/density reset）、font_scale 1.0、浅色，应用已 force-stop；未停止用户已有的模拟器进程。
 - 未提交构建产物；工作区只保留本任务源码、测试与文档改动。
 - 本轮未创建新窗口或子 Agent；实际服务、模型标识与思考参数未核实（工具无法读取）。
+
+八、首轮复审修正轮（2026-09-19，开始基准 546b61b）
+
+- 修正内容：见本目录 README 的「首轮复审修正」；本轮只改 conflict 判断与确认写回收口相关代码、测试和文档，未实施 P3-06-R7，未改 iOS、Web、Room schema、共享协议或 main。
+- 本轮代码改动：ScheduleViewModel（LunchBreakConflict 拆为 persistedPeriodNumbers／draftPeriodNumbers、lunchBreakConflictFor 同时检查持久化与草稿节次、confirmLunchBreakDespiteConflicts 成功后才清除确认、单飞与写入中忽略返回修改）；QingKeApp（lunchBreakConflictMessage 按来源措辞）；测试：ScheduleViewModelTest +5、QingKeAppTest +3。
+
+命令（同一环境变量前缀）：
+  ./gradlew -Duser.home=/tmp/qingke-userhome -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp \
+    testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --console=plain
+结果：
+  BUILD SUCCESSFUL
+  testDebugUnitTest   : 132 tests, 0 failures, 0 errors, 0 skipped（首轮 127，本次 +5）
+  testReleaseUnitTest : 132 tests, 0 failures, 0 errors, 0 skipped
+  assembleDebug / assembleRelease / assembleDebugAndroidTest : 通过
+  lintDebug           : 0 errors, 20 warnings
+
+  ./gradlew ... connectedDebugAndroidTest
+结果：
+  BUILD SUCCESSFUL，tests 110, failures 0, errors 0, skipped 0（首轮 107，本次 +3）
+
+本轮新增测试：
+  ScheduleViewModelTest.firstBootLunchConflictUsesTheVisibleDraftPeriodsAndWaitsForConfirmation（首次设置无持久化学期时按草稿节次弹确认、确认前不写入、仍然保存后写入）
+  ScheduleViewModelTest.settingsDraftPeriodEditsParticipateInTheLunchConflictCheck（草稿改时间后：仅持久化重叠、两者都重叠、仅草稿重叠、无冲突直接写入）
+  ScheduleViewModelTest.confirmLunchBreakWriteFailureKeepsARetryableConfirmationAndTheStoredValue（失败后已存值不变、确认保留、isSaving=false、错误存在，修复后重试成功）
+  ScheduleViewModelTest.cancelledLunchBreakConfirmationKeepsTheStoredValueAndThePendingWarning
+  ScheduleViewModelTest.lunchBreakConfirmationIsSingleFlightAndIgnoresDismissWhileWriting
+  QingKeAppTest.firstBootLunchConflictWarnsFromTheVisibleDraftBeforeWriting（首次设置端到端）
+  QingKeAppTest.settingsDraftPeriodEditRaisesTheConflictWhileTheWeekRowFollowsSavedPeriods（先改节次时间再设午休；返回修改不写入；周表仍按已保存节次显示午休条）
+  QingKeAppTest.failedLunchBreakConfirmationKeepsTheErrorAndARetryableWarning（仍然保存失败：错误框 + 确认框保留、已存值不变，修复后重试成功）
+
+截图：7 张（首轮 6 张按修正后的构建重新采集 + 新增首次设置冲突框 1 张），节点记录见 node-verification-20260919.txt。
+
+采集环境备注：本机 AVD 会在 connectedAndroidTest 结束后卸载被测应用，重新采集前先 adb install -r；另外 uiautomator 有时会给出 bounds=[0,0][0,0] 的占位节点，采集脚本已过滤这类节点，否则点击会落在 (0,0)。这些属于临时采集工具的处理，不涉及应用代码。

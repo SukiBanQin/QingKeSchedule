@@ -86,6 +86,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -1655,7 +1658,7 @@ class QingKeAppTest {
     }
 
     @Test fun lunchBreakConflictDialogUsesTheRedTerminalVisualAndRoutesBothDecisions() {
-        var conflict by mutableStateOf<LunchBreakConflict?>(LunchBreakConflict("09:30", "10:05", listOf(1, 2)))
+        var conflict by mutableStateOf<LunchBreakConflict?>(LunchBreakConflict("09:30", "10:05", persistedPeriodNumbers = listOf(1, 2), draftPeriodNumbers = emptyList()))
         var dismissals = 0
         var confirms = 0
         rule.setContent {
@@ -1688,11 +1691,116 @@ class QingKeAppTest {
         assertEquals(1, dismissals); assertEquals(0, confirms)
         rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
 
-        conflict = LunchBreakConflict("09:30", "10:05", listOf(1, 2)); rule.waitForIdle()
+        conflict = LunchBreakConflict("09:30", "10:05", persistedPeriodNumbers = listOf(1, 2), draftPeriodNumbers = emptyList()); rule.waitForIdle()
         rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
         rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick(); rule.waitForIdle()
         assertEquals(1, dismissals); assertEquals(1, confirms)
         rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+    }
+
+    @Test fun firstBootLunchConflictWarnsFromTheVisibleDraftBeforeWriting() {
+        val repository = HostScheduleRepository(ScheduleData(1, null, emptyList(), "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-07-01T09:00") }, { "boot" })
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+        rule.onNodeWithTag("onboarding-screen").assertIsDisplayed()
+
+        rule.onNodeWithTag("onboarding-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-08").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        rule.onNodeWithText("与当前节次设置的第 1、2、3、4 节时间重叠", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("这些节次时间尚未保存到学期设置", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("保存学期设置后才会隐藏该午休条", substring = true).assertIsDisplayed()
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+
+        rule.onNodeWithTag("terminal-dialog-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+
+        rule.onNodeWithTag("onboarding-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-08").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.preferences.academicCalendar.lunchBreak.startTime == "08:40" }
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+        assertNull(model.state.value.error)
+    }
+
+    @Test fun settingsDraftPeriodEditRaisesTheConflictWhileTheWeekRowFollowsSavedPeriods() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+        ))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        var ids = 0
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-05T09:00") }, { "id${ids++}" })
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        if (!model.form.value!!.periodsExpanded) {
+            rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        }
+        val firstPeriod = model.form.value!!.periods.first().id
+        rule.onNodeWithTag("period-${firstPeriod}-end").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-hour-12").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-minute-00").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-time-picker-confirm").performClick(); rule.waitForIdle()
+        assertEquals(LocalTime.of(12, 0), model.form.value!!.periods.first().end)
+
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        rule.onNodeWithText("与当前节次设置的第 1 节时间重叠", substring = true).assertIsDisplayed()
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        rule.onNodeWithTag("terminal-dialog-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("week-lunch-break").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun failedLunchBreakConfirmationKeepsTheErrorAndARetryableWarning() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+        ))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        var ids = 0
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-05T09:00") }, { "id${ids++}" })
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-08").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+
+        preferences.failUpdate = true
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick(); rule.waitForIdle()
+        rule.waitUntil(5_000) { model.state.value.error != null }
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertFalse(model.state.value.isSaving)
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        rule.onNodeWithTag("app-error-dialog").assertIsDisplayed()
+
+        rule.onNodeWithTag("app-error-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertFalse(model.state.value.isSaving)
+
+        preferences.failUpdate = false
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.preferences.academicCalendar.lunchBreak.startTime == "08:40" }
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+        assertNull(model.state.value.error)
     }
 
     @Test fun conflictingLunchBreakNeedsConfirmationAndKeepsTheWeekWarningAfterSaving() {
@@ -1816,8 +1924,12 @@ class QingKeAppTest {
 
     private class HostPreferencesRepository : SchedulePreferencesRepository {
         private var stored = SchedulePreferences.defaults
+        var failUpdate = false
         override suspend fun load(): SchedulePreferences = stored
-        override suspend fun save(preferences: SchedulePreferences): SchedulePreferences = preferences.also { stored = it }
+        override suspend fun save(preferences: SchedulePreferences): SchedulePreferences {
+            if (failUpdate) error("injected preferences failure")
+            return preferences.also { stored = it }
+        }
         override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences): SchedulePreferences = save(transform(stored))
     }
 
