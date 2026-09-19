@@ -99,8 +99,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.qingke.schedule.domain.CourseOccurrence
 import com.qingke.schedule.domain.CourseStatus
+import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleRules
+import com.qingke.schedule.domain.lunchBreakOverlappingPeriods
 import com.qingke.schedule.presentation.ScheduleDisplayText
 import com.qingke.schedule.presentation.TodayCourseItem
 import com.qingke.schedule.presentation.TodaySchedulePresentation
@@ -115,6 +117,7 @@ import com.qingke.schedule.viewmodel.SemesterFormState
 import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
+import com.qingke.schedule.viewmodel.LunchBreakConflict
 import com.qingke.schedule.R
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -197,7 +200,9 @@ data class QingKeAppActions(
     val addMakeupTeachingDay: (LocalDate, Int) -> Unit = { _, _ -> },
     val removeMakeupTeachingDay: (String) -> Unit = {},
     val setLunchBreakEnabled: (Boolean) -> Unit = {},
-    val setLunchBreakTimes: (LocalTime, LocalTime) -> Unit = { _, _ -> },
+    val requestLunchBreakTimes: (LocalTime, LocalTime) -> Unit = { _, _ -> },
+    val confirmLunchBreakConflict: () -> Unit = {},
+    val dismissLunchBreakConflict: () -> Unit = {},
 )
 
 @Composable
@@ -209,6 +214,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     val courseSuccess by viewModel.courseSuccess.collectAsStateWithLifecycle()
     val semesterSuccess by viewModel.semesterSuccess.collectAsStateWithLifecycle()
+    val lunchBreakConflict by viewModel.lunchBreakConflict.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -246,10 +252,11 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             setWeekendsAreNonTeachingDays = viewModel::setWeekendsAreNonTeachingDays,
             addNonTeachingDate = viewModel::addNonTeachingDate, removeNonTeachingDate = viewModel::removeNonTeachingDate,
             addMakeupTeachingDay = viewModel::addMakeupTeachingDay, removeMakeupTeachingDay = viewModel::removeMakeupTeachingDay,
-            setLunchBreakEnabled = viewModel::setLunchBreakEnabled, setLunchBreakTimes = viewModel::setLunchBreakTimes,
+            setLunchBreakEnabled = viewModel::setLunchBreakEnabled, requestLunchBreakTimes = viewModel::requestLunchBreakTimes,
+            confirmLunchBreakConflict = viewModel::confirmLunchBreakDespiteConflicts, dismissLunchBreakConflict = viewModel::dismissLunchBreakConfirmation,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
-        semesterSuccess, viewModel::consumeSemesterSuccess,
+        semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict,
     )
 }
 
@@ -265,6 +272,7 @@ fun QingKeAppContent(
     consumeCourseSuccess: () -> Unit = {},
     semesterSuccess: String? = null,
     consumeSemesterSuccess: () -> Unit = {},
+    lunchBreakConflict: LunchBreakConflict? = null,
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -281,11 +289,12 @@ fun QingKeAppContent(
         when (state.loadStatus) {
             LoadStatus.NOT_LOADED, LoadStatus.LOADING -> LoadingScreen()
             LoadStatus.FAILED -> LoadErrorScreen(state.error.orEmpty(), actions.retryLoad)
-            LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.preferences.academicCalendar, state.isSaving, actions, dark) } ?: LoadingScreen()
+            LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark, lunchBreakConflict) } ?: LoadingScreen()
             else MainShell(
                 state, selectedTab, currentTime, actions, form = form,
                 courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess,
                 semesterSuccess = semesterSuccess, consumeSemesterSuccess = consumeSemesterSuccess,
+                lunchBreakConflict = lunchBreakConflict,
             )
         }
         editor?.let { CourseEditorOverlay(it, state.data.semester, state.data.courses, dark, actions) }
@@ -336,7 +345,15 @@ fun QingKeAppContent(
     onConfirm = dismiss, onDismiss = dismiss, tag = "app-error-dialog", dismissTag = null, confirmTag = "app-error-dismiss",
 )
 
-@Composable private fun OnboardingScreen(form: SemesterFormState, calendar: AcademicCalendarPreferences, saving: Boolean, actions: QingKeAppActions, dark: Boolean) {
+@Composable private fun OnboardingScreen(
+    form: SemesterFormState,
+    calendar: AcademicCalendarPreferences,
+    savedPeriods: List<Period>,
+    saving: Boolean,
+    actions: QingKeAppActions,
+    dark: Boolean,
+    lunchBreakConflict: LunchBreakConflict? = null,
+) {
     val timePicker = remember { TerminalTimePickerState() }
     val calendarUi = rememberAcademicCalendarUiState(calendar.lunchBreak, form.startDate)
     Scaffold(
@@ -347,11 +364,12 @@ fun QingKeAppContent(
                 BrandHeader(dark, code = "SETUP / 00", tag = "onboarding-brand-header")
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp)) {
                     TerminalIntro(dark, onboarding = true)
-                    TerminalSemesterForm("onboarding", form, calendar, calendarUi, dark, actions, timePicker, saving, "创建课表", "INITIALIZE TERMINAL")
+                    TerminalSemesterForm("onboarding", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving, "创建课表", "INITIALIZE TERMINAL")
                 }
             }
             TerminalTimePickerHost(form, dark, actions, timePicker)
             AcademicCalendarTimePickerHost(calendarUi, dark, actions)
+            AcademicCalendarConflictHost(lunchBreakConflict, calendar, calendarUi, dark, actions)
         }
     }
 }
@@ -496,6 +514,7 @@ fun QingKeAppContent(
     consumeCourseSuccess: () -> Unit = {},
     semesterSuccess: String? = null,
     consumeSemesterSuccess: () -> Unit = {},
+    lunchBreakConflict: LunchBreakConflict? = null,
 ) {
     val dark = state.preferences.appearanceMode == AppearanceMode.DARK ||
         (state.preferences.appearanceMode == AppearanceMode.SYSTEM && isSystemInDarkTheme())
@@ -504,7 +523,10 @@ fun QingKeAppContent(
         when (selected) {
             MainTab.TODAY -> TodayScheduleScreen(state, currentTime, actions.refreshTime, actions.openCourseAt, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
             MainTab.SCHEDULE -> WeekScheduleScreen(state, currentTime, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
-            MainTab.SETTINGS -> SemesterSettingsScreen(form, state.preferences.academicCalendar, state.isSaving, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
+            MainTab.SETTINGS -> SemesterSettingsScreen(
+                form, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark,
+                lunchBreakConflict, Modifier.fillMaxSize().padding(bottom = 82.dp),
+            )
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             if (selected == MainTab.TODAY || selected == MainTab.SCHEDULE) {
@@ -592,9 +614,11 @@ fun QingKeAppContent(
 @Composable private fun SemesterSettingsScreen(
     form: SemesterFormState?,
     calendar: AcademicCalendarPreferences,
+    savedPeriods: List<Period>,
     saving: Boolean,
     actions: QingKeAppActions,
     dark: Boolean,
+    lunchBreakConflict: LunchBreakConflict? = null,
     modifier: Modifier = Modifier,
 ) {
     var refreshing by remember { mutableStateOf(false) }
@@ -623,13 +647,14 @@ fun QingKeAppContent(
                         Text("正在准备学期设置…", color = terminalSecondary(dark), modifier = Modifier.padding(top = 12.dp).testTag("settings-pending"))
                         Spacer(Modifier.height(100.dp).testTag("settings-bottom-spacer"))
                     } else if (calendarUi != null) {
-                        TerminalSemesterForm("settings", form, calendar, calendarUi, dark, actions, timePicker, saving, "保存学期设置", "COMMIT CHANGES")
+                        TerminalSemesterForm("settings", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving, "保存学期设置", "COMMIT CHANGES")
                     }
                 }
             }
         }
         form?.let { TerminalTimePickerHost(it, dark, actions, timePicker) }
         calendarUi?.let { AcademicCalendarTimePickerHost(it, dark, actions) }
+        AcademicCalendarConflictHost(lunchBreakConflict, calendar, calendarUi, dark, actions)
     }
 }
 
@@ -870,6 +895,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     form: SemesterFormState,
     calendar: AcademicCalendarPreferences,
     calendarUi: AcademicCalendarUiState,
+    savedPeriods: List<Period>,
     dark: Boolean,
     actions: QingKeAppActions,
     timePicker: TerminalTimePickerState,
@@ -905,7 +931,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
             AddPeriodRow(form.periods.size, actions.addPeriod)
         }
     }
-    AcademicCalendarSection(calendar, calendarUi, prefix, dark, actions)
+    AcademicCalendarSection(calendar, calendarUi, savedPeriods, prefix, dark, actions)
     form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
@@ -978,11 +1004,14 @@ private fun calendarExceptionDateLabel(date: String): String {
 @Composable private fun AcademicCalendarSection(
     calendar: AcademicCalendarPreferences,
     ui: AcademicCalendarUiState,
+    savedPeriods: List<Period>,
     prefix: String,
     dark: Boolean,
     actions: QingKeAppActions,
 ) {
     val dateLabel = ui.selectedDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA))
+    val lunchConflictPeriods = if (!calendar.lunchBreak.isEnabled) emptyList()
+    else lunchBreakOverlappingPeriods(calendar.lunchBreak.startTime, calendar.lunchBreak.endTime, savedPeriods).map { it.number }
     TerminalFormSection(
         "03", "教学日历", "CALENDAR", dark, "$prefix-calendar-section", "$prefix-calendar-panel",
         footer = "停课日优先级最高；调课日可指定按某个星期的课表上课，适用于节假日调休。",
@@ -999,6 +1028,11 @@ private fun calendarExceptionDateLabel(date: String): String {
             if (!ui.lunchBreakRangeIsValid) Text(
                 "午休开始时间必须早于结束时间。", color = Danger, fontSize = 12.sp,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("$prefix-calendar-lunch-error"),
+            )
+            if (lunchConflictPeriods.isNotEmpty()) Text(
+                "午休与第 " + lunchConflictPeriods.joinToString("、") + " 节重叠，节次优先：周课表不会显示午休条。",
+                color = Danger, fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("$prefix-calendar-lunch-conflict-note"),
             )
         }
         TerminalFormDivider(dark, "$prefix-calendar-divider")
@@ -1080,10 +1114,44 @@ private fun calendarExceptionDateLabel(date: String): String {
         onConfirm = {
             val value = ui.lunchPicker.selectedTime()
             if (field == CalendarTimeField.START) ui.lunchStart = value else ui.lunchEnd = value
-            if (ui.lunchBreakRangeIsValid) actions.setLunchBreakTimes(ui.lunchStart, ui.lunchEnd)
+            if (ui.lunchBreakRangeIsValid) actions.requestLunchBreakTimes(ui.lunchStart, ui.lunchEnd)
             ui.lunchPicker.close()
         },
         tagPrefix = "terminal-lunch-time-picker",
+    )
+}
+
+/**
+ * P3-07-R1 one-off warning: a valid lunch range that overlaps a persisted period waits here for an
+ * explicit decision. "返回修改" restores the stored range; "仍然保存" keeps the range and the week
+ * matrix keeps hiding the lunch break row.
+ */
+@Composable private fun AcademicCalendarConflictHost(
+    conflict: LunchBreakConflict?,
+    calendar: AcademicCalendarPreferences,
+    ui: AcademicCalendarUiState?,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) {
+    val value = conflict ?: return
+    TerminalDialog(
+        code = "WARNING / CONFLICT",
+        status = "PERIOD OVERLAP",
+        title = "午休与节次重叠",
+        message = "与第 " + value.periodNumbers.joinToString("、") + " 节时间重叠。节次优先：仍然保存后周课表不会显示该午休条。",
+        confirm = "仍然保存",
+        dismiss = "返回修改",
+        onDismiss = {
+            ui?.let { state ->
+                state.lunchStart = ScheduleRules.parseLocalTime(calendar.lunchBreak.startTime) ?: state.lunchStart
+                state.lunchEnd = ScheduleRules.parseLocalTime(calendar.lunchBreak.endTime) ?: state.lunchEnd
+            }
+            actions.dismissLunchBreakConflict()
+        },
+        onConfirm = actions.confirmLunchBreakConflict,
+        tag = "calendar-lunch-conflict",
+        danger = true,
+        dark = dark,
     )
 }
 
@@ -1620,8 +1688,7 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
     dismiss = if (tag == "course-discard-confirm") "继续编辑" else if (tag == "course-delete-confirm") "取消" else "返回修改", title = title, message = message, confirm = confirm, onConfirm = onConfirm, onDismiss = onDismiss, tag = tag, dark = dark,
 )
 
-@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
-    val danger = code.startsWith("DANGER") || status == "DISCARD CHANGES"
+@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES") = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
     val tone = if (danger) Danger else SignalYellow
     Column(Modifier.padding(24.dp).fillMaxWidth().terminalModalSurface(dark = dark, accent = tone).padding(16.dp).testTag(tag)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = tone, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(tone, androidx.compose.foundation.shape.CircleShape).testTag("$tag-status-dot")) }

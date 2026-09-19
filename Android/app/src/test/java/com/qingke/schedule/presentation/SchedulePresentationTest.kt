@@ -300,8 +300,8 @@ class SchedulePresentationTest {
         listOf(
             LunchBreakSettings(false, "午休", "09:40", "10:00"),
             LunchBreakSettings(true, "午休", "09:30", "10:05"),
-            LunchBreakSettings(true, "午休", "07:00", "07:50"),
-            LunchBreakSettings(true, "午休", "12:00", "13:00"),
+            LunchBreakSettings(true, "午休", "09:00", "08:00"),
+            LunchBreakSettings(true, "午休", "  ", "10:00"),
         ).forEach { settings ->
             assertNull(WeekMatrixPresentation.create(semester(), week.days, AcademicCalendarPreferences(lunchBreak = settings)).scheduleBreak)
         }
@@ -313,6 +313,53 @@ class SchedulePresentationTest {
         assertEquals("MON–SUN / 4 PERIODS", ScheduleDisplayText.weekMatrixSummary(4))
         assertEquals("A101 · 陈老师", ScheduleDisplayText.compactCourseDetails(data.courses.first(), schedule))
         assertEquals("", ScheduleDisplayText.compactCourseDetails(data.courses.first().copy(teacher = ""), schedule.copy(classroom = "")))
+    }
+
+    @Test
+    fun lunchBreakIsPlacedAboveInsideOrBelowThePeriodsAndHiddenOnlyOnOverlap() {
+        val fourPeriods = Semester("semester", "测试", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+            Period(3, "10:00", "10:45"), Period(4, "14:00", "14:45"),
+        ))
+        val singlePeriod = Semester("semester", "测试", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45")))
+        val days = WeekSchedulePresentation.create(1, fourPeriods, emptyList(), LocalDateTime.parse("2026-08-31T09:00")).days
+        fun breakFor(semester: Semester, start: String, end: String, source: List<com.qingke.schedule.presentation.WeekDayPresentation> = days) =
+            WeekMatrixPresentation.create(semester, source, AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(true, "午休", start, end))).scheduleBreak
+
+        assertEquals(WeekMatrixBreak("午休", "07:00", "07:50", 0), breakFor(fourPeriods, "07:00", "07:50"))
+        assertEquals(WeekMatrixBreak("午休", "11:40", "14:00", 3), breakFor(fourPeriods, "11:40", "14:00"))
+        assertEquals(WeekMatrixBreak("午休", "15:00", "16:00", 4), breakFor(fourPeriods, "15:00", "16:00"))
+        assertEquals(WeekMatrixBreak("午休", "09:40", "10:00", 2), breakFor(fourPeriods, "09:40", "10:00"))
+
+        val singleDays = WeekSchedulePresentation.create(1, singlePeriod, emptyList(), LocalDateTime.parse("2026-08-31T09:00")).days
+        assertEquals(WeekMatrixBreak("午休", "07:00", "07:50", 0), breakFor(singlePeriod, "07:00", "07:50", singleDays))
+        assertEquals(WeekMatrixBreak("午休", "09:00", "10:00", 1), breakFor(singlePeriod, "09:00", "10:00", singleDays))
+
+        assertNull("periods win over an overlapping lunch break", breakFor(fourPeriods, "08:30", "09:00"))
+        assertNull(breakFor(singlePeriod, "06:30", "09:00", singleDays))
+        assertNull("an invalid range is never placed", breakFor(fourPeriods, "10:00", "09:00"))
+        assertNull(breakFor(singlePeriod, "10:00", "09:00", singleDays))
+    }
+
+    @Test
+    fun lunchBreakPlacementKeepsPeriodsItemsAndCoursesUntouched() {
+        val semester = Semester("semester", "测试", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+        ))
+        val courses = listOf(Course("course", "第一门", "老师", "#287B74", listOf(CourseSchedule("s1", 1, 1, 2, 1, 18, RepeatRule.EVERY, "A101"))))
+        val week = WeekSchedulePresentation.create(1, semester, courses, LocalDateTime.parse("2026-08-31T09:00"))
+        val above = WeekMatrixPresentation.create(semester, week.days, AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(true, "午休", "07:00", "07:50")))
+        val below = WeekMatrixPresentation.create(semester, week.days, AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(true, "午休", "11:40", "14:00")))
+        val touching = WeekMatrixPresentation.create(semester, week.days, AcademicCalendarPreferences(lunchBreak = LunchBreakSettings(true, "午休", "09:40", "10:00")))
+
+        assertEquals(listOf(1, 2), above.periods.map { it.number })
+        assertEquals(above.periods, below.periods)
+        assertEquals(above.items, below.items)
+        assertEquals(above.items, touching.items)
+        assertEquals(listOf(0), above.items.map { it.startRow })
+        assertEquals(listOf(2), above.items.map { it.rowSpan })
+        assertEquals(0, above.scheduleBreak!!.insertionRow)
+        assertEquals(2, below.scheduleBreak!!.insertionRow)
     }
 
     @Test

@@ -544,19 +544,76 @@ class ScheduleViewModelTest {
         val model = ScheduleViewModel(appState(FakeScheduleRepository(), preferences), idFactory = ids())
         advanceUntilIdle()
 
-        model.setLunchBreakTimes(LocalTime.of(14, 0), LocalTime.of(11, 40))
-        model.setLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(12, 0))
+        model.requestLunchBreakTimes(LocalTime.of(14, 0), LocalTime.of(11, 40))
+        model.requestLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(12, 0))
         advanceUntilIdle()
         assertEquals(0, preferences.updateCalls)
         assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
 
-        model.setLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(13, 30))
+        model.requestLunchBreakTimes(LocalTime.of(12, 0), LocalTime.of(13, 30))
         advanceUntilIdle()
         assertEquals(1, preferences.updateCalls)
         assertEquals("12:00", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
         assertEquals("13:30", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
         assertEquals("午休", model.state.value.preferences.academicCalendar.lunchBreak.title)
         assertTrue(model.state.value.preferences.academicCalendar.lunchBreak.isEnabled)
+    }
+
+    @Test
+    fun conflictingLunchRangeWaitsForOneConfirmationBeforeWriting() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 30), LocalTime.of(9, 0))
+        advanceUntilIdle()
+        assertEquals(0, preferences.updateCalls)
+        assertEquals(LunchBreakConflict("08:30", "09:00", listOf(1, 2)), model.lunchBreakConflict.value)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+        assertEquals(1, preferences.updateCalls)
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals("08:30", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertEquals("09:00", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
+        assertTrue(model.state.value.preferences.academicCalendar.lunchBreak.isEnabled)
+    }
+
+    @Test
+    fun dismissedLunchBreakConflictWritesNothingAndClearsTheWarning() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(8, 0), LocalTime.of(10, 0))
+        advanceUntilIdle()
+        assertNotNull(model.lunchBreakConflict.value)
+
+        model.dismissLunchBreakConfirmation()
+        model.confirmLunchBreakDespiteConflicts()
+        advanceUntilIdle()
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals(0, preferences.updateCalls)
+        assertEquals(LunchBreakSettings.defaults, model.state.value.preferences.academicCalendar.lunchBreak)
+    }
+
+    @Test
+    fun lunchRangeTouchingPeriodEdgesIsWrittenWithoutAConflict() = runTest {
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, testSemester(), emptyList(), "now") }
+        val preferences = FakePreferencesRepository()
+        val model = ScheduleViewModel(appState(repository, preferences), idFactory = ids())
+        advanceUntilIdle()
+
+        model.requestLunchBreakTimes(LocalTime.of(9, 40), LocalTime.of(10, 0))
+        advanceUntilIdle()
+
+        assertNull(model.lunchBreakConflict.value)
+        assertEquals(1, preferences.updateCalls)
+        assertEquals("09:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        assertEquals("10:00", model.state.value.preferences.academicCalendar.lunchBreak.endTime)
     }
 
     @Test

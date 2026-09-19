@@ -10,6 +10,7 @@ import com.qingke.schedule.domain.OccurrenceKey
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.ScheduleRules
 import com.qingke.schedule.domain.Semester
+import com.qingke.schedule.domain.lunchBreakOverlappingPeriods
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.LunchBreakSettings
 import java.text.Collator
@@ -236,18 +237,21 @@ data class WeekMatrixPresentation(
             }
         }
 
+        /**
+         * Periods win: when the break overlaps a period the row stays hidden (current iOS baseline).
+         * Otherwise the row is always placed: above every period (0), inside the matching gap, or
+         * below every period (periods.size) — a later anchor period is no longer required.
+         */
         private fun makeBreak(settings: LunchBreakSettings, periods: List<Period>): WeekMatrixBreak? {
             if (!settings.isEnabled) return null
-            val start = ScheduleRules.minutes(settings.startTime) ?: return null
+            if (!LunchBreakSettings.isValidRange(settings.startTime, settings.endTime)) return null
             val end = ScheduleRules.minutes(settings.endTime) ?: return null
-            if (start >= end) return null
+            if (lunchBreakOverlappingPeriods(settings.startTime, settings.endTime, periods).isNotEmpty()) return null
             val insertion = periods.indexOfFirst { period ->
                 (ScheduleRules.minutes(period.startTime) ?: Int.MIN_VALUE) >= end
             }
-            if (insertion <= 0) return null
-            val previousEnd = ScheduleRules.minutes(periods[insertion - 1].endTime) ?: return null
-            if (previousEnd > start) return null
-            return WeekMatrixBreak(settings.title, settings.startTime, settings.endTime, insertion)
+            val insertionRow = if (insertion < 0) periods.size else insertion
+            return WeekMatrixBreak(settings.title, settings.startTime, settings.endTime, insertionRow)
         }
     }
 

@@ -1,6 +1,21 @@
 # 安卓项目当前交接状态
 
-## P3-07-R1 午休显示修正已授权，之后另做 P3-06-R7 节次级联确认（最新，2026-09-19）
+## P3-07-R1 午休显示修正已实施并自测，等待 Sol 独立复审与用户视觉验收（最新，2026-09-19）
+
+用户已确认 P3-07／A07 的视觉风格验收通过，同时确认了 P3-07-R1 的产品规则并授权原 DeepSeek 执行窗口实施 R1。本轮由当前窗口（原 P3-07 执行窗口）完成实施与自测，未创建新窗口或子 Agent，未实施 P3-06-R7；实际服务、模型标识与思考参数未核实（工具不能读取）。
+
+- 当前基准：分支 `Android`，开始基准 `b9a0af9`（`docs(android): authorize calendar and period corrections`，已推送 `origin/Android`）。只新增本次修正提交，未改写历史、未强推、未合并 `main`；本次提交号见交付消息或 `git log`（本文档不自引用尚未产生的提交号）。
+- 修正 1（午休放置，规则 2 与 3）：`WeekMatrixPresentation.makeBreak` 原先要求「午休后仍有节次」作为锚点（`insertion <= 0` 直接返回 null），导致只剩午休前节次或午休位于全部节次之前时错误隐藏。现在：范围非法 → 不显示；与任一节次重叠 → 不显示（节次优先，保持当前 iOS 基准）；否则按第一个「开始时间 ≥ 午休结束」的节次定位，没有该节次时 `insertionRow = periods.size`（矩阵底部），该节次是第一个时 `insertionRow = 0`（矩阵顶部），其余落在对应间隙。放置逻辑不改变课程、节次或停课规则。
+- 修正 2（冲突判定与共享规则）：`domain/AcademicCalendarRules.kt` 新增纯函数 `lunchBreakOverlappingPeriods`，周表隐藏判定与设置页冲突判定共用同一实现，避免两处漂移；相接不算重叠（节次结束等于午休开始、节次开始等于午休结束均允许邻接）。
+- 修正 3（确认前一次红色警告，规则 1）：`ScheduleViewModel` 把 `setLunchBreakTimes` 改为 `requestLunchBreakTimes`——无冲突直接经 `updatePreferences` 原子写入；与已持久化节次冲突时进入一次性 `LunchBreakConflict` 状态而不写入，并提供 `confirmLunchBreakDespiteConflicts`（仍然保存）与 `dismissLunchBreakConfirmation`（返回修改，不写入）。UI 新增 `AcademicCalendarConflictHost`，复用课程 ADD 冲突框的 `TerminalDialog` 结构与文案层级并使用红色 danger 色调（`TerminalDialog` 新增显式 `danger` 参数，默认表达式与既有调用完全一致），列明受影响节次并提供「返回修改」／「仍然保存」；返回修改会把显示恢复到已存时间；仍然保存后「03 教学日历」区持续显示「午休与第 N 节重叠，节次优先：周课表不会显示午休条。」。不提供「今日不再提醒」。
+- 边界：未修改 iOS、Web、Room schema、共享 JSON schema／版本 1、`main`；未实施 A08／A10／A11；未处理节次删除后的课程级联（P3-06-R7，另行独立提交与复审）。冲突判定以已持久化节次为准（周课表展示的就是持久化节次），因此首次设置在保存学期前不会弹冲突框，保存后若仍冲突会在设置区显示提示。
+- 测试：JVM 新增 6 项（`AcademicCalendarRulesTest` 1 项覆盖相接不重叠、多节次相交、非法范围与坏节次时间；`SchedulePresentationTest` 2 项覆盖 4 节次与单节次下的顶部／间隙／末尾／重叠／非法与放置不改变节次课程；`ScheduleViewModelTest` 3 项覆盖冲突进入确认、返回修改不写入、相邻不算冲突直接写入）。既有 `matrixLunchBreakAndDisplayTextKeepPresentationOnlyRules` 中原先断言「07:00–07:50 与 12:00–13:00 应隐藏」的两项按新规则改为显式断言顶部（0）与末尾（periods.size），并补入非法范围仍不显示。设备端新增 3 项：红色警告框视觉与「返回修改」「仍然保存」两条回调路径、真实 ViewModel 下返回修改不写入／仍然保存写入并显示提示／周表隐藏午休条且节次仍在、单节次下午休在节次前／后／重叠的周表显示。
+- 验证结果：工作区 `./gradlew -Duser.home=… testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` BUILD SUCCESSFUL，Debug／Release JVM 各 **127 tests、0 failures／errors／skipped**，`lintDebug` **0 errors、20 warnings**（既有警告未新增）；API 37 ARM64 AVD（emulator-5554）`connectedDebugAndroidTest` **107 tests、0 failures／errors／skipped**（上一次基线 104 + 本轮 3）。文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 均通过。
+- 证据：新建 `docs/Android/evidence/p3-07-r1-lunch-break/`（不覆盖 A07 与 R2—R6 历史证据），6 张真实 debug 入口截图（周表午休在间隙／全部节次前／全部节次后、红色冲突警告框、仍然保存后的持续提示、冲突下隐藏午休条）与逐张像素＋节点核对结论见该目录 README，节点 bounds 见 `node-verification-20260919.txt`，命令与设备记录见 `host-and-device-verification-20260919.txt`。关键量化：三张周表青色条带 3.1%／2.7%／2.8%，冲突隐藏态 0.0%；冲突框含 2.9% 危险红且无信号黄。
+- 已知限制：本窗口无图形界面，截图检查为程序化核对（像素分类渲染 + uiautomator 节点／bounds），红色警告框与提示文案的观感仍须用户验收；`TerminalDialog` 按钮沿用既有 46dp 最小高度（与已验收的 ADD 冲突框一致），本轮未改动该共享视觉；设备按项目基准 `1080x2400`／420dpi 验证（AVD 原生 1080x1920）；沙箱要求 `GRADLE_USER_HOME`／`HOME`／`TMPDIR` 指向 /tmp 并使用 `-Duser.home`。
+- 准确状态：**R1 已实现、已测试；Sol 独立复审与用户视觉验收均未进行，不得写成已复审或已验收**。P3-06-R7 尚未实施；A08／A10／A11、整个 P3 与完整 App 仍未验收。
+
+## P3-07-R1 午休显示修正已授权，之后另做 P3-06-R7 节次级联确认（历史，2026-09-19）
 
 用户已确认 P3-07／A07 的视觉风格验收通过，但实际使用发现两项新的功能边界，因此不能把 A07 或相关设置功能写成整体无问题。Sol 已完成只读定位，未修改应用代码。
 

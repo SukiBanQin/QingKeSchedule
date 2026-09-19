@@ -64,6 +64,23 @@ fun AcademicCalendarPreferences.withWeekendsAreNonTeachingDays(enabled: Boolean)
 fun AcademicCalendarPreferences.withLunchBreakEnabled(enabled: Boolean): AcademicCalendarPreferences =
     copy(lunchBreak = lunchBreak.copy(isEnabled = enabled)).normalized()
 
+/**
+ * Periods whose time range intersects the lunch break range. Periods win: the week matrix hides the
+ * lunch break row whenever this list is not empty, and the settings page warns before saving it.
+ * Touching ranges (a period ending exactly when the break starts, or starting exactly when it ends)
+ * do not count as an overlap, so the break may sit in a gap, above all periods or below all of them.
+ */
+fun lunchBreakOverlappingPeriods(startTime: String, endTime: String, periods: List<Period>): List<Period> {
+    val start = ScheduleRules.minutes(startTime) ?: return emptyList()
+    val end = ScheduleRules.minutes(endTime) ?: return emptyList()
+    if (start >= end) return emptyList()
+    return periods.filter { period ->
+        val periodStart = ScheduleRules.minutes(period.startTime) ?: return@filter false
+        val periodEnd = ScheduleRules.minutes(period.endTime) ?: return@filter false
+        periodStart < end && start < periodEnd
+    }
+}
+
 /** Matches iOS `setLunchBreak`: a range that is not start < end is rejected and never persisted. */
 fun AcademicCalendarPreferences.withLunchBreakTimes(startTime: String, endTime: String): AcademicCalendarPreferences? {
     if (!LunchBreakSettings.isValidRange(startTime, endTime)) return null

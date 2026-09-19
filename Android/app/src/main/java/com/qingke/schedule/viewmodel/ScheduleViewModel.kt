@@ -12,6 +12,7 @@ import com.qingke.schedule.domain.withLunchBreakEnabled
 import com.qingke.schedule.domain.withLunchBreakTimes
 import com.qingke.schedule.domain.withMakeupTeachingDay
 import com.qingke.schedule.domain.withNonTeachingDate
+import com.qingke.schedule.domain.lunchBreakOverlappingPeriods
 import com.qingke.schedule.domain.withWeekendsAreNonTeachingDays
 import com.qingke.schedule.domain.withoutMakeupTeachingDay
 import com.qingke.schedule.domain.withoutNonTeachingDate
@@ -46,6 +47,13 @@ data class SemesterFormState(
 )
 
 enum class CourseEditorMode { CHOOSER, CREATE, EDIT, APPEND }
+
+/** P3-07-R1: a valid lunch range that overlaps persisted periods waits for one explicit confirmation. */
+data class LunchBreakConflict(
+    val startTime: String,
+    val endTime: String,
+    val periodNumbers: List<Int>,
+)
 
 data class CourseScheduleFormState(
     val id: String, val dayOfWeek: Int, val startPeriod: Int, val endPeriod: Int,
@@ -96,6 +104,8 @@ class ScheduleViewModel(
     val courseSuccess: StateFlow<String?> = mutableCourseSuccess.asStateFlow()
     private val mutableSemesterSuccess = MutableStateFlow<String?>(null)
     val semesterSuccess: StateFlow<String?> = mutableSemesterSuccess.asStateFlow()
+    private val mutableLunchBreakConflict = MutableStateFlow<LunchBreakConflict?>(null)
+    val lunchBreakConflict: StateFlow<LunchBreakConflict?> = mutableLunchBreakConflict.asStateFlow()
     private var courseDraft: CourseDraft? = null
     private var editorSourceIndex: Int? = null
     private var editorFingerprint: Course? = null
@@ -194,12 +204,32 @@ class ScheduleViewModel(
 
     fun setLunchBreakEnabled(enabled: Boolean) = updateCalendar { it.withLunchBreakEnabled(enabled) }
 
-    /** Matches iOS: a range whose start is not earlier than its end is rejected and nothing is written. */
-    fun setLunchBreakTimes(startTime: LocalTime, endTime: LocalTime) {
+    /**
+     * P3-07-R1: a range whose start is not earlier than its end is rejected without writing. A valid
+     * range that overlaps a persisted period is not written yet either: it is held for the one-off red
+     * warning (periods win, so the week matrix will keep hiding the lunch break row).
+     */
+    fun requestLunchBreakTimes(startTime: LocalTime, endTime: LocalTime) {
         val start = startTime.toString()
         val end = endTime.toString()
         if (!LunchBreakSettings.isValidRange(start, end)) return
-        updateCalendar { it.withLunchBreakTimes(start, end) ?: it }
+        val overlapping = lunchBreakOverlappingPeriods(start, end, state.value.data.semester?.periods.orEmpty())
+        if (overlapping.isEmpty()) {
+            updateCalendar { it.withLunchBreakTimes(start, end) ?: it }
+            return
+        }
+        mutableLunchBreakConflict.value = LunchBreakConflict(start, end, overlapping.map { it.number }.sorted())
+    }
+
+    fun confirmLunchBreakDespiteConflicts() {
+        val conflict = mutableLunchBreakConflict.value ?: return
+        mutableLunchBreakConflict.value = null
+        updateCalendar { it.withLunchBreakTimes(conflict.startTime, conflict.endTime) ?: it }
+    }
+
+    /** "返回修改": the conflicting range is dropped and the stored lunch break stays unchanged. */
+    fun dismissLunchBreakConfirmation() {
+        mutableLunchBreakConflict.value = null
     }
 
     private fun updateCalendar(transform: (AcademicCalendarPreferences) -> AcademicCalendarPreferences) {

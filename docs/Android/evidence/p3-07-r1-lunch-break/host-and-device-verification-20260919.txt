@@ -1,0 +1,65 @@
+P3-07-R1 午休显示修正 主机与设备验证记录（2026-09-19）
+
+一、主机环境与本窗口限制
+
+- 工作区：/Users/takagisan/课表软件，分支 Android，开始基准 b9a0af9（与 origin/Android 一致，工作区干净）。
+- JDK 17（ms-17.0.20.1），Android SDK /Users/takagisan/Library/Android/sdk-qingke-api37。
+- 本窗口以普通用户 takagisan 运行，DSH 文件沙箱只允许写工作区与 /tmp，因此：GRADLE_USER_HOME=/tmp/qingke-gradle、HOME=/tmp/qingke-userhome 且 -Duser.home=/tmp/qingke-userhome、ANDROID_USER_HOME=/tmp/qingke-android-home、TMPDIR=/tmp/qingke-tmp、-Djava.io.tmpdir、-Dorg.sqlite.tmpdir。工作区路径含中文：若 Kotlin daemon 不可用而回退到 in-process，KGP 的 *.compiler.options 非 ASCII 转义不会被还原，会出现 “source file or directory not found: .../u8BFEu8868u8F6Fu4EF6/...” 的假编译错误；设置 -Duser.home 让 daemon 正常工作后该问题不出现（本轮全部构建直接在工作区执行）。
+- 本窗口未修改 iOS、Web、Room schema、共享协议或 main；也未实施 P3-06-R7 节次级联确认。
+
+二、本轮实际修改范围
+
+- 生产代码：
+  * Android/app/src/main/java/com/qingke/schedule/domain/AcademicCalendarRules.kt：新增 lunchBreakOverlappingPeriods（相接不算重叠）。
+  * Android/app/src/main/java/com/qingke/schedule/presentation/SchedulePresentation.kt：WeekMatrixPresentation.makeBreak 改为「先判合法区间、再判与任何节次重叠则隐藏，否则按第一个 start >= 午休结束的节次定位；没有该节次则放矩阵末尾（insertionRow = periods.size），该节次是第一个则放矩阵顶部（0）」。
+  * Android/app/src/main/java/com/qingke/schedule/viewmodel/ScheduleViewModel.kt：LunchBreakConflict 数据类与 lunchBreakConflict StateFlow；requestLunchBreakTimes（无冲突直接写入、冲突进入一次性确认）、confirmLunchBreakDespiteConflicts、dismissLunchBreakConfirmation。
+  * Android/app/src/main/java/com/qingke/schedule/ui/QingKeApp.kt：TerminalDialog 增加显式 danger 参数（默认表达式与既有行为一致）；新增 AcademicCalendarConflictHost；03 教学日历区显示持续冲突提示并改走 requestLunchBreakTimes；首次设置与正式设置都传入已持久化节次用于冲突判定与提示。
+  * Android/app/src/main/java/com/qingke/schedule/ui/AcademicCalendarUiState.kt：未改。
+- 测试：JVM +6（domain 1、presentation 2、viewmodel 3）；设备端 +3（红色警告框与两个按钮回调、真实 ViewModel 下「返回修改不写入／仍然保存写入并显示提示／周表隐藏午休条」、单节次下午休在节次前／后／重叠的周表显示）。既有 matrixLunchBreakAndDisplayTextKeepPresentationOnlyRules 中原先断言「07:00–07:50 与 12:00–13:00 隐藏」的两项按新规则改为显式断言顶部与末尾位置（该断言正是本次修正的缺陷点），并补入非法范围仍不显示。
+
+三、主机侧命令与结果（在 /Users/takagisan/课表软件/Android 执行）
+
+命令（等价形式，环境变量如上）：
+  ./gradlew -Duser.home=/tmp/qingke-userhome -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp \
+    testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --console=plain
+
+结果：
+  BUILD SUCCESSFUL（26s）
+  testDebugUnitTest   : 127 tests, 0 failures, 0 errors, 0 skipped
+  testReleaseUnitTest : 127 tests, 0 failures, 0 errors, 0 skipped
+  assembleDebug / assembleRelease / assembleDebugAndroidTest : 通过
+  lintDebug           : 0 errors, 20 warnings（与上一次基线相同的既有警告，未新增）
+
+本轮新增 JVM 用例：
+  domain/AcademicCalendarRulesTest.lunchBreakOverlapTreatsTouchingPeriodsAsSeparatedAndListsEveryIntersection（相接不重叠、多个相交节次、非法/格式错误范围与坏节次时间）
+  presentation/SchedulePresentationTest.lunchBreakIsPlacedAboveInsideOrBelowThePeriodsAndHiddenOnlyOnOverlap（4 节与单节次下的顶部／间隙／末尾／重叠／非法）
+  presentation/SchedulePresentationTest.lunchBreakPlacementKeepsPeriodsItemsAndCoursesUntouched（放置不改变节次、课程排布与行跨度）
+  viewmodel/ScheduleViewModelTest.conflictingLunchRangeWaitsForOneConfirmationBeforeWriting
+  viewmodel/ScheduleViewModelTest.dismissedLunchBreakConflictWritesNothingAndClearsTheWarning
+  viewmodel/ScheduleViewModelTest.lunchRangeTouchingPeriodEdgesIsWrittenWithoutAConflict
+
+四、设备侧
+
+- 设备复用当时已在运行的 API 37 ARM64 AVD qingke-api37-r3-arm（emulator-5554），未另起模拟器；统一设置为 wm size 1080x2400（Override，与项目已记录的 API 37 视觉基准一致）、wm density 420、font_scale 1.0、浅色。
+- 命令：./gradlew ... connectedDebugAndroidTest
+  定向 QingKeAppTest：75 tests、0 failures（含本轮新增 3 项）
+  全量 connectedDebugAndroidTest：BUILD SUCCESSFUL，tests 107, failures 0, errors 0, skipped 0（上一次基线 104，本轮 +3）
+
+五、截图
+
+- 共 6 张：周课表午休在间隙／全部节次之前／全部节次之后、红色冲突警告框、仍然保存后的持续提示、冲突下隐藏午休条的周课表。
+- 每张截图对应状态的可见节点与 bounds：node-verification-20260919.txt（uiautomator dump + 关键字过滤）。
+- 检查方式：像素分类渲染（深／浅／青／信号黄／危险红与墨迹占比）+ 节点文本、内容描述与 bounds 核对。关键量化结论：三张周表的青色条带分别 3.1%／2.7%／2.8%，冲突隐藏态为 0.0%；冲突框含 2.9% 危险红且无信号黄；提示态含 0.2% 危险红。本窗口无图形界面，未做人眼观感确认，用户视觉验收仍需完成。
+
+六、文档与仓库验证（仓库根目录）
+
+  python3 docs/tests/android-documentation.test.py   → Ran 71 tests, OK
+  bash docs/tests/documentation.test.sh              → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh          → Repository layout tests passed.
+  git diff --check                                   → 无空白错误
+
+七、结束时状态
+
+- 设备恢复为 AVD 默认窗口与密度（wm size/density reset）、font_scale 1.0、浅色，应用已 force-stop；未停止用户已有的模拟器进程。
+- 未提交构建产物；工作区只保留本任务源码、测试与文档改动。
+- 本轮未创建新窗口或子 Agent；实际服务、模型标识与思考参数未核实（工具无法读取）。

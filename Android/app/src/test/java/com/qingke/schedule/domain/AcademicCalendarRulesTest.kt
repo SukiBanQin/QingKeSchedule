@@ -149,6 +149,28 @@ class AcademicCalendarRulesTest {
     }
 
     @Test
+    fun lunchBreakOverlapTreatsTouchingPeriodsAsSeparatedAndListsEveryIntersection() {
+        val periods = listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+            Period(3, "10:00", "10:45"), Period(4, "14:00", "14:45"),
+        )
+
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("09:40", "10:00", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("07:00", "07:50", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("15:00", "16:00", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("11:40", "14:00", periods))
+        assertEquals(listOf(2, 3), lunchBreakOverlappingPeriods("09:30", "10:05", periods).map { it.number })
+        assertEquals(listOf(1, 2), lunchBreakOverlappingPeriods("08:30", "09:00", periods).map { it.number })
+        assertEquals(listOf(4), lunchBreakOverlappingPeriods("14:00", "14:45", periods).map { it.number })
+        assertEquals(listOf(4), lunchBreakOverlappingPeriods("13:30", "23:00", periods).map { it.number })
+
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("09:00", "08:00", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("9:00", "10:00", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("09:00", "24:00", periods))
+        assertEquals(emptyList<Period>(), lunchBreakOverlappingPeriods("09:00", "10:00", listOf(Period(1, "bad", "08:45"))))
+    }
+
+    @Test
     fun normalizedCalendarIsIndependentFromResolutionCallers() {
         val calendar = AcademicCalendarPreferences(weekendsAreNonTeachingDays = true).normalized()
         assertEquals(AcademicDayResolution.NonTeachingDay("周末默认停课"), AcademicCalendarResolver.resolve(date("2026-09-05"), calendar))

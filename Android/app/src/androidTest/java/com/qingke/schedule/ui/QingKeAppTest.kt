@@ -80,6 +80,7 @@ import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseScheduleFormState
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
+import com.qingke.schedule.viewmodel.LunchBreakConflict
 import com.qingke.schedule.viewmodel.ScheduleViewModel
 import java.time.LocalDate
 import java.time.LocalTime
@@ -1559,7 +1560,7 @@ class QingKeAppTest {
         rule.setContent {
             QingKeAppContent(calendarState(calendar), existingForm(), MainTab.SETTINGS, QingKeAppActions(
                 setLunchBreakEnabled = { calendar = calendar.withLunchBreakEnabled(it) },
-                setLunchBreakTimes = { start, end -> writes += start to end; calendar = calendar.withLunchBreakTimes(start.toString(), end.toString()) ?: calendar },
+                requestLunchBreakTimes = { start, end -> writes += start to end; calendar = calendar.withLunchBreakTimes(start.toString(), end.toString()) ?: calendar },
             ))
         }
         rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
@@ -1653,6 +1654,116 @@ class QingKeAppTest {
         assertCyanRail("settings-calendar-panel")
     }
 
+    @Test fun lunchBreakConflictDialogUsesTheRedTerminalVisualAndRoutesBothDecisions() {
+        var conflict by mutableStateOf<LunchBreakConflict?>(LunchBreakConflict("09:30", "10:05", listOf(1, 2)))
+        var dismissals = 0
+        var confirms = 0
+        rule.setContent {
+            QingKeAppContent(
+                calendarState(AcademicCalendarPreferences()),
+                existingForm(), MainTab.SETTINGS,
+                QingKeAppActions(
+                    dismissLunchBreakConflict = { dismissals++; conflict = null },
+                    confirmLunchBreakConflict = { confirms++; conflict = null },
+                ),
+                lunchBreakConflict = conflict,
+            )
+        }
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        rule.onNodeWithTag("calendar-lunch-conflict-code", useUnmergedTree = true).assertTextContains("WARNING / CONFLICT")
+        rule.onNodeWithTag("calendar-lunch-conflict-status", useUnmergedTree = true).assertTextContains("PERIOD OVERLAP")
+        rule.onNodeWithText("午休与节次重叠").assertIsDisplayed()
+        rule.onNodeWithText("与第 1、2 节时间重叠", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("周课表不会显示该午休条", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("terminal-dialog-dismiss").assertTextContains("返回修改")
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").assertTextContains("仍然保存")
+        assertDangerFilled("calendar-lunch-conflict-status")
+        listOf("terminal-dialog-dismiss", "calendar-lunch-conflict-confirm").forEach { tag ->
+            val bounds = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+            val minimum = with(rule.density) { 46.dp.toPx() }
+            assertTrue(tag + " keeps the shared terminal dialog height, bounds=" + bounds, bounds.height >= minimum)
+        }
+
+        rule.onNodeWithTag("terminal-dialog-dismiss").performClick(); rule.waitForIdle()
+        assertEquals(1, dismissals); assertEquals(0, confirms)
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+
+        conflict = LunchBreakConflict("09:30", "10:05", listOf(1, 2)); rule.waitForIdle()
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick(); rule.waitForIdle()
+        assertEquals(1, dismissals); assertEquals(1, confirms)
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+    }
+
+    @Test fun conflictingLunchBreakNeedsConfirmationAndKeepsTheWeekWarningAfterSaving() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+        ))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val preferences = HostPreferencesRepository()
+        val model = ScheduleViewModel(ScheduleAppState(repository, preferences), { LocalDateTime.parse("2026-09-05T09:00") }, { "id" })
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        // P3-07-R1: with only periods before the break the row must stay visible (bottom of the matrix).
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("week-lunch-break").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("week-lunch-break-title").assertTextContains("午休")
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-08").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-minute-30").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("calendar-lunch-conflict").assertIsDisplayed()
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        rule.onNodeWithTag("terminal-dialog-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("calendar-lunch-conflict").assertCountEquals(0)
+        assertEquals("11:40", model.state.value.preferences.academicCalendar.lunchBreak.startTime)
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().assertTextContains("11:40")
+
+        rule.onNodeWithTag("settings-calendar-lunch-start").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-hour-08").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-minute-30").performScrollTo().performClick()
+        rule.onNodeWithTag("terminal-lunch-time-picker-confirm").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("calendar-lunch-conflict-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.preferences.academicCalendar.lunchBreak.startTime == "08:30" }
+        rule.onNodeWithTag("settings-calendar-lunch-conflict-note").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-calendar-lunch-conflict-note").assertTextContains("周课表不会显示午休条", substring = true)
+        rule.onNodeWithTag("settings-calendar-lunch-conflict-note").assertTextContains("第 1、2 节", substring = true)
+        rule.onNodeWithTag("settings-calendar-lunch-conflict-note").assertTextContains("节次优先", substring = true)
+
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+        rule.onNodeWithTag("week-period-1").assertIsDisplayed()
+    }
+
+    @Test fun weekLunchBreakIsPlacedAboveAndBelowTheOnlyPeriodAndHiddenOnOverlap() {
+        var lunch by mutableStateOf(LunchBreakSettings(true, "午休", "07:00", "07:50"))
+        rule.setContent {
+            QingKeAppContent(
+                singlePeriodWeekState(lunch), null, MainTab.SCHEDULE, QingKeAppActions(),
+                LocalDateTime.parse("2026-08-31T09:00"),
+            )
+        }
+        rule.onNodeWithTag("week-lunch-break").performScrollTo().assertIsDisplayed()
+        assertTrue("break above the only period", rule.onNodeWithTag("week-lunch-break").getUnclippedBoundsInRoot().top < rule.onNodeWithTag("week-period-1").getUnclippedBoundsInRoot().top)
+
+        lunch = LunchBreakSettings(true, "午休", "09:00", "10:00"); rule.waitForIdle()
+        rule.onNodeWithTag("week-lunch-break").performScrollTo().assertIsDisplayed()
+        assertTrue("break below the only period", rule.onNodeWithTag("week-lunch-break").getUnclippedBoundsInRoot().top > rule.onNodeWithTag("week-period-1").getUnclippedBoundsInRoot().bottom)
+
+        lunch = LunchBreakSettings(true, "午休", "08:30", "09:00"); rule.waitForIdle()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+        rule.onNodeWithTag("week-period-1").assertIsDisplayed()
+
+        lunch = LunchBreakSettings(true, "午休", "10:00", "09:00"); rule.waitForIdle()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+        lunch = LunchBreakSettings(false, "午休", "07:00", "07:50"); rule.waitForIdle()
+        rule.onAllNodesWithTag("week-lunch-break").assertCountEquals(0)
+    }
+
     @Test fun calendarEditsFlowIntoTodayAndWeekImmediately() {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
             Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
@@ -1708,6 +1819,27 @@ class QingKeAppTest {
         override suspend fun load(): SchedulePreferences = stored
         override suspend fun save(preferences: SchedulePreferences): SchedulePreferences = preferences.also { stored = it }
         override suspend fun update(transform: (SchedulePreferences) -> SchedulePreferences): SchedulePreferences = save(transform(stored))
+    }
+
+    private fun singlePeriodWeekState(lunch: LunchBreakSettings): ScheduleState {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45")))
+        return ScheduleState(
+            data = ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"),
+            preferences = SchedulePreferences.defaults.copy(academicCalendar = AcademicCalendarPreferences(lunchBreak = lunch)),
+            loadStatus = LoadStatus.READY,
+        )
+    }
+
+    private fun assertDangerFilled(tag: String) {
+        val bitmap = rule.onNodeWithTag(tag, useUnmergedTree = true).captureToImage().asAndroidBitmap()
+        var red = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                val pixel = bitmap.getPixel(x, y)
+                if ((pixel shr 16 and 0xff) >= 180 && (pixel shr 8 and 0xff) <= 130 && (pixel and 0xff) <= 130) red++
+            }
+        }
+        assertTrue(tag + " must paint the danger tone, redPixels=" + red, red >= 100)
     }
 
     private fun calendarState(calendar: AcademicCalendarPreferences) =
