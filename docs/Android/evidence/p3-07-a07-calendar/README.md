@@ -29,7 +29,7 @@
 | `a07-today-stop-dark.png` | 把今天设为停课日后的今日页（深色） | 今日空状态卡片（青色 STANDBY 标签与青色竖线）显示 `已设为停课日，今日不显示课程。`，ADD 与底部标签栏可见；说明设置立即驱动今日页 |
 | `a07-week-lunch-break-light.png` | 周课表矩阵（浅色，默认午休 11:40–14:00） | 矩阵中红色分隔带位置出现午休横条，节点 `午休，11:40到14:00` bounds=[74,424][1006,503] 横跨全宽；矩阵表头、时间列、行线与其他课程行不受影响 |
 | `a07-calendar-narrow-320.png` | 窄屏 720x1280@320（浅色，滚动到 03 区） | 全部控件在屏内（x ≤ 652），开关行 104px、时间单元 96px（= 48dp 触控高度）无横向裁切；面板青色竖线存在 |
-| `a07-calendar-font130.png` | 字体比例 1.3（浅色，滚动到 03 区） | 标题、开关、模式按钮、日期行与黄色添加按钮均可见且未截断；文本放大后仍保持在面板内 |
+| `a07-calendar-font130.png` | 字体比例 1.3（浅色，滚动到 03 区） | 主体开关、模式按钮、日期行与黄色添加按钮无横向截断，文本放大后仍保持在面板内；由于截图处于滚动位置，「03 教学日历」标题上沿位于视口裁切边界，不能用本图证明标题完整显示 |
 
 已知取舍：窄屏与 130% 两张截图的黄色添加按钮位于屏幕下缘附近（可继续滚动），不是裁切缺陷。
 
@@ -37,4 +37,6 @@
 
 完整命令、结果与设备记录见 `host-and-device-verification-20260919.txt`。摘要：Debug／Release JVM 各 121 tests、0 failures／errors／skipped；`connectedDebugAndroidTest` 104 tests、0 failures／errors／skipped；`lintDebug` 0 errors、20 warnings；`assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 通过；文档验证 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
 
-限制：本次只完成实现与自测，**Sol 独立复审与用户视觉验收均未进行**；截图检查为程序化核对，不能替代用户观感验收；A08／A10／A11 与整套 P3 仍未完成。
+Sol 已对 `05248f2..53a74d5` 完成独立技术复审，结论为通过、无阻断项，详见 [`p3-07-review.md`](../../p3-07-review.md)。审查复核了完整 diff、测试报告、节点记录和 9 张截图，并修正了上方 130% 截图的证据表述。
+
+限制：**用户视觉验收尚未进行**；程序化核对与 Sol 的截图审查不能替代用户观感验收；A08／A10／A11 与整套 P3 仍未完成。
