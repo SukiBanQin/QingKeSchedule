@@ -1164,6 +1164,25 @@ class ScheduleViewModelTest {
         assertEquals(listOf(1, 2), repository.saved!!.periods.map { it.number })
     }
 
+    @Test fun sparsePeriodNumbersNearTheIntLimitSaveDirectlyWithoutBlocking() = runTest {
+        val limit = Int.MAX_VALUE - 1
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(1_000_000_000, "08:55", "09:40"), Period(limit, "10:00", "10:45"),
+        ))
+        val course = Course("course", "数学", "", "#287B74", listOf(schedule("wide", 1, limit)))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.updateName("改名")
+        model.saveSemester(); advanceUntilIdle()
+
+        assertEquals(1, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(listOf(1, 1_000_000_000, limit), repository.saved!!.periods.map { it.number })
+        assertEquals(listOf(course), repository.lastCourses)
+        assertEquals(listOf(course), model.state.value.data.courses)
+    }
+
     private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
     private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
 

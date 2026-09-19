@@ -131,6 +131,33 @@
 - 修正 2 属纯状态保护，弹窗外观与按钮未变，因此复用 01—03 的视觉证据，由 JVM 测试断言（已在证据
   README 中如实说明）。
 
+## R2 修正（稀疏编号性能阻断）
+
+复审指出 `SemesterCascadePlanner.isRepresentable` 会遍历 `startPeriod..endPeriod` 与 `mappedStart..mappedEnd`
+两个整数区间。版本 1 接受稀疏或反序的任意正整数节次编号（实际节次 ≤20，但编号跨度可能接近
+`Int.MAX_VALUE`），因此合法学期只改名或普通保存时也可能执行数十亿次循环，造成卡顿／ANR。
+
+- 修正：先显式判断 `mappedStart <= mappedEnd`（倒置仍不可表示）；随后只遍历**实际存在的持久化节次**：
+  取「旧安排范围内仍保留的来源节次集合」与「新映射范围内实际存在的持久化来源节次集合」，两者完全
+  相等才可表示（`numberBySource.keys.filter { it in start..end }` 与
+  `sourceByNumber.filterKeys { it in mappedStart..mappedEnd }.values`，复杂度只与实际节次数有关）。
+- 语义保持：编号空洞不是节次、不会单独导致 `Blocked`；缺失端点仍走既有直接删除；被删节次位于原安排
+  范围内仍按直接引用／跨越删除处理；2–1 倒置仍 `Blocked`；新范围吞入无关持久化节次仍 `Blocked`；
+  正常升序删除、部分删除、整门删除、单节次与合法身份重映射不回归；反序／稀疏学期只改名仍直接保存。
+- ViewModel 的确认状态机、UI 文案与视觉均未改动。
+- 测试：`PeriodCascadePlannerTest` 新增 5 项并全部带 `@Test(timeout = 5_000)` 作为“不得按跨度遍历”的
+  回归保护（`Int.MAX_VALUE - 1` 与 `1_000_000_000` 级别的稀疏编号普通评估返回 `Plan`；极大空洞不是
+  节次且仍可合法重映射为 1–2；极大稀疏范围吞入无关持久化节次仍 `Blocked`；大编号反序仍因倒置
+  `Blocked`；极大范围内被删节次仍按直接引用／跨越删除而不是 `Blocked`），`ScheduleViewModelTest`
+  新增 1 项（稀疏近上限编号只改名时直接写入且不阻塞）。超时保护下这些用例在当前实现为毫秒级；若
+  有人恢复按跨度遍历，它们会因超时或断言失败而失败，但循环本身仍然终止（不是不可中断死循环）。
+- 本轮验证：Debug／Release JVM 各 **168 tests、0 failures／errors／skipped**（R1 基线 162，+6）；
+  完整 connectedDebugAndroidTest **121 tests、0 failures**（与 R1 相同，未新增设备用例）；
+  `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／20 warnings；
+  文档测试 71 tests OK 与两个脚本通过。
+- 证据：UI 无变化，8 张截图由同一条证据用例重新采集，像素分类与节点 bounds 与上一轮完全一致（已在证据
+  README 第 4、5 条如实说明）。
+
 ## 已知限制
 
 1. 真实 Room／DataStore 写入失败无法在生产 App 内注入，因此本目录没有“写入失败”截图，不伪造；该路径
@@ -144,6 +171,7 @@
 
 ## 准确状态
 
-P3-06-R7 已实现并自测，R1 复审提出的两项缺口已修正并复测（JVM 162、设备 121、lint 0 errors、
-8 张截图证据齐备）；**Sol 对 R1 修正的独立复审与用户验收均未进行**。按 AGENTS.md，本任务涉及破坏性数据与原子状态，不得以自测代替独立复审；A08／A10／A11、
+P3-06-R7 已实现并自测；R1 复审提出的两项缺口、R2 复审提出的稀疏编号性能阻断均已修正并复测
+（JVM 168、设备 121、lint 0 errors、8 张截图证据齐备）；**Sol 对 R1／R2 修正的独立复审与用户验收
+均未进行**。按 AGENTS.md，本任务涉及破坏性数据与原子状态，不得以自测代替独立复审；A08／A10／A11、
 整个 P3 与完整 App 仍未授权、未完成。

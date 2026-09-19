@@ -68,3 +68,15 @@
 3. **R1 的确认旁路修正无视觉变化**：`confirmSemesterCascade` 的“仅 AwaitingCascade 可确认、计划变化
    先刷新摘要、无影响时清除过期确认”都发生在同一状态机内，弹窗外观与按钮不变，因此复用 01—03 的视觉
    证据，由 JVM ViewModel 测试断言（`ScheduleViewModelTest` 7 项）。
+4. **R2 的稀疏编号性能修正无视觉变化**：本轮只把 `SemesterCascadePlanner.isRepresentable` 从遍历整数
+   编号跨度改为只遍历实际存在的节次，ViewModel 状态机、弹窗、文案与页面均未改动。8 张截图由同一条
+   证据用例（`p3r06R7SettingsSaveDialogEvidence`／`p3r06R7ReversedPeriodsBlockedEvidence`）重新采集，
+   与上一轮的差异仅在重新截图本身；`pixel-verification-20260919.txt` 的分类结果与两份
+   `node-verification-*.txt` 的面板 bounds 与上一轮**完全一致**（870x518 / 870x644、红色按钮 98.0%、
+   `week-period-1-start=08:55` 等），因此这些截图仍是本轮修正的有效视觉证据。
+5. **设备基线**：本轮完整 `connectedDebugAndroidTest` 在项目基准覆盖 `wm size 1080x2400`／
+   `density 420`／`font_scale 1.0`／系统浅色下为 **121 tests、0 failures**。在 AVD 原生 1080x1920 下
+   有 4 个既有用例因节点被裁切失败（`inlineSemesterCalendarRetainsLeapDayAcrossRecomposition`、
+   `chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales`、
+   `touchTargetsAndTabSemanticsMeetTheContract`、`r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState`），
+   与本轮 domain 修正无关，属项目已记录的既有分辨率问题。

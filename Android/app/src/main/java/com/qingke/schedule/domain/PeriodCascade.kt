@@ -215,9 +215,12 @@ object SemesterCascadePlanner {
     }
 
     /**
-     * A range survives only when every persisted period it covered keeps a number inside the new range and
-     * the new range covers no period the arrangement never referenced. Reversed numbering (9, 4, 20 with a
-     * schedule of 4-9) and sparse ranges that would swallow an unrelated persisted period both fail here.
+     * A range survives only when the persisted periods the arrangement covered are exactly the persisted
+     * periods the new range covers. Both sides are collected by inspecting the periods that actually exist
+     * (at most 20), never by walking the number span: version 1 accepts sparse or reversed numbers, and a
+     * legal semester may carry numbers close to Int.MAX_VALUE. Number gaps are holes rather than periods and
+     * never block on their own, while a reversed mapping or a range that would swallow an unrelated period
+     * still fails.
      */
     private fun isRepresentable(
         schedule: CourseSchedule,
@@ -226,15 +229,10 @@ object SemesterCascadePlanner {
     ): Boolean {
         val mappedStart = numberBySource[schedule.startPeriod] ?: return false
         val mappedEnd = numberBySource[schedule.endPeriod] ?: return false
-        val coveredSourcesStayInside = (schedule.startPeriod..schedule.endPeriod).all { source ->
-            val mapped: Int = numberBySource[source] ?: return@all true
-            mapped in mappedStart..mappedEnd
-        }
-        val coveredNumbersStayInside = (mappedStart..mappedEnd).all { number ->
-            val source: Int = sourceByNumber[number] ?: return@all true
-            source in schedule.startPeriod..schedule.endPeriod
-        }
-        return coveredSourcesStayInside && coveredNumbersStayInside
+        if (mappedStart > mappedEnd) return false
+        val coveredSources = numberBySource.keys.filterTo(mutableSetOf()) { it in schedule.startPeriod..schedule.endPeriod }
+        val sourcesBehindNewRange = sourceByNumber.filterKeys { it in mappedStart..mappedEnd }.values.toMutableSet()
+        return coveredSources == sourcesBehindNewRange
     }
 
     private fun unmappableMessage(unmappable: List<UnmappableSchedule>): String = if (unmappable.size == 1) {

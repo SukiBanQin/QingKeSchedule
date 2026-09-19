@@ -12,7 +12,7 @@ dialog panels from the device node records: 01/02/03 = (105,941)-(975,1459); 08 
 04 return keeps draft / settings page, no dialog: size=1080x2400 danger=0.0% cyan=0.6% signal=0.4% light=63.5%
 05 cascade saved / week matrix accent ink: size=1080x2400 danger=0.0% cyan=2.7% signal=1.1% light=71.7%
 06 cascade saved / today page accent ink: size=1080x2400 danger=0.0% cyan=0.1% signal=5.1% light=64.2%
-07 saved settings / cyan panel rail ink: size=1080x2400 danger=0.0% cyan=1.2% signal=0.5% light=70.3%
+07 saved settings / cyan panel rail ink: size=1080x2400 danger=0.0% cyan=1.2% signal=0.5% light=70.4%
 
 text ink bands inside each dialog panel (dark or danger ink):
 p3-06-r7-01-blocked-top-save-error.png: 5 bands, min left=105, max right=974

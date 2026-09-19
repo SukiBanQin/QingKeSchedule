@@ -215,6 +215,94 @@ class PeriodCascadePlannerTest {
         assertTrue(blocked.message, blocked.message.contains("无法按新节次顺序安全重映射"))
     }
 
+    @Test(timeout = 5_000)
+    fun sparseNumbersNearTheIntLimitAreEvaluatedWithoutWalkingTheGap() {
+        val limit = Int.MAX_VALUE - 1
+        val sparse = Semester("sparse", "稀疏学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(1_000_000_000, "08:55", "09:40"), Period(limit, "10:00", "10:45"),
+        ))
+        val courses = listOf(course("数学", schedule("wide", 1, limit), schedule("single", 1_000_000_000, 1_000_000_000)))
+
+        // A rename only: the draft keeps 1, 1_000_000_000 and Int.MAX_VALUE - 1, so nothing is remapped.
+        val plan = planOf(sparse, courses, sparse.periods.map { PeriodIdentity(it.number, it.number) })
+
+        assertFalse(plan.hasImpact)
+        assertEquals(courses, plan.courses)
+        assertWritable(plan, setOf(1, 1_000_000_000, limit))
+    }
+
+    @Test(timeout = 5_000)
+    fun sparseGapsAreHolesNotPeriodsAndStillRemapLegally() {
+        val limit = Int.MAX_VALUE - 1
+        val sparse = Semester("sparse", "稀疏学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(1_000_000_000, "08:55", "09:40"), Period(limit, "10:00", "10:45"),
+        ))
+        val courses = listOf(course("数学", schedule("huge", 1, 1_000_000_000)))
+
+        // Deleting the row numbered Int.MAX_VALUE - 1 (outside the arrangement) renumbers the survivors to
+        // 1 and 2; the holes inside 1..1_000_000_000 are not periods and must not block the remap.
+        val plan = planOf(sparse, courses, listOf(PeriodIdentity(1, 1), PeriodIdentity(1_000_000_000, 2)))
+
+        assertEquals(listOf(1 to 2), plan.courses.single().schedules.map { it.startPeriod to it.endPeriod })
+        assertEquals(listOf("huge"), plan.remappedSchedules.map { it.scheduleId })
+        assertTrue(plan.removedSchedules.isEmpty())
+        assertWritable(plan, 2)
+    }
+
+    @Test(timeout = 5_000)
+    fun sparseRangeSwallowingAnUnrelatedSparsePeriodIsRefused() {
+        val limit = Int.MAX_VALUE - 1
+        val sparse = Semester("sparse", "稀疏学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(1_000_000_000, "08:55", "09:40"),
+            Period(500_000_000, "10:00", "10:45"), Period(limit, "10:55", "11:40"),
+        ))
+        val courses = listOf(course("数学", schedule("span", 1, 500_000_000)))
+        val periods = listOf(PeriodIdentity(1, 1), PeriodIdentity(1_000_000_000, 2), PeriodIdentity(500_000_000, 3))
+
+        val evaluation = SemesterCascadePlanner.evaluate(sparse, courses, periods)
+
+        val blocked = evaluation as SemesterCascadeEvaluation.Blocked
+        assertEquals(listOf("span"), blocked.unmappable.map { it.scheduleId })
+        assertTrue(blocked.message, blocked.message.contains("无法按新节次顺序安全重映射"))
+    }
+
+    @Test(timeout = 5_000)
+    fun reversedSparseNumbersWithAHugeGapAreRefusedForTheReversedMapping() {
+        val limit = Int.MAX_VALUE - 1
+        val sparse = Semester("sparse", "稀疏学期", "2026-09-01", 18, listOf(
+            Period(1_000_000_000, "08:00", "08:45"), Period(1, "08:55", "09:40"), Period(limit, "10:00", "10:45"),
+        ))
+        val courses = listOf(course("数学", schedule("span", 1, 1_000_000_000)))
+        val periods = listOf(PeriodIdentity(1_000_000_000, 1), PeriodIdentity(1, 2))
+
+        val evaluation = SemesterCascadePlanner.evaluate(sparse, courses, periods)
+
+        val blocked = evaluation as SemesterCascadeEvaluation.Blocked
+        assertEquals(2, blocked.unmappable.single().mappedStartPeriod)
+        assertEquals(1, blocked.unmappable.single().mappedEndPeriod)
+        assertTrue(blocked.message, blocked.message.contains("无法按新节次顺序安全重映射"))
+    }
+
+    @Test(timeout = 5_000)
+    fun sparsePeriodsInsideAHugeRangeAreStillRemovedInsteadOfBlocked() {
+        val limit = Int.MAX_VALUE - 1
+        val sparse = Semester("sparse", "稀疏学期", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(500_000_000, "08:55", "09:40"), Period(1_000_000_000, "10:00", "10:45"),
+        ))
+        val courses = listOf(course("数学", schedule("direct", 1, 500_000_000), schedule("spanned", 1, 1_000_000_000)))
+        val periods = listOf(PeriodIdentity(1, 1), PeriodIdentity(1_000_000_000, 2))
+
+        val plan = planOf(sparse, courses, periods)
+
+        assertEquals(
+            listOf("direct" to CascadeRemovalReason.DIRECT_REFERENCE, "spanned" to CascadeRemovalReason.SPANNED_RANGE),
+            plan.removedSchedules.map { it.scheduleId to it.reason },
+        )
+        assertTrue(plan.courses.isEmpty())
+        assertEquals(listOf("数学"), plan.deletedCourses.map { it.courseId })
+        assertWritable(plan, 2)
+    }
+
     /** Persisted periods minus the deleted numbers, renumbered exactly like the settings draft does. */
     private fun identitiesWithout(vararg deleted: Int): List<PeriodIdentity> {
         val removed = deleted.toSet()
