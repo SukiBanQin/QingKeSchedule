@@ -9,6 +9,8 @@ import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleConflict
+import com.qingke.schedule.domain.SemesterCascadePlan
+import com.qingke.schedule.domain.SemesterCascadePlanner
 import com.qingke.schedule.domain.withLunchBreakEnabled
 import com.qingke.schedule.domain.withLunchBreakTimes
 import com.qingke.schedule.domain.withMakeupTeachingDay
@@ -44,8 +46,25 @@ data class SemesterFormState(
     val totalWeeks: Int,
     val periods: List<PeriodFormState>,
     val periodsExpanded: Boolean = false,
-    val validationMessage: String? = null,
 )
+
+/**
+ * P3-06-R7: the single semester-save state machine behind both save entries. The three states stay
+ * distinguishable so a blocked input can never turn into a forced write, and a cascaded write is never
+ * reported as saved before the transaction returned.
+ */
+sealed interface SemesterSaveState {
+    data object Idle : SemesterSaveState
+
+    /** Non-continuable input or business validation: only a close action, never a forced save. */
+    data class Blocked(val message: String) : SemesterSaveState
+
+    /** Deleting or reordering periods changes saved course references, so one confirmation is required. */
+    data class AwaitingCascade(val plan: SemesterCascadePlan) : SemesterSaveState
+
+    /** The atomic semester + courses write is in flight; [plan] is set while a confirmed cascade executes. */
+    data class Writing(val plan: SemesterCascadePlan?) : SemesterSaveState
+}
 
 enum class CourseEditorMode { CHOOSER, CREATE, EDIT, APPEND }
 
@@ -114,13 +133,14 @@ class ScheduleViewModel(
     val courseSuccess: StateFlow<String?> = mutableCourseSuccess.asStateFlow()
     private val mutableSemesterSuccess = MutableStateFlow<String?>(null)
     val semesterSuccess: StateFlow<String?> = mutableSemesterSuccess.asStateFlow()
+    private val mutableSemesterSave = MutableStateFlow<SemesterSaveState>(SemesterSaveState.Idle)
+    val semesterSave: StateFlow<SemesterSaveState> = mutableSemesterSave.asStateFlow()
     private val mutableLunchBreakConflict = MutableStateFlow<LunchBreakConflict?>(null)
     val lunchBreakConflict: StateFlow<LunchBreakConflict?> = mutableLunchBreakConflict.asStateFlow()
     private var courseDraft: CourseDraft? = null
     private var editorSourceIndex: Int? = null
     private var editorFingerprint: Course? = null
     private var editorInFlight = false
-    private var saveRequested = false
     private var lunchBreakConfirmationInFlight = false
     private var loadJob: Job? = null
 
@@ -170,30 +190,66 @@ class ScheduleViewModel(
         draft?.let { change(it); publishForm() }
     }
 
-    fun saveSemester() {
+    /**
+     * P3-06-R7: both save entries call this one evaluation. Blocking input becomes a red error dialog, a
+     * course-affecting period change waits for one destructive confirmation, and everything else is written
+     * immediately. No branch writes a partial semester.
+     */
+    fun saveSemester() = evaluateSemesterSave(confirmed = false)
+
+    /** The destructive confirmation action: re-evaluates the live draft first, then performs the atomic write. */
+    fun confirmSemesterCascade() = evaluateSemesterSave(confirmed = true)
+
+    /**
+     * "返回修改" of either dialog. Nothing is written and the draft stays untouched; an in-flight write ignores
+     * the request, so a confirmed cascade cannot be replaced by a half-cancelled state.
+     */
+    fun dismissSemesterSave() {
+        if (mutableSemesterSave.value is SemesterSaveState.Writing) return
+        mutableSemesterSave.value = SemesterSaveState.Idle
+    }
+
+    private fun evaluateSemesterSave(confirmed: Boolean) {
         val current = draft ?: return
-        if (saveRequested || state.value.isSaving) return
-        val issues = current.validationIssues() +
-            current.impactIssues(state.value.data.semester, state.value.data.courses)
+        if (mutableSemesterSave.value is SemesterSaveState.Writing || state.value.isSaving) return
+        val previous = state.value.data.semester
+        val courses = state.value.data.courses
+        val issues = current.validationIssues() + current.courseRangeIssues(previous, courses)
         if (issues.isNotEmpty()) {
-            mutableForm.value = snapshot(current).copy(validationMessage = issues.first().message)
+            mutableSemesterSave.value = SemesterSaveState.Blocked(issues.first().message)
             return
         }
-        val onboarding = state.value.data.semester == null
-        saveRequested = true
-        mutableForm.value = snapshot(current).copy(validationMessage = null)
+        val plan = SemesterCascadePlanner.plan(previous, courses, current.periodIdentities())
+        if (plan.hasImpact && !confirmed) {
+            mutableSemesterSave.value = SemesterSaveState.AwaitingCascade(plan)
+            return
+        }
+        submitSemester(current, plan.takeIf { it.hasImpact }, courses)
+    }
+
+    /**
+     * The draft is snapshotted before the write, so edits made while the transaction is in flight cannot be
+     * reported as persisted. The confirmation is cleared only after a successful write; a failure or a
+     * cancellation restores it in full so the same plan stays retryable.
+     */
+    private fun submitSemester(current: SemesterDraft, plan: SemesterCascadePlan?, courses: List<Course>) {
         val semester = current.semester()
         val persistedNumbers = current.periods.associate { it.id to it.number }
+        val onboarding = state.value.data.semester == null
+        val nextCourses = plan?.courses ?: courses
+        mutableSemesterSave.value = SemesterSaveState.Writing(plan)
         viewModelScope.launch {
             try {
-                if (appState.saveSemester(semester)) {
+                if (appState.saveSemesterWithCourses(semester, nextCourses)) {
                     current.markPersisted(persistedNumbers)
                     if (!onboarding) mutableSemesterSuccess.value = "SYSTEM // 学期与节次设置已保存"
+                    mutableSemesterSave.value = SemesterSaveState.Idle
+                } else {
+                    mutableSemesterSave.value = plan?.let { SemesterSaveState.AwaitingCascade(it) } ?: SemesterSaveState.Idle
                 }
             } catch (error: CancellationException) {
+                mutableSemesterSave.value = plan?.let { SemesterSaveState.AwaitingCascade(it) } ?: SemesterSaveState.Idle
                 throw error
-            } finally {
-                saveRequested = false
             }
         }
     }

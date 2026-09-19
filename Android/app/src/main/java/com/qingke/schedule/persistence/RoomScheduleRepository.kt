@@ -35,6 +35,9 @@ class RoomScheduleRepository(
         current.copy(semester = semester, updatedAt = now())
     }
 
+    override suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>): ScheduleData =
+        mutate { current -> current.copy(semester = semester, courses = courses, updatedAt = now()) }
+
     override suspend fun saveCourse(course: Course): ScheduleData = mutate { current ->
         if (current.semester == null) throw ScheduleRepositoryException.InvalidData("请先设置学期")
         val index = current.courses.indexOfFirst { it.id == course.id }

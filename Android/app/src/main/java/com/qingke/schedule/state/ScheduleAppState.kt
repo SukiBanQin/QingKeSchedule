@@ -58,6 +58,11 @@ class ScheduleAppState(
 
     suspend fun replace(data: ScheduleData) = saveSchedule { repository.replace(data) }
     suspend fun saveSemester(semester: Semester) = saveSchedule { repository.saveSemester(semester) }
+
+    /** P3-06-R7: one transaction publishes the semester and the cascaded courses together. */
+    suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>) =
+        saveSchedule { repository.saveSemesterWithCourses(semester, courses) }
+
     suspend fun saveCourse(course: Course) = saveSchedule { repository.saveCourse(course) }
     suspend fun deleteCourse(id: String) = saveSchedule { repository.deleteCourse(id) }
     suspend fun saveCourseAt(index: Int, expected: Course, course: Course) = saveSchedule { repository.saveCourseAt(index, expected, course) }

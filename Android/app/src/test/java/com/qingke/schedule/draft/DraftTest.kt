@@ -5,6 +5,7 @@ import com.qingke.schedule.domain.CourseSchedule
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleRules
+import com.qingke.schedule.domain.SemesterCascadePlanner
 import com.qingke.schedule.domain.Semester
 import com.qingke.schedule.domain.ValidationIssue
 import java.time.LocalDate
@@ -240,24 +241,28 @@ class DraftTest {
             periods[1].startTime = LocalTime.of(10, 5)
             periods[1].endTime = LocalTime.of(10, 50)
         }
-        assertEquals(emptyList<ValidationIssue>(), legal.impactIssues(imported, courses))
+        assertEquals(emptyList<ValidationIssue>(), legal.courseRangeIssues(imported, courses))
         assertEquals(emptyList<ValidationIssue>(), legal.validationIssues())
         assertEquals(
             listOf(Period(2, "08:55", "09:40"), Period(1, "10:05", "10:50")),
             legal.semester().periods,
         )
+        assertFalse(SemesterCascadePlanner.plan(imported, courses, legal.periodIdentities()).hasImpact)
 
         val shortened = SemesterDraft.edit(imported, ids("p1", "p2")).apply { totalWeeks = 10 }
-        assertEquals("semester.totalWeeks", shortened.impactIssues(imported, courses).single().path)
+        assertEquals("semester.totalWeeks", shortened.courseRangeIssues(imported, courses).single().path)
 
         val trimmed = SemesterDraft.edit(imported, ids("p1", "p2")).apply { removePeriod(periods.first().id) }
-        assertEquals("semester.periods", trimmed.impactIssues(imported, courses).single().path)
-        assertEquals(emptyList<ValidationIssue>(), trimmed.impactIssues(imported, emptyList()))
-        assertEquals(emptyList<ValidationIssue>(), trimmed.impactIssues(null, courses))
+        assertEquals(emptyList<ValidationIssue>(), trimmed.courseRangeIssues(imported, emptyList()))
+        assertEquals(emptyList<ValidationIssue>(), trimmed.courseRangeIssues(null, courses))
+        assertEquals(emptyList<ValidationIssue>(), trimmed.courseRangeIssues(imported, courses))
+        val trimmedPlan = SemesterCascadePlanner.plan(imported, courses, trimmed.periodIdentities())
+        assertEquals(listOf("s"), trimmedPlan.removedSchedules.map { it.scheduleId })
+        assertTrue(trimmedPlan.courses.isEmpty())
     }
 
     @Test
-    fun semesterDraftRejectsDeletionThatMovesAnotherPeriodOntoAReferencedNumber() {
+    fun semesterDraftPlanFollowsPeriodIdentityInsteadOfVisibleNumbers() {
         val original = Semester("semester", "测试学期", "2026-09-01", 18, listOf(
             Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
         ))
@@ -268,17 +273,22 @@ class DraftTest {
         val shifted = SemesterDraft.edit(original, ids("p1", "p2", "p3"))
         shifted.removePeriod(shifted.periods.first().id)
         assertEquals(listOf(1, 2), shifted.periods.map { it.number })
-        assertEquals("semester.periods", shifted.impactIssues(original, courses).single().path)
+        val shiftedPlan = SemesterCascadePlanner.plan(original, courses, shifted.periodIdentities())
+        assertTrue(shiftedPlan.hasImpact)
+        assertTrue(shiftedPlan.removedSchedules.isEmpty())
+        // The surviving schedule must follow period 2 into its new number 1, never the unrelated row 2.
+        assertEquals(1, shiftedPlan.courses.single().schedules.single().startPeriod)
+        assertEquals(listOf("s"), shiftedPlan.remappedSchedules.map { it.scheduleId })
 
         val trailingRemoved = SemesterDraft.edit(original, ids("p1", "p2", "p3"))
         trailingRemoved.removePeriod(trailingRemoved.periods.last().id)
         assertEquals(listOf(1, 2), trailingRemoved.periods.map { it.number })
-        assertEquals(emptyList<ValidationIssue>(), trailingRemoved.impactIssues(original, courses))
+        assertFalse(SemesterCascadePlanner.plan(original, courses, trailingRemoved.periodIdentities()).hasImpact)
 
         val appended = SemesterDraft.edit(original, ids("p1", "p2", "p3", "p4"))
         appended.addPeriod()
         assertEquals(listOf(1, 2, 3, 4), appended.periods.map { it.number })
-        assertEquals(emptyList<ValidationIssue>(), appended.impactIssues(original, courses))
+        assertFalse(SemesterCascadePlanner.plan(original, courses, appended.periodIdentities()).hasImpact)
 
         val reversed = Semester("semester", "测试学期", "2026-09-01", 18, listOf(
             Period(9, "08:55", "09:40"), Period(4, "10:00", "10:45"),
@@ -288,11 +298,14 @@ class DraftTest {
         )))
         val renamed = SemesterDraft.edit(reversed, ids("r1", "r2")).apply { name = "改名" }
         assertEquals(listOf(9, 4), renamed.semester().periods.map { it.number })
-        assertEquals(emptyList<ValidationIssue>(), renamed.impactIssues(reversed, reversedCourses))
+        assertFalse(SemesterCascadePlanner.plan(reversed, reversedCourses, renamed.periodIdentities()).hasImpact)
+
         val dropped = SemesterDraft.edit(reversed, ids("r1", "r2"))
         dropped.removePeriod(dropped.periods.first().id)
         assertEquals(listOf(1), dropped.periods.map { it.number })
-        assertEquals("semester.periods", dropped.impactIssues(reversed, reversedCourses).single().path)
+        val droppedPlan = SemesterCascadePlanner.plan(reversed, reversedCourses, dropped.periodIdentities())
+        assertTrue(droppedPlan.removedSchedules.isEmpty())
+        assertEquals(1, droppedPlan.courses.single().schedules.single().startPeriod)
     }
 
     @Test
@@ -306,19 +319,23 @@ class DraftTest {
         val courses = listOf(Course("course", "课", "", "#287B74", listOf(
             CourseSchedule("s", 1, 3, 3, 1, 18, RepeatRule.EVERY, ""),
         )))
-        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(persisted, courses))
+        assertEquals(emptyList<ValidationIssue>(), draft.courseRangeIssues(persisted, courses))
+        assertFalse(SemesterCascadePlanner.plan(persisted, courses, draft.periodIdentities()).hasImpact)
 
         draft.name = "改名"
         draft.periods[2].startTime = LocalTime.of(10, 5)
         draft.periods[2].endTime = LocalTime.of(10, 50)
-        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(persisted, courses))
+        assertEquals(emptyList<ValidationIssue>(), draft.courseRangeIssues(persisted, courses))
+        assertFalse(SemesterCascadePlanner.plan(persisted, courses, draft.periodIdentities()).hasImpact)
 
         draft.totalWeeks = 10
-        assertEquals("semester.totalWeeks", draft.impactIssues(persisted, courses).single().path)
+        assertEquals("semester.totalWeeks", draft.courseRangeIssues(persisted, courses).single().path)
         draft.totalWeeks = 18
 
         draft.removePeriod(draft.periods.first().id)
-        assertEquals("semester.periods", draft.impactIssues(persisted, courses).single().path)
+        val plan = SemesterCascadePlanner.plan(persisted, courses, draft.periodIdentities())
+        assertTrue(plan.removedSchedules.isEmpty())
+        assertEquals(2, plan.courses.single().schedules.single().startPeriod)
     }
 
     @Test
@@ -339,8 +356,10 @@ class DraftTest {
 
         draft.markPersisted(written)
         assertEquals(listOf(1, 2, null), draft.periods.map { it.sourceNumber })
-        assertEquals("semester.periods", draft.impactIssues(original, courses).single().path)
-        assertEquals(emptyList<ValidationIssue>(), draft.impactIssues(original, emptyList()))
+        val plan = SemesterCascadePlanner.plan(original, courses, draft.periodIdentities())
+        assertEquals(listOf("s"), plan.removedSchedules.map { it.scheduleId })
+        assertTrue(plan.courses.isEmpty())
+        assertEquals(emptyList<ValidationIssue>(), draft.courseRangeIssues(original, emptyList()))
     }
 
     @Test

@@ -178,6 +178,8 @@ class P3R2ActivityRecreationTest {
         override suspend fun load() = data.also { loads++ }
         override suspend fun replace(data: ScheduleData) = data.also { this.data = it }
         override suspend fun saveSemester(semester: Semester) = data.copy(semester = semester).also { data = it }
+        override suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>) =
+            data.copy(semester = semester, courses = courses).also { data = it }
         override suspend fun saveCourse(course: Course) = data
         override suspend fun deleteCourse(id: String) = data
     }

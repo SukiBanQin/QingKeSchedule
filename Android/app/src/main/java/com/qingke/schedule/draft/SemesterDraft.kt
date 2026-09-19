@@ -2,6 +2,7 @@ package com.qingke.schedule.draft
 
 import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.Period
+import com.qingke.schedule.domain.PeriodIdentity
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.ScheduleValidator
 import com.qingke.schedule.domain.Semester
@@ -34,36 +35,27 @@ class SemesterDraft private constructor(
     )
 
     /**
-     * Reports structural changes that would silently change the meaning of already saved
-     * courses. Every course reference must still resolve to the very same period, which is
-     * tracked through [PeriodDraft.sourceNumber]; a number that merely still exists after a
-     * deletion is not enough, because the periods behind it may have shifted. Changing only
-     * the name, date, weeks or the times of periods that courses already reference stays
-     * valid.
+     * Non-continuable input checks that only exist because already saved courses are compared against the
+     * draft: shortening the semester below a saved course range cannot be cascaded, so it must be fixed in
+     * the course editor first. Period deletions no longer block here; P3-06-R7 turns them into a
+     * [com.qingke.schedule.domain.SemesterCascadePlan] instead.
      */
-    fun impactIssues(previous: Semester?, courses: List<Course>): List<ValidationIssue> {
+    fun courseRangeIssues(previous: Semester?, courses: List<Course>): List<ValidationIssue> {
         if (previous == null || courses.isEmpty()) return emptyList()
-        val issues = mutableListOf<ValidationIssue>()
-        if (courses.any { course -> course.schedules.any { it.endWeek > totalWeeks } }) {
-            issues += ValidationIssue(
-                "semester.totalWeeks",
-                "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。",
+        return if (courses.any { course -> course.schedules.any { it.endWeek > totalWeeks } }) {
+            listOf(
+                ValidationIssue(
+                    "semester.totalWeeks",
+                    "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。",
+                ),
             )
+        } else {
+            emptyList()
         }
-        val currentNumberBySource = periods
-            .mapNotNull { period -> period.sourceNumber?.let { source -> source to period.number } }
-            .toMap()
-        val referencedNumbers = courses
-            .flatMap { course -> course.schedules.flatMap { schedule -> listOf(schedule.startPeriod, schedule.endPeriod) } }
-            .toSet()
-        if (referencedNumbers.any { currentNumberBySource[it] != it }) {
-            issues += ValidationIssue(
-                "semester.periods",
-                "删除或重排节次会改变已有课程引用的节次，请先在课程编辑中调整相关课程。",
-            )
-        }
-        return issues
     }
+
+    /** Identity of every visible row for [com.qingke.schedule.domain.SemesterCascadePlanner]. */
+    fun periodIdentities(): List<PeriodIdentity> = periods.map { PeriodIdentity(it.sourceNumber, it.number) }
 
     /**
      * Re-points the identity baseline at a semester that was just written. [persistedNumbers] must

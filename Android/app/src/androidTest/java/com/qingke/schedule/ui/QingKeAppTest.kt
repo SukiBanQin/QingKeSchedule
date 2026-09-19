@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
@@ -82,6 +83,11 @@ import com.qingke.schedule.viewmodel.CourseScheduleFormState
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import com.qingke.schedule.viewmodel.LunchBreakConflict
 import com.qingke.schedule.viewmodel.ScheduleViewModel
+import com.qingke.schedule.viewmodel.SemesterSaveState
+import com.qingke.schedule.domain.CascadeRemovalReason
+import com.qingke.schedule.domain.CourseCascade
+import com.qingke.schedule.domain.RemovedSchedule
+import com.qingke.schedule.domain.SemesterCascadePlan
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.LocalDateTime
@@ -94,6 +100,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Density
@@ -670,17 +677,32 @@ class QingKeAppTest {
         rule.onNodeWithTag("period-p20-delete").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun validationErrorAndSaveFailureKeepFormAndDismissDialog() {
+    @Test fun blockedSemesterSaveAndWriteFailureBothUseCenteredDialogs() {
         var state by mutableStateOf(onboarding(error = "保存失败"))
-        var form by mutableStateOf(defaultForm(expanded = true, validation = "学期名称不能为空"))
+        var form by mutableStateOf(defaultForm(expanded = true))
+        var blockedDismissals = 0
         var dismisses = 0
-        rule.setContent { QingKeAppContent(state, form, MainTab.TODAY, formActions(onDismiss = { dismisses++; state = state.copy(error = null) })) }
-        rule.onNodeWithTag("semester-validation-error").performScrollTo().assertIsDisplayed()
+        var saveState by mutableStateOf<SemesterSaveState>(SemesterSaveState.Blocked("节次时间无效"))
+        rule.setContent {
+            QingKeAppContent(
+                state, form, MainTab.TODAY,
+                formActions(onDismiss = { dismisses++; state = state.copy(error = null) }, onDismissSemesterSave = { blockedDismissals++; saveState = SemesterSaveState.Idle }),
+                semesterSave = saveState,
+            )
+        }
+        // The blocking error is a centered dialog, not a notice the user has to scroll to.
+        rule.onAllNodesWithTag("semester-validation-error").assertCountEquals(0)
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        rule.onNodeWithText("节次时间无效").assertIsDisplayed()
+        rule.onAllNodesWithTag("semester-save-error-confirm").assertCountEquals(1)
         rule.onNodeWithTag("app-error-dialog").assertIsDisplayed()
         rule.onNodeWithTag("app-error-dismiss").performClick()
         rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
         rule.onNodeWithTag("period-p1-row").performScrollTo().assertIsDisplayed()
-        assertEquals(1, dismisses); assertEquals("学期名称不能为空", form.validationMessage)
+        rule.onNodeWithTag("semester-save-error-confirm").performClick()
+        rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-save-error").assertCountEquals(0)
+        assertEquals(1, dismisses); assertEquals(1, blockedDismissals)
     }
 
     @Test fun mainShellTabsInvokeOneStateOwnerAndHaveAccessibleTargets() {
@@ -748,17 +770,48 @@ class QingKeAppTest {
         rule.onNodeWithTag("period-q1-start").performScrollTo().assertTextContains("07:20")
     }
 
-    @Test fun settingsSavingDisablesBothEntriesAndShowsValidationError() {
-        val conflict = "缩短总周数会让已有课程超出学期范围，请先在课程编辑中调整相关课程的周次。"
-        var form by mutableStateOf(existingForm().copy(validationMessage = conflict))
-        rule.setContent { QingKeAppContent(settingsState().copy(isSaving = true), form, MainTab.SETTINGS, QingKeAppActions()) }
+    @Test fun cascadeSummaryScrollsInternallyWithManyAffectedCourses() {
+        val cascades = (0 until 20).map { index ->
+            CourseCascade(
+                index, "c$index", "课程$index", 1,
+                listOf(RemovedSchedule(index, "c$index", "课程$index", "s$index", 1, index + 1, index + 1, 1, 18, CascadeRemovalReason.DIRECT_REFERENCE)),
+            )
+        }
+        val plan = SemesterCascadePlan(
+            courses = emptyList(), coursesWithPartialRemoval = cascades, deletedCourses = emptyList(),
+            remappedSchedules = emptyList(), removedSchedules = cascades.flatMap { it.removedSchedules },
+        )
+        rule.setContent {
+            QingKeAppContent(
+                settingsState(), existingForm(), MainTab.SETTINGS, QingKeAppActions(),
+                semesterSave = SemesterSaveState.AwaitingCascade(plan),
+            )
+        }
+        rule.onNodeWithTag("semester-cascade-summary").assertHeightIsEqualTo(250.dp)
+        rule.onNodeWithTag("semester-cascade-confirm").assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade-dismiss").assertIsDisplayed()
+        rule.onNodeWithText("课程19", substring = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade-confirm").assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade-dismiss").assertIsDisplayed()
+    }
+
+    @Test fun settingsSavingDisablesBothEntriesAndKeepsTheCascadeConfirmationVisible() {
+        var form by mutableStateOf(existingForm())
+        val plan = cascadePlan()
+        rule.setContent {
+            QingKeAppContent(
+                settingsState().copy(isSaving = true), form, MainTab.SETTINGS, QingKeAppActions(),
+                semesterSave = SemesterSaveState.AwaitingCascade(plan),
+            )
+        }
         rule.onNodeWithTag("semester-save-toolbar").assertIsNotEnabled()
         rule.onNodeWithTag("semester-save").assertIsNotEnabled()
-        rule.onNodeWithTag("semester-validation-error").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText(conflict).assertIsDisplayed()
-        form = form.copy(validationMessage = null)
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade-summary").assertIsDisplayed()
+        rule.onNodeWithText("整门删除：高数（1 个安排全部失效）", substring = true).assertIsDisplayed()
+        form = form.copy(name = "改名")
         rule.waitForIdle()
-        rule.onAllNodesWithTag("semester-validation-error").assertCountEquals(0)
+        rule.onNodeWithTag("semester-cascade-summary").assertIsDisplayed()
     }
 
     @Test fun semesterLabelsUseThemeForegroundsInBothThemes() {
@@ -1913,9 +1966,16 @@ class QingKeAppTest {
     }
 
     private class HostScheduleRepository(private var data: ScheduleData) : ScheduleRepository {
+        var writes = 0
+        var failWrite = false
         override suspend fun load(): ScheduleData = data
         override suspend fun replace(data: ScheduleData): ScheduleData = data.also { this.data = it }
         override suspend fun saveSemester(semester: Semester): ScheduleData = data.copy(semester = semester).also { data = it }
+        override suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>): ScheduleData {
+            writes++
+            if (failWrite) error("injected semester write failure")
+            return data.copy(semester = semester, courses = courses).also { data = it }
+        }
         override suspend fun saveCourse(course: Course): ScheduleData = data
         override suspend fun saveCourseAt(index: Int, expected: Course, course: Course): ScheduleData = data
         override suspend fun deleteCourseAt(index: Int, expected: Course): ScheduleData = data
@@ -1959,7 +2019,8 @@ class QingKeAppTest {
 
     private fun formActions(
         onName: (String) -> Unit = {}, onToggle: () -> Unit = {}, onAdd: () -> Unit = {}, onRemove: (String) -> Unit = {}, onSave: () -> Unit = {}, onDismiss: () -> Unit = {},
-    ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss)
+        onDismissSemesterSave: () -> Unit = {}, onConfirmSemesterCascade: () -> Unit = {},
+    ) = QingKeAppActions(updateName = onName, togglePeriods = onToggle, addPeriod = onAdd, removePeriod = onRemove, saveSemester = onSave, dismissError = onDismiss, dismissSemesterSave = onDismissSemesterSave, confirmSemesterCascade = onConfirmSemesterCascade)
 
     private fun assertCyanRail(panelTag: String) {
         rule.onNodeWithTag(panelTag, useUnmergedTree = true).performScrollTo()
@@ -2245,6 +2306,256 @@ class QingKeAppTest {
         rule.onAllNodesWithTag("today-refresh-status").assertCountEquals(0)
     }
 
+    /**
+     * P3-06-R7 evidence: the real settings flow is replayed once so the same APK that ships the rules also
+     * produces the screenshots. Write failures cannot be injected in the production app, so that path stays
+     * asserted by tests instead of a fabricated screenshot.
+     */
+    @Test fun p3r06R7SettingsSaveDialogEvidence() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val course = Course("course", "高数", "", "#287B74", listOf(CourseSchedule("s", 6, 2, 2, 1, 18, RepeatRule.EVERY, "A101")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        val evidence = mutableListOf("P3-06-R7 API 37 ARM64 1080x2400@420dpi node verification")
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-name").performTextReplacement(" ")
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法保存学期设置").assertIsDisplayed()
+        rule.onNodeWithText("请填写学期名称").assertIsDisplayed()
+        evidence.add(nodeLine("semester-save-error"))
+        evidence.add(nodeLine("semester-save-error-confirm"))
+        saveCascadeScreenshot("p3-06-r7-01-blocked-top-save-error.png")
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        rule.onNodeWithText("请填写学期名称").assertIsDisplayed()
+        evidence.add("bottom entry: " + nodeLine("semester-save-error"))
+        saveCascadeScreenshot("p3-06-r7-02-blocked-bottom-save-error.png")
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("semester-name").performTextReplacement("测试学期")
+        val firstPeriod = model.form.value!!.periods.first().id
+        rule.onNodeWithTag("period-" + firstPeriod + "-delete").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        rule.onNodeWithText("节次变更将影响已有课程").assertIsDisplayed()
+        rule.onNodeWithText("确认保存并级联").assertIsDisplayed()
+        rule.onNodeWithText("返回修改").assertIsDisplayed()
+        rule.onNodeWithText("仅重新编号", substring = true).assertIsDisplayed()
+        evidence.add(nodeLine("semester-cascade"))
+        evidence.add(nodeLine("semester-cascade-summary"))
+        evidence.add(nodeLine("semester-cascade-dismiss"))
+        evidence.add(nodeLine("semester-cascade-confirm"))
+        saveCascadeScreenshot("p3-06-r7-03-cascade-confirm.png")
+
+        rule.onNodeWithTag("semester-cascade-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        rule.onNodeWithTag("period-" + model.form.value!!.periods.first().id + "-row").performScrollTo(); rule.waitForIdle()
+        saveCascadeScreenshot("p3-06-r7-04-return-keeps-draft.png")
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.data.semester?.periods?.size == 2 }
+        evidence.add("after confirm: periods=" + model.state.value.data.semester!!.periods.map { it.number } +
+            " courseSchedules=" + model.state.value.data.courses.flatMap { it.schedules }.map { it.startPeriod to it.endPeriod })
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("week-item-5:0:0").performScrollTo().assertIsDisplayed()
+        evidence.add("week matrix: " + nodeLine("week-period-1-start"))
+        saveCascadeScreenshot("p3-06-r7-05-cascade-saved-week.png")
+
+        rule.onNodeWithTag("today-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("today-featured-course-0-0").assertIsDisplayed()
+        saveCascadeScreenshot("p3-06-r7-06-cascade-saved-today.png")
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        if (!model.form.value!!.periodsExpanded) {
+            rule.onNodeWithTag("daily-periods-toggle").performScrollTo().performClick(); rule.waitForIdle()
+        }
+        rule.onNodeWithTag("period-" + model.form.value!!.periods.first().id + "-delete").performScrollTo(); rule.waitForIdle()
+        evidence.add("saved settings draft: periods=" + model.form.value!!.periods.map { it.number })
+        saveCascadeScreenshot("p3-06-r7-07-saved-settings.png")
+        saveCascadeText("node-verification-20260919.txt", evidence.joinToString("\n") + "\n")
+    }
+
+    @Test fun bothSaveEntriesShareOneCascadeDialogAndReturnKeepsTheDraft() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val course = Course("course", "高数", "", "#287B74", listOf(CourseSchedule("s", 6, 2, 2, 1, 18, RepeatRule.EVERY, "A101")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        val firstPeriod = model.form.value!!.periods.first().id
+        rule.onNodeWithTag("period-" + firstPeriod + "-delete").performScrollTo().performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        rule.onNodeWithText("上课安排仅重新编号", substring = true).assertIsDisplayed()
+        assertEquals(0, repository.writes)
+
+        rule.onNodeWithTag("semester-cascade-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        assertEquals(0, repository.writes)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        assertEquals(listOf(course), model.state.value.data.courses)
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade-confirm").performClick()
+        rule.waitUntil(5_000) { repository.writes == 1 }
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        assertEquals(listOf(1, 2), model.state.value.data.semester!!.periods.map { it.number })
+        assertEquals(1, model.state.value.data.courses.single().schedules.single().let { it.startPeriod })
+        assertEquals("SYSTEM // 学期与节次设置已保存", model.semesterSuccess.value)
+    }
+
+    @Test fun confirmingTheCascadeFeedsTodayAndWeekScreensWithoutRestart() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+        ))
+        val course = Course("course", "高数", "", "#287B74", listOf(CourseSchedule("s", 6, 2, 2, 1, 18, RepeatRule.EVERY, "A101")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+        rule.onNodeWithTag("today-featured-course-0-0").assertIsDisplayed()
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        val firstPeriod = model.form.value!!.periods.first().id
+        rule.onNodeWithTag("period-" + firstPeriod + "-delete").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.data.semester?.periods?.size == 2 }
+
+        rule.onNodeWithTag("today-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("today-featured-course-0-0").assertIsDisplayed()
+        rule.onNodeWithTag("schedule-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("week-item-5:0:0").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("week-period-1-start").assertTextContains("08:55")
+        rule.onAllNodesWithTag("week-period-3").assertCountEquals(0)
+    }
+
+    @Test fun failedCascadeWriteKeepsTheErrorDialogAndARetryableConfirmation() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"),
+        ))
+        val course = Course("course", "高数", "", "#287B74", listOf(CourseSchedule("s", 6, 2, 2, 1, 18, RepeatRule.EVERY, "A101")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        val secondPeriod = model.form.value!!.periods[1].id
+        rule.onNodeWithTag("period-" + secondPeriod + "-delete").performScrollTo().performClick(); rule.waitForIdle()
+        repository.failWrite = true
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-cascade-confirm").performClick()
+        rule.waitUntil(5_000) { model.state.value.error != null }
+        rule.onNodeWithTag("app-error-dialog").assertIsDisplayed()
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        assertEquals(listOf(1, 2), model.state.value.data.semester!!.periods.map { it.number })
+        assertEquals(listOf(course), model.state.value.data.courses)
+
+        rule.onNodeWithTag("app-error-dismiss").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
+        rule.onNodeWithTag("semester-cascade").assertIsDisplayed()
+        assertEquals(listOf(1), model.form.value!!.periods.map { it.number })
+
+        repository.failWrite = false
+        rule.onNodeWithTag("semester-cascade-confirm").performClick()
+        rule.waitUntil(5_000) { repository.writes == 2 }
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        assertEquals(listOf(1), model.state.value.data.semester!!.periods.map { it.number })
+        assertEquals(emptyList<Course>(), model.state.value.data.courses)
+    }
+
+    @Test fun blockedSemesterInputOpensTheSameErrorDialogFromBothEntries() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-name").performTextReplacement(" ")
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        rule.onNodeWithText("请填写学期名称").assertIsDisplayed()
+        assertEquals(0, repository.writes)
+        rule.onAllNodesWithTag("semester-save-error-confirm").assertCountEquals(1)
+
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-save-error").assertCountEquals(0)
+        assertEquals(" ", model.form.value!!.name)
+        assertEquals("测试学期", model.state.value.data.semester!!.name)
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        assertEquals(0, repository.writes)
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+
+        rule.onNodeWithTag("semester-name").performTextReplacement("改名学期")
+        rule.onNodeWithTag("semester-save-toolbar").performClick()
+        rule.waitUntil(5_000) { repository.writes == 1 }
+        rule.onAllNodesWithTag("semester-save-error").assertCountEquals(0)
+        assertEquals("改名学期", model.state.value.data.semester!!.name)
+    }
+
+    @Test fun aCleanSettingsSaveNeverShowsADialog() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-name").performTextReplacement("改名学期")
+        rule.onNodeWithTag("semester-save-toolbar").performClick()
+        rule.waitUntil(5_000) { repository.writes == 1 }
+        rule.onAllNodesWithTag("semester-save-error").assertCountEquals(0)
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        rule.onAllNodesWithTag("app-error-dialog").assertCountEquals(0)
+        rule.onNodeWithTag("semester-save-success").assertIsDisplayed()
+    }
+
+    private fun evidenceDirectory(): File = File(
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: rule.activity.cacheDir.absolutePath,
+        "p3-06-r7-semester-cascade",
+    ).also { check(it.exists() || it.mkdirs()) }
+
+    private fun nodeLine(tag: String): String {
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode()
+        val bounds = node.boundsInRoot
+        val texts = node.config.getOrNull(SemanticsProperties.Text)?.joinToString("|") { it.text }.orEmpty()
+        return "$tag bounds=(l=%.1f,t=%.1f,r=%.1f,b=%.1f) size=%.1fx%.1f texts=[%s]".format(
+            bounds.left, bounds.top, bounds.right, bounds.bottom, bounds.width, bounds.height, texts,
+        )
+    }
+
+    private fun saveCascadeText(name: String, content: String) {
+        File(evidenceDirectory(), name).writeText(content)
+    }
+
+    /** P3-06-R7 evidence host: same capture path as the earlier rounds, one directory per task. */
+    private fun saveCascadeScreenshot(name: String) {
+        val directory = evidenceDirectory()
+        File(directory, name).outputStream().use { output ->
+            check(rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+        }
+    }
+
     private fun saveTodayScreenshot(name: String) {
         val directory = File(
             requireNotNull(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")),
@@ -2255,10 +2566,10 @@ class QingKeAppTest {
         }
     }
 
-    private fun defaultForm(count: Int = 10, expanded: Boolean = false, validation: String? = null) = SemesterFormState(
+    private fun defaultForm(count: Int = 10, expanded: Boolean = false) = SemesterFormState(
         id = "semester", name = "2026 秋季学期", startDate = LocalDate.parse("2026-07-01"), totalWeeks = 18,
         periods = (1..count).map { PeriodFormState("p$it", it, LocalTime.of(8, 0).plusMinutes((it - 1) * 55L), LocalTime.of(8, 45).plusMinutes((it - 1) * 55L)) },
-        periodsExpanded = expanded, validationMessage = validation,
+        periodsExpanded = expanded,
     )
     private fun loading() = ScheduleState(loadStatus = LoadStatus.LOADING)
     private fun failed(message: String) = ScheduleState(loadStatus = LoadStatus.FAILED, error = message)
@@ -2285,6 +2596,22 @@ class QingKeAppTest {
         }
         val expectation = if (expectedLight) "light" else "dark"
         assertTrue(tag + " must render " + expectation + " ink against its surface, inkPixels=" + ink, ink >= 20)
+    }
+
+    private fun uniqueIds(): () -> String {
+        var number = 0
+        return { "p3r7-" + number++ }
+    }
+
+    private fun cascadePlan(): SemesterCascadePlan {
+        val removed = RemovedSchedule(0, "course", "高数", "s1", 1, 2, 2, 1, 18, CascadeRemovalReason.DIRECT_REFERENCE)
+        return SemesterCascadePlan(
+            courses = emptyList(),
+            coursesWithPartialRemoval = emptyList(),
+            deletedCourses = listOf(CourseCascade(0, "course", "高数", 0, listOf(removed))),
+            remappedSchedules = emptyList(),
+            removedSchedules = listOf(removed),
+        )
     }
 
     private fun existingForm() = SemesterFormState(

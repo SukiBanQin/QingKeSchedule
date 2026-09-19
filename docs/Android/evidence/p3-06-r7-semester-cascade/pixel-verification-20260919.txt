@@ -1,0 +1,31 @@
+P3-06-R7 pixel classification (AVD 1080x2400@420dpi, system light theme, ui_night_mode=1)
+dialog panel = (105,941)-(975,1459); confirm button = (550,1336)-(975,1457); dismiss button = (105,1336)-(529,1457)
+01 blocked top save / single red action button  : size=870x121 danger=98.0% cyan=0.0% signal=0.0% light=0.0%
+02 blocked bottom save / single red action button: size=870x121 danger=98.0% cyan=0.0% signal=0.0% light=0.0%
+03 cascade confirm / red filled confirm button  : size=425x121 danger=93.2% cyan=0.0% signal=0.0% light=0.0%
+03 cascade confirm / outlined return button     : size=424x121 danger=0.0% cyan=0.0% signal=0.0% light=88.9%
+03 cascade confirm / dialog panel               : size=870x518 danger=14.6% cyan=0.0% signal=0.0% light=76.3%
+04 return keeps draft / no dialog, settings page: size=1080x2400 danger=0.0% cyan=0.6% signal=0.4% light=63.5%
+05 cascade saved / week matrix accent ink       : size=1080x2400 danger=0.0% cyan=2.7% signal=1.1% light=71.7%
+06 cascade saved / today page accent ink        : size=1080x2400 danger=0.0% cyan=0.1% signal=5.1% light=64.2%
+07 saved settings / cyan panel rail ink         : size=1080x2400 danger=0.0% cyan=1.2% signal=0.5% light=70.4%
+
+text ink bands inside the dialog panel (dark or danger ink, panel x 105..975, y 941..1459):
+p3-06-r7-01-blocked-top-save-error.png: 5 ink rows bands, min left=105, max right=974
+  band 0: y 962..981, x 107..974
+  band 1: y 1025..1103, x 105..365
+  band 2: y 1141..1196, x 107..558
+  band 3: y 1242..1281, x 107..403
+  band 4: y 1336..1456, x 105..974
+p3-06-r7-02-blocked-bottom-save-error.png: 5 ink rows bands, min left=105, max right=974
+  band 0: y 962..981, x 107..974
+  band 1: y 1025..1103, x 105..365
+  band 2: y 1141..1196, x 107..558
+  band 3: y 1242..1281, x 107..403
+  band 4: y 1336..1456, x 105..974
+p3-06-r7-03-cascade-confirm.png: 5 ink rows bands, min left=105, max right=974
+  band 0: y 962..981, x 107..974
+  band 1: y 1025..1103, x 105..320
+  band 2: y 1141..1196, x 108..730
+  band 3: y 1245..1276, x 107..889
+  band 4: y 1336..1456, x 105..974

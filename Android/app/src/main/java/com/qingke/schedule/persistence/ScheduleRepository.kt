@@ -8,6 +8,14 @@ interface ScheduleRepository {
     suspend fun load(): ScheduleData
     suspend fun replace(data: ScheduleData): ScheduleData
     suspend fun saveSemester(semester: Semester): ScheduleData
+
+    /**
+     * P3-06-R7: writes the semester and the cascaded course list in one atomic operation, so a period
+     * deletion can never leave the new period table next to course references of the old one.
+     */
+    suspend fun saveSemesterWithCourses(semester: Semester, courses: List<Course>): ScheduleData =
+        throw ScheduleRepositoryException.InconsistentStore("不支持学期与课程的原子保存")
+
     suspend fun saveCourse(course: Course): ScheduleData
     suspend fun deleteCourse(id: String): ScheduleData
 

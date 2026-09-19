@@ -102,6 +102,7 @@ import com.qingke.schedule.domain.CourseStatus
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleRules
+import com.qingke.schedule.domain.SemesterCascadePlan
 import com.qingke.schedule.domain.lunchBreakOverlappingPeriods
 import com.qingke.schedule.presentation.ScheduleDisplayText
 import com.qingke.schedule.presentation.TodayCourseItem
@@ -118,6 +119,7 @@ import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import com.qingke.schedule.viewmodel.LunchBreakConflict
+import com.qingke.schedule.viewmodel.SemesterSaveState
 import com.qingke.schedule.R
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -179,6 +181,8 @@ data class QingKeAppActions(
     val removePeriod: (String) -> Unit = {},
     val togglePeriods: () -> Unit = {},
     val saveSemester: () -> Unit = {},
+    val confirmSemesterCascade: () -> Unit = {},
+    val dismissSemesterSave: () -> Unit = {},
     val refreshTime: () -> Unit = {},
     val openAddCourse: () -> Unit = {}, val openNewCourse: () -> Unit = {},
     val openCourseAt: (Int) -> Unit = {}, val appendCourseAt: (Int) -> Unit = {},
@@ -215,6 +219,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val courseSuccess by viewModel.courseSuccess.collectAsStateWithLifecycle()
     val semesterSuccess by viewModel.semesterSuccess.collectAsStateWithLifecycle()
     val lunchBreakConflict by viewModel.lunchBreakConflict.collectAsStateWithLifecycle()
+    val semesterSave by viewModel.semesterSave.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -234,6 +239,8 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             updatePeriodStart = viewModel::updatePeriodStart, updatePeriodEnd = viewModel::updatePeriodEnd,
             addPeriod = viewModel::addPeriod, removePeriod = viewModel::removePeriod,
             togglePeriods = viewModel::togglePeriods, saveSemester = viewModel::saveSemester,
+            confirmSemesterCascade = viewModel::confirmSemesterCascade,
+            dismissSemesterSave = viewModel::dismissSemesterSave,
             refreshTime = viewModel::refreshCurrentTime,
             openAddCourse = viewModel::openAddCourse, openNewCourse = viewModel::openNewCourse,
             openCourseAt = viewModel::openCourseAt, appendCourseAt = viewModel::appendCourseAt,
@@ -256,7 +263,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             confirmLunchBreakConflict = viewModel::confirmLunchBreakDespiteConflicts, dismissLunchBreakConflict = viewModel::dismissLunchBreakConfirmation,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
-        semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict,
+        semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict, semesterSave,
     )
 }
 
@@ -273,6 +280,7 @@ fun QingKeAppContent(
     semesterSuccess: String? = null,
     consumeSemesterSuccess: () -> Unit = {},
     lunchBreakConflict: LunchBreakConflict? = null,
+    semesterSave: SemesterSaveState = SemesterSaveState.Idle,
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -298,9 +306,57 @@ fun QingKeAppContent(
             )
         }
         editor?.let { CourseEditorOverlay(it, state.data.semester, state.data.courses, dark, actions) }
+        SemesterSaveDialogHost(semesterSave, dark, actions)
         state.error?.let { message -> if (state.loadStatus == LoadStatus.READY) ErrorDialog(message, actions.dismissError) }
     }
 }
+
+/**
+ * P3-06-R7: one host behind both save entries. A blocked input, a course cascade confirmation and the
+ * in-flight atomic write all render here, so one entry can never report what the other does not.
+ */
+@Composable private fun SemesterSaveDialogHost(state: SemesterSaveState, dark: Boolean, actions: QingKeAppActions) {
+    when (state) {
+        SemesterSaveState.Idle -> Unit
+        is SemesterSaveState.Blocked -> TerminalDialog(
+            code = "DANGER / INVALID INPUT", status = "CANNOT CONTINUE", title = "无法保存学期设置",
+            message = state.message, confirm = "返回修改",
+            onConfirm = actions.dismissSemesterSave, onDismiss = actions.dismissSemesterSave,
+            tag = "semester-save-error", dismissTag = null, confirmTag = "semester-save-error-confirm",
+            danger = true, dark = dark,
+        )
+        is SemesterSaveState.AwaitingCascade -> SemesterCascadeDialog(state.plan, writing = false, dark = dark, actions = actions)
+        is SemesterSaveState.Writing -> state.plan?.let { SemesterCascadeDialog(it, writing = true, dark = dark, actions = actions) }
+    }
+}
+
+/** Red destructive confirmation: it summarizes what the cascade deletes, keeps and renumbers, once. */
+@Composable private fun SemesterCascadeDialog(
+    plan: SemesterCascadePlan,
+    writing: Boolean,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) = TerminalDialog(
+    code = "DANGER / COURSE IMPACT",
+    status = if (writing) "WRITING" else "CASCADE SAVE",
+    title = if (writing) "正在保存学期设置…" else "节次变更将影响已有课程",
+    confirm = if (writing) "正在保存…" else "确认保存并级联",
+    dismiss = "返回修改",
+    onConfirm = if (writing) ({}) else actions.confirmSemesterCascade,
+    onDismiss = actions.dismissSemesterSave,
+    tag = "semester-cascade", dismissTag = "semester-cascade-dismiss", confirmTag = "semester-cascade-confirm",
+    enabled = !writing, danger = true, dark = dark,
+    messageContent = {
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 250.dp).verticalScroll(rememberScrollState()).testTag("semester-cascade-summary"),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            plan.summaryLines.forEach { line ->
+                Text(line, color = terminalText(dark), fontSize = 13.sp, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    },
+)
 
 @Composable private fun CourseSuccessNotice(message: String, dark: Boolean, consume: () -> Unit) {
     LaunchedEffect(message) { delay(2_600); consume() }
@@ -932,7 +988,6 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
         }
     }
     AcademicCalendarSection(calendar, calendarUi, savedPeriods, prefix, dark, actions)
-    form.validationMessage?.let { ValidationNotice(it, dark = dark, tag = "semester-validation-error") }
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
 }
@@ -1710,7 +1765,7 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
     dismiss = if (tag == "course-discard-confirm") "继续编辑" else if (tag == "course-delete-confirm") "取消" else "返回修改", title = title, message = message, confirm = confirm, onConfirm = onConfirm, onDismiss = onDismiss, tag = tag, dark = dark,
 )
 
-@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES") = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
+@Composable private fun TerminalDialog(code: String, title: String, message: String = "", confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit, tag: String, dismissTag: String? = "terminal-dialog-dismiss", confirmTag: String = "$tag-confirm", dismiss: String = "返回修改", status: String = "ACTION REQUIRED", dark: Boolean = isSystemInDarkTheme(), messageContent: (@Composable () -> Unit)? = null, danger: Boolean = code.startsWith("DANGER") || status == "DISCARD CHANGES", enabled: Boolean = true) = Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)).testTag("$tag-backdrop"), contentAlignment = Alignment.Center) {
     val tone = if (danger) Danger else SignalYellow
     Column(Modifier.padding(24.dp).fillMaxWidth().terminalModalSurface(dark = dark, accent = tone).padding(16.dp).testTag(tag)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(code, color = tone, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.testTag("$tag-code")); Spacer(Modifier.weight(1f)); Box(Modifier.size(7.dp).background(tone, androidx.compose.foundation.shape.CircleShape).testTag("$tag-status-dot")) }
@@ -1718,7 +1773,7 @@ private fun periodDescription(semester: com.qingke.schedule.domain.Semester?, nu
         Text(title, color = terminalText(dark), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         if (message.isNotEmpty()) Text(message, color = terminalSecondary(dark), modifier = Modifier.padding(top = 8.dp))
         messageContent?.let { Column(Modifier.padding(top = 8.dp)) { it() } }
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { if (dismissTag != null) OutlinedButton(onDismiss, Modifier.weight(1f).heightIn(min = 46.dp).testTag(dismissTag), shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(contentColor = terminalText(dark))) { Text(dismiss) }; Button(onConfirm, Modifier.weight(1f).heightIn(min = 46.dp).testTag(confirmTag), shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = if (danger) Danger else SignalYellow, contentColor = InverseSurface)) { Text(confirm) } }
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { if (dismissTag != null) OutlinedButton(onDismiss, Modifier.weight(1f).heightIn(min = 46.dp).testTag(dismissTag), enabled = enabled, shape = TerminalShape, colors = ButtonDefaults.outlinedButtonColors(contentColor = terminalText(dark))) { Text(dismiss) }; Button(onConfirm, Modifier.weight(1f).heightIn(min = 46.dp).testTag(confirmTag), enabled = enabled, shape = TerminalShape, colors = ButtonDefaults.buttonColors(containerColor = if (danger) Danger else SignalYellow, contentColor = InverseSurface)) { Text(confirm) } }
     }
 }
 

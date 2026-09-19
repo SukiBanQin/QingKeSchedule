@@ -104,6 +104,67 @@ class RoomScheduleRepositoryTest {
         assertEquals(original, repository.load())
     }
 
+    @Test fun atomicSemesterAndCourseWriteSurvivesReopen() = runBlocking {
+        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-cascade-${System.nanoTime()}.db")
+        val repository = repository(file)
+        val original = data()
+        repository.replace(original)
+        val updated = original.semester!!.copy(name = "新学期", periods = listOf(Period(1, "09:00", "09:45")))
+        val cascaded = listOf(course("kept", "kept", listOf(CourseSchedule("slot", 1, 1, 1, 1, 16, RepeatRule.EVERY, "A101"))))
+
+        val result = repository.saveSemesterWithCourses(updated, cascaded)
+
+        assertEquals(updated, result.semester)
+        assertEquals(cascaded, result.courses)
+        assertEquals("2026-01-03T00:00:00Z", result.updatedAt)
+        repository.database.close()
+        val reopened = repository(file)
+        assertEquals(result, reopened.load())
+        reopened.database.close(); file.delete()
+        Unit
+    }
+
+    @Test fun failedOrCancelledAtomicWriteRollsBackSemesterAndCourses() = runBlocking {
+        val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "schedule-cascade-rollback-${System.nanoTime()}.db")
+        val original = data()
+        var mode = 0
+        val repository = repository(file, beforeCommit = {
+            if (mode == 1) error("injected cascade failure")
+            if (mode == 2) throw CancellationException("cancelled cascade")
+        })
+        repository.replace(original)
+        val updated = original.semester!!.copy(name = "新学期", periods = listOf(Period(1, "09:00", "09:45")))
+        val cascaded = listOf(course("kept", "kept", listOf(CourseSchedule("slot", 1, 1, 1, 1, 16, RepeatRule.EVERY, "A101"))))
+
+        mode = 1
+        assertThrows(IllegalStateException::class.java) { runBlocking { repository.saveSemesterWithCourses(updated, cascaded) } }
+        assertEquals(original, repository.load())
+        mode = 2
+        assertThrows(CancellationException::class.java) { runBlocking { repository.saveSemesterWithCourses(updated, cascaded) } }
+        assertEquals(original, repository.load())
+
+        repository.database.close()
+        val reopened = repository(file)
+        assertEquals(original, reopened.load())
+        reopened.database.close(); file.delete()
+        Unit
+    }
+
+    @Test fun atomicEntryCreatesTheFirstSemesterAndRejectsCoursesOutsideTheNewPeriods() = runBlocking {
+        val repository = repository(null)
+        val boot = Semester("boot", "新学期", "2026-02-23", 16, listOf(Period(1, "09:00", "09:45")))
+
+        val written = repository.saveSemesterWithCourses(boot, emptyList())
+
+        assertEquals(boot, written.semester)
+        assertEquals(emptyList<Course>(), written.courses)
+        assertEquals(written, repository.load())
+        assertThrows(ScheduleRepositoryException.InvalidData::class.java) {
+            runBlocking { repository.saveSemesterWithCourses(boot, listOf(course("stale", "stale"))) }
+        }
+        assertEquals(written, repository.load())
+    }
+
     @Test fun saveCourseUpdatesFirstDuplicateKeepsPositionAndAppendsNewCourse() = runBlocking {
         val repository = repository(null)
         repository.replace(data())
