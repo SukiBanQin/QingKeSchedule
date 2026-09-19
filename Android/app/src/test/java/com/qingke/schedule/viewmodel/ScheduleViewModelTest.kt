@@ -1013,6 +1013,157 @@ class ScheduleViewModelTest {
         assertEquals(emptyList<Course>(), repository.lastCourses)
     }
 
+    @Test fun reversedPeriodNumbersBlockTheSaveInsteadOfWritingAnInvalidRange() = runTest {
+        val course = Course("course", "数学", "", "#287B74", listOf(schedule("span", 4, 9)))
+        val semester = reversedSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods.last().id)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        model.saveSemester(); advanceUntilIdle()
+
+        assertEquals(0, repository.saveCalls)
+        val blocked = model.semesterSave.value as SemesterSaveState.Blocked
+        assertTrue(blocked.message, blocked.message.contains("无法按新节次顺序安全重映射"))
+        assertTrue(blocked.message, blocked.message.contains("课程编辑"))
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        assertEquals(semester, repository.data.semester)
+        assertEquals(listOf(course), repository.data.courses)
+
+        // "返回修改" keeps the draft so the user can go and fix the course.
+        model.dismissSemesterSave()
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        model.updateName("改名")
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertTrue(model.semesterSave.value is SemesterSaveState.Blocked)
+        assertEquals("改名", model.form.value!!.name)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+    }
+
+    @Test fun renamedReversedSemesterStillSavesWithoutConfirmation() = runTest {
+        val course = Course("course", "数学", "", "#287B74", listOf(schedule("span", 4, 9)))
+        val semester = reversedSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.updateName("改名")
+        model.saveSemester(); advanceUntilIdle()
+
+        assertEquals(1, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(listOf(9, 4, 20), repository.saved!!.periods.map { it.number })
+        assertEquals(listOf(course), repository.lastCourses)
+        assertEquals(listOf(course), model.state.value.data.courses)
+    }
+
+    @Test fun confirmSemesterCascadeIsIgnoredWhileIdle() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(schedule("s", 1, 1)))
+        val semester = threePeriodSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+
+        model.removePeriod(model.form.value!!.periods.last().id)
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(semester, repository.data.semester)
+    }
+
+    @Test fun confirmSemesterCascadeIsIgnoredWhileBlocked() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(schedule("s", 2, 2)))
+        val semester = threePeriodSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods[1].id)
+        model.updateName(" ")
+        model.saveSemester(); advanceUntilIdle()
+        assertTrue(model.semesterSave.value is SemesterSaveState.Blocked)
+
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertEquals("请填写学期名称", (model.semesterSave.value as SemesterSaveState.Blocked).message)
+        assertEquals(semester, repository.data.semester)
+    }
+
+    @Test fun staleConfirmationAfterDismissWritesNothing() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(schedule("s", 2, 2)))
+        val semester = threePeriodSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods[1].id)
+        model.saveSemester(); advanceUntilIdle()
+        assertTrue(model.semesterSave.value is SemesterSaveState.AwaitingCascade)
+        model.dismissSemesterSave()
+
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(semester, repository.data.semester)
+        assertEquals(listOf(course), repository.data.courses)
+    }
+
+    @Test fun aChangedPlanIsReshownAndNeedsASecondConfirmation() = runTest {
+        val first = Course("A", "高数", "", "#287B74", listOf(schedule("a", 2, 2)))
+        val second = Course("B", "英语", "", "#287B74", listOf(schedule("b", 3, 3)))
+        val semester = Semester("term", "秋季", "2026-09-01", 18, listOf(
+            Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"), Period(4, "10:55", "11:40"),
+        ))
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(first, second), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods.first().id)
+        model.saveSemester(); advanceUntilIdle()
+        val shown = model.semesterSave.value as SemesterSaveState.AwaitingCascade
+        assertEquals(listOf("a", "b"), shown.plan.remappedSchedules.map { it.scheduleId })
+
+        // The draft changes while the confirmation is open: the confirmed plan no longer matches.
+        model.removePeriod(model.form.value!!.periods.first().id)
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        val refreshed = model.semesterSave.value as SemesterSaveState.AwaitingCascade
+        assertTrue("the refreshed plan must be a new one", refreshed.plan != shown.plan)
+        assertEquals(listOf("A"), refreshed.plan.deletedCourses.map { it.courseId })
+        assertEquals(listOf("b"), refreshed.plan.remappedSchedules.map { it.scheduleId })
+
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(listOf("B"), model.state.value.data.courses.map { it.id })
+        assertEquals(1, model.state.value.data.courses.single().schedules.single().startPeriod)
+    }
+
+    @Test fun aConfirmationThatBecameHarmlessWritesNothingAndClearsTheStaleConfirmation() = runTest {
+        val course = Course("course", "课", "", "#287B74", listOf(schedule("s", 3, 3)))
+        val semester = threePeriodSemester()
+        val repository = FakeScheduleRepository().also { it.data = ScheduleData(1, semester, listOf(course), "now") }
+        val model = ScheduleViewModel(appState(repository), idFactory = ids()); advanceUntilIdle()
+
+        model.removePeriod(model.form.value!!.periods.first().id)
+        model.saveSemester(); advanceUntilIdle()
+        assertTrue(model.semesterSave.value is SemesterSaveState.AwaitingCascade)
+
+        // The stored courses disappear elsewhere: the destructive plan no longer exists.
+        repository.data = repository.data.copy(courses = emptyList())
+        model.retryLoad(); advanceUntilIdle()
+
+        model.confirmSemesterCascade(); advanceUntilIdle()
+        assertEquals(0, repository.saveCalls)
+        assertEquals(SemesterSaveState.Idle, model.semesterSave.value)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+
+        model.saveSemester(); advanceUntilIdle()
+        assertEquals(1, repository.saveCalls)
+        assertEquals(listOf(1, 2), repository.saved!!.periods.map { it.number })
+    }
+
     private fun testSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40")))
     private fun testCourse(id: String, name: String, teacher: String, day: Int = 1) = Course(id, name, teacher, "#287B74", listOf(com.qingke.schedule.domain.CourseSchedule("schedule-$name", day, 1, 1, 1, 18, com.qingke.schedule.domain.RepeatRule.EVERY, "A101")))
 
@@ -1079,6 +1230,11 @@ class ScheduleViewModelTest {
 
     private fun threePeriodSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(
         Period(1, "08:00", "08:45"), Period(2, "08:55", "09:40"), Period(3, "10:00", "10:45"),
+    ))
+
+    /** Version 1 legally stores reversed numbers; the settings draft renumbers them on the first deletion. */
+    private fun reversedSemester() = Semester("term", "秋季", "2026-09-01", 18, listOf(
+        Period(9, "08:00", "08:45"), Period(4, "08:55", "09:40"), Period(20, "10:00", "10:45"),
     ))
 
     private fun schedule(id: String, start: Int, end: Int) =

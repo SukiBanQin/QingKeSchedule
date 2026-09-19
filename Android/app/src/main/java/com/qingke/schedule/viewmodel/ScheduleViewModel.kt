@@ -9,6 +9,7 @@ import com.qingke.schedule.domain.Course
 import com.qingke.schedule.domain.Period
 import com.qingke.schedule.domain.RepeatRule
 import com.qingke.schedule.domain.ScheduleConflict
+import com.qingke.schedule.domain.SemesterCascadeEvaluation
 import com.qingke.schedule.domain.SemesterCascadePlan
 import com.qingke.schedule.domain.SemesterCascadePlanner
 import com.qingke.schedule.domain.withLunchBreakEnabled
@@ -195,10 +196,38 @@ class ScheduleViewModel(
      * course-affecting period change waits for one destructive confirmation, and everything else is written
      * immediately. No branch writes a partial semester.
      */
-    fun saveSemester() = evaluateSemesterSave(confirmed = false)
+    fun saveSemester() {
+        if (mutableSemesterSave.value is SemesterSaveState.Writing || state.value.isSaving) return
+        val current = draft ?: return
+        when (val evaluation = evaluateDraft(current)) {
+            is DraftEvaluation.Invalid -> mutableSemesterSave.value = SemesterSaveState.Blocked(evaluation.message)
+            is DraftEvaluation.Unmappable -> mutableSemesterSave.value = SemesterSaveState.Blocked(evaluation.message)
+            is DraftEvaluation.Impact -> mutableSemesterSave.value = SemesterSaveState.AwaitingCascade(evaluation.plan)
+            DraftEvaluation.Unaffected -> submitSemester(current, null, state.value.data.courses)
+        }
+    }
 
-    /** The destructive confirmation action: re-evaluates the live draft first, then performs the atomic write. */
-    fun confirmSemesterCascade() = evaluateSemesterSave(confirmed = true)
+    /**
+     * P3-06-R7-R1: the confirmation is only accepted from [SemesterSaveState.AwaitingCascade]. Every other
+     * state, including a stale confirmation after the dialog was dismissed and a repeated tap during the
+     * write, is a no-op. The draft and the stored data are re-evaluated first, so a confirmation can never
+     * write a plan the user has not just seen.
+     */
+    fun confirmSemesterCascade() {
+        val confirmed = mutableSemesterSave.value as? SemesterSaveState.AwaitingCascade ?: return
+        if (state.value.isSaving) return
+        val current = draft ?: return
+        when (val evaluation = evaluateDraft(current)) {
+            is DraftEvaluation.Invalid -> mutableSemesterSave.value = SemesterSaveState.Blocked(evaluation.message)
+            is DraftEvaluation.Unmappable -> mutableSemesterSave.value = SemesterSaveState.Blocked(evaluation.message)
+            // The confirmed destruction no longer exists: this click must not write, the next save uses the
+            // ordinary no-impact path instead of silently approving a plan the user never saw.
+            DraftEvaluation.Unaffected -> mutableSemesterSave.value = SemesterSaveState.Idle
+            is DraftEvaluation.Impact ->
+                if (evaluation.plan == confirmed.plan) submitSemester(current, evaluation.plan, state.value.data.courses)
+                else mutableSemesterSave.value = SemesterSaveState.AwaitingCascade(evaluation.plan)
+        }
+    }
 
     /**
      * "返回修改" of either dialog. Nothing is written and the draft stays untouched; an in-flight write ignores
@@ -209,22 +238,27 @@ class ScheduleViewModel(
         mutableSemesterSave.value = SemesterSaveState.Idle
     }
 
-    private fun evaluateSemesterSave(confirmed: Boolean) {
-        val current = draft ?: return
-        if (mutableSemesterSave.value is SemesterSaveState.Writing || state.value.isSaving) return
+    /** The single evaluation shared by both save paths; none of these outcomes writes anything by itself. */
+    private sealed interface DraftEvaluation {
+        data class Invalid(val message: String) : DraftEvaluation
+
+        data class Unmappable(val message: String) : DraftEvaluation
+
+        data class Impact(val plan: SemesterCascadePlan) : DraftEvaluation
+
+        data object Unaffected : DraftEvaluation
+    }
+
+    private fun evaluateDraft(current: SemesterDraft): DraftEvaluation {
         val previous = state.value.data.semester
         val courses = state.value.data.courses
         val issues = current.validationIssues() + current.courseRangeIssues(previous, courses)
-        if (issues.isNotEmpty()) {
-            mutableSemesterSave.value = SemesterSaveState.Blocked(issues.first().message)
-            return
+        if (issues.isNotEmpty()) return DraftEvaluation.Invalid(issues.first().message)
+        return when (val evaluation = SemesterCascadePlanner.evaluate(previous, courses, current.periodIdentities())) {
+            is SemesterCascadeEvaluation.Blocked -> DraftEvaluation.Unmappable(evaluation.message)
+            is SemesterCascadeEvaluation.Plan ->
+                if (evaluation.plan.hasImpact) DraftEvaluation.Impact(evaluation.plan) else DraftEvaluation.Unaffected
         }
-        val plan = SemesterCascadePlanner.plan(previous, courses, current.periodIdentities())
-        if (plan.hasImpact && !confirmed) {
-            mutableSemesterSave.value = SemesterSaveState.AwaitingCascade(plan)
-            return
-        }
-        submitSemester(current, plan.takeIf { it.hasImpact }, courses)
     }
 
     /**

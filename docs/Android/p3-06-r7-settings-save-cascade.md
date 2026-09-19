@@ -53,7 +53,7 @@
 
 ## 测试
 
-- Debug／Release JVM：各 **151 tests、0 failures／errors／skipped**（P3-07-R1 基线 132，本轮 +19）。
+- Debug／Release JVM：各 **162 tests、0 failures／errors／skipped**（P3-07-R1 基线 132；R7 +19、R1 修正 +11）。
   - `domain/PeriodCascadePlannerTest`（+10）：删除未被引用节次无影响；直接引用被删节次只删该安排；
     区间跨被删中间节次按 `SPANNED_RANGE` 删除而不重编号；前方删除后按身份重映射且不误指向同号节次；
     同一课程部分失效保留其余安排；全部失效整门删除；多课程一次汇总（三类行都在且无未受影响课程行）；
@@ -67,7 +67,7 @@
 - Room／repository（设备，`RoomScheduleRepositoryTest` +3）：原子写入学期＋课程并在重开数据库后一致；
   注入失败与 `CancellationException` 全部回滚且重开仍为旧数据；原子入口也用于首次建学期，并拒绝仍在
   引用旧节次表的课程。
-- Compose／API 37 connected：**120 tests、0 failures／errors／skipped**（基线 110，本轮 +10 含证据用例）。
+- Compose／API 37 connected：**121 tests、0 failures／errors／skipped**（基线 110；R7 +10、R1 修正 +1 反序编号回归与证据用例）。
   新增：顶部／底部入口共用同一级联弹窗且返回修改不写入；确认后今日页与周表立即使用新节次与级联结果
   （`week-item-5:0:0`、`week-period-1-start=08:55`、`week-period-3` 消失）；写入失败时错误框与可重试确认
   同时存在、关闭后草稿仍在、修复后重试成功；不可继续错误从两个入口弹出同一错误框；无错误时不出现
@@ -79,11 +79,57 @@
 
 ## 设备证据
 
-`docs/Android/evidence/p3-06-r7-semester-cascade/`：7 张同一次安装的 debug APK 截图（顶部错误弹窗、
+`docs/Android/evidence/p3-06-r7-semester-cascade/`：8 张同一次安装的 debug APK 截图（顶部错误弹窗、
 底部同一错误弹窗、级联汇总确认框、返回修改后的草稿、确认后的周表与今日页、保存后的设置页）＋
 `node-verification-20260919.txt`（Compose 语义节点 bounds、两个入口面板 bounds 完全一致）＋
 `pixel-verification-20260919.txt`（危险红／青色／信号黄区域分类与弹窗内墨迹行带）＋逐张结论 README。
 设备为本机 API 37（Android 17）ARM64 AVD，`wm size` 覆盖为 1080x2400、420dpi、font_scale 1.0、系统浅色。
+
+## R1 修正（独立复审两项问题）
+
+复审发现两项阻断缺口，本轮按同一 DeepSeek 执行窗口修正，仍不改 iOS／Web／Room schema／共享协议／`main`。
+
+### 修正 1：反序／非连续节次编号下不可表示的身份映射
+
+- 根因：`SemesterCascadePlanner` 只把两端点各自映射后直接落库。版本 1 与既有校验明确接受反序编号
+  （例如持久化行序 9、4、20），删除第 20 节后剩余行重编号为 9→1、4→2，安排 4–9 就会生成 2–1，
+  `ScheduleValidator` 报「请选择有效的起止节次」。
+- 处理：`SemesterCascadePlanner` 由 `plan(...)` 改为返回密封结果
+  `SemesterCascadeEvaluation{Plan|Blocked}`；`Blocked` **不携带任何可写计划**，因此不可能被误写。
+  新增 `UnmappableSchedule` 与 `isRepresentable` 判定：只有当旧范围覆盖的持久化节次都落在新范围内、
+  且新范围不包含该安排从未引用过的其他持久化节次时才允许重映射。满足不了（含 2–1 这类倒置、以及
+  “重编号后会把无关节次吞进范围”的稀疏情形）即返回 `Blocked`，消息形如
+  「「数学」周一 第4-9节 1-18周 的安排无法按新节次顺序安全重映射，请先在课程编辑中调整该课程。」，
+  由 ViewModel 进入既有的红色错误弹窗（`semester-save-error`），不写入、不删除课程、不清除草稿。
+- 未采用「静默多删一个安排」的替代方案：那需要新的产品授权，本轮按保守处理。
+- 顺带修掉一个隐蔽缺陷：原判定的“缺失编号视为通过”写成 `?: true` 后经 `in` 变成布尔比较，
+  会把任何含缺失编号的范围判成不可表示（反序学期即使只改名也会被误拦）；现改为显式 `return@all true`，
+  并补测试固定“普通改名保留 9、4、20、不误触发”。
+
+### 修正 2：封闭 `confirmSemesterCascade` 的确认旁路
+
+- 只有当前状态是 `SemesterSaveState.AwaitingCascade` 时才可能执行确认；`Idle`／`Blocked`／`Writing`
+  以及弹窗关闭后的过期确认都是无操作（先做类型取用，取不到直接 return）。
+- 确认时用当前草稿与当前已存数据重新做校验与计划：命中不可继续错误 → `Blocked` 且不写入；重算出的
+  破坏性计划与用户刚看到并确认的 `AwaitingCascade.plan` 不一致 → 更新为新的 `AwaitingCascade`
+  重新展示摘要，本次点击不写入，必须再次确认；只有重算计划与已展示计划结构相等时才进入 `Writing`。
+- 失败或 `CancellationException` 后仍回到可重试的 `AwaitingCascade`，再次确认会重新走同一一致性检查。
+- 边界（有意为之并已测试）：确认时若重算结果已经**没有**破坏性影响（例如已存课程在别处被清空），
+  本次点击也不写入，只清除过期确认并回到 `Idle`；下一次点保存按无影响路径直接写入，不会在用户没看过
+  的破坏性计划上落库，也不会展示一张空的汇总弹窗。
+
+### R1 测试与证据
+
+- JVM：`PeriodCascadePlannerTest` 新增 4 项（反序 9、4、20 + 4–9 + 删 20 → `Blocked` 且无计划、
+  消息含安排描述；反序下可表示的 4–4／9–9 仍正确重映射为 2–2／1–1；反序学期仅改名保留 9、4、20 且
+  无影响；稀疏范围会吞掉无关节次时同样 `Blocked`），`ScheduleViewModelTest` 新增 7 项（反序阻止保存
+  且写入 0、草稿保留、可继续修改；反序改名直接保存；`Idle`／`Blocked`／`dismiss` 后过期确认不写入；
+  计划变化时第一次确认只刷新摘要、第二次才写入；确认变无害时清除过期确认不写入）。
+- 设备：`p3r06R7ReversedPeriodsBlockedEvidence`（真实 ViewModel，反序学期 + 4–9 安排 + 删除第 20 节 →
+  两个入口都弹红色错误框、断言文案、写入 0、关闭后草稿与已存学期不变），并新增截图
+  `p3-06-r7-08-reversed-periods-blocked.png` 与 `node-verification-reversed-20260919.txt`。
+- 修正 2 属纯状态保护，弹窗外观与按钮未变，因此复用 01—03 的视觉证据，由 JVM 测试断言（已在证据
+  README 中如实说明）。
 
 ## 已知限制
 
@@ -98,6 +144,6 @@
 
 ## 准确状态
 
-P3-06-R7 已实现并自测（JVM 151、设备 120、lint 0 errors、7 张截图证据齐备）；**Sol 独立复审与用户
-验收均未进行**。按 AGENTS.md，本任务涉及破坏性数据与原子状态，不得以自测代替独立复审；A08／A10／A11、
+P3-06-R7 已实现并自测，R1 复审提出的两项缺口已修正并复测（JVM 162、设备 121、lint 0 errors、
+8 张截图证据齐备）；**Sol 对 R1 修正的独立复审与用户验收均未进行**。按 AGENTS.md，本任务涉及破坏性数据与原子状态，不得以自测代替独立复审；A08／A10／A11、
 整个 P3 与完整 App 仍未授权、未完成。

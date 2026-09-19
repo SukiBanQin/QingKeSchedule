@@ -42,6 +42,30 @@ data class RemappedSchedule(
             " → " + periodRange(startPeriod, endPeriod)
 }
 
+/**
+ * P3-06-R7-R1: an existing schedule whose persisted range has no faithful representation in the new
+ * contiguous numbering. Version 1 legally allows reversed or sparse period numbers, for example the
+ * persisted order 9, 4, 20 where a schedule of 4-9 would map onto 2-1. Such a plan must never be written:
+ * [startPeriod] is the persisted start and [mappedStartPeriod] the number it would have taken.
+ */
+data class UnmappableSchedule(
+    val courseIndex: Int,
+    val courseId: String,
+    val courseName: String,
+    val scheduleId: String,
+    val dayOfWeek: Int,
+    val startPeriod: Int,
+    val endPeriod: Int,
+    val startWeek: Int,
+    val endWeek: Int,
+    val mappedStartPeriod: Int,
+    val mappedEndPeriod: Int,
+) {
+    val displayName: String get() = courseName.ifBlank { "未命名课程" }
+
+    val description: String get() = describeSchedule(dayOfWeek, startPeriod, endPeriod, startWeek, endWeek)
+}
+
 /** One course of the plan: [removedSchedules] all failed, [keptSchedules] survives with new numbers. */
 data class CourseCascade(
     val courseIndex: Int,
@@ -92,9 +116,7 @@ data class SemesterCascadePlan(
             }
         }
 
-    companion object {
-        val Unchanged = SemesterCascadePlan(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
-
+    private companion object {
         private const val MAX_LISTED = 4
 
         private fun summarize(values: List<String>): String =
@@ -104,18 +126,33 @@ data class SemesterCascadePlan(
 }
 
 /**
+ * P3-06-R7-R1: the planner either produces a writable plan or refuses the whole change. A blocked
+ * evaluation carries no plan at all, so a partially remapped semester can never reach the repository.
+ */
+sealed interface SemesterCascadeEvaluation {
+    /** The change cannot be represented safely; the caller must report [message] and write nothing. */
+    data class Blocked(val message: String, val unmappable: List<UnmappableSchedule>) : SemesterCascadeEvaluation
+
+    data class Plan(val plan: SemesterCascadePlan) : SemesterCascadeEvaluation
+}
+
+/**
  * P3-06-R7: maps every persisted period a course can reference onto the visible draft configuration.
  *
  * A schedule is dropped when it directly references a deleted period or when its range spans one, and a
  * surviving schedule is re-pointed through [PeriodIdentity.sourceNumber]. A number that merely still
- * exists after a deletion must never be reused for a different period.
+ * exists after a deletion must never be reused for a different period, and a range whose mapping would
+ * reorder or silently include unrelated persisted periods is refused instead of being written.
  */
 object SemesterCascadePlanner {
-    fun plan(previous: Semester?, courses: List<Course>, periods: List<PeriodIdentity>): SemesterCascadePlan {
+    fun evaluate(previous: Semester?, courses: List<Course>, periods: List<PeriodIdentity>): SemesterCascadeEvaluation {
         if (previous == null) {
-            return SemesterCascadePlan(courses, emptyList(), emptyList(), emptyList(), emptyList())
+            return SemesterCascadeEvaluation.Plan(
+                SemesterCascadePlan(courses, emptyList(), emptyList(), emptyList(), emptyList()),
+            )
         }
         val numberBySource = periods.mapNotNull { period -> period.sourceNumber?.let { it to period.number } }.toMap()
+        val sourceByNumber = periods.mapNotNull { period -> period.sourceNumber?.let { period.number to it } }.toMap()
         val deletedNumbers = previous.periods.map { it.number }.filterNot { it in numberBySource }.sorted()
 
         val nextCourses = mutableListOf<Course>()
@@ -123,6 +160,7 @@ object SemesterCascadePlanner {
         val deletedCourses = mutableListOf<CourseCascade>()
         val remappedSchedules = mutableListOf<RemappedSchedule>()
         val removedSchedules = mutableListOf<RemovedSchedule>()
+        val unmappable = mutableListOf<UnmappableSchedule>()
 
         courses.forEachIndexed { courseIndex, course ->
             if (course.schedules.isEmpty()) {
@@ -147,6 +185,10 @@ object SemesterCascadePlanner {
                         courseIndex, course.id, course.name, schedule.id, schedule.dayOfWeek, schedule.startPeriod, schedule.endPeriod,
                         schedule.startWeek, schedule.endWeek, CascadeRemovalReason.DIRECT_REFERENCE,
                     )
+                    !isRepresentable(schedule, numberBySource, sourceByNumber) -> unmappable += UnmappableSchedule(
+                        courseIndex, course.id, course.name, schedule.id, schedule.dayOfWeek, schedule.startPeriod, schedule.endPeriod,
+                        schedule.startWeek, schedule.endWeek, mappedStart, mappedEnd,
+                    )
                     mappedStart == schedule.startPeriod && mappedEnd == schedule.endPeriod -> kept += schedule
                     else -> {
                         kept += schedule.copy(startPeriod = mappedStart, endPeriod = mappedEnd)
@@ -166,9 +208,42 @@ object SemesterCascadePlanner {
                 nextCourses += course.copy(schedules = kept)
             }
         }
-        return SemesterCascadePlan(nextCourses, partialCourses, deletedCourses, remappedSchedules, removedSchedules)
+        if (unmappable.isNotEmpty()) return SemesterCascadeEvaluation.Blocked(unmappableMessage(unmappable), unmappable)
+        return SemesterCascadeEvaluation.Plan(
+            SemesterCascadePlan(nextCourses, partialCourses, deletedCourses, remappedSchedules, removedSchedules),
+        )
     }
 
+    /**
+     * A range survives only when every persisted period it covered keeps a number inside the new range and
+     * the new range covers no period the arrangement never referenced. Reversed numbering (9, 4, 20 with a
+     * schedule of 4-9) and sparse ranges that would swallow an unrelated persisted period both fail here.
+     */
+    private fun isRepresentable(
+        schedule: CourseSchedule,
+        numberBySource: Map<Int, Int>,
+        sourceByNumber: Map<Int, Int>,
+    ): Boolean {
+        val mappedStart = numberBySource[schedule.startPeriod] ?: return false
+        val mappedEnd = numberBySource[schedule.endPeriod] ?: return false
+        val coveredSourcesStayInside = (schedule.startPeriod..schedule.endPeriod).all { source ->
+            val mapped: Int = numberBySource[source] ?: return@all true
+            mapped in mappedStart..mappedEnd
+        }
+        val coveredNumbersStayInside = (mappedStart..mappedEnd).all { number ->
+            val source: Int = sourceByNumber[number] ?: return@all true
+            source in schedule.startPeriod..schedule.endPeriod
+        }
+        return coveredSourcesStayInside && coveredNumbersStayInside
+    }
+
+    private fun unmappableMessage(unmappable: List<UnmappableSchedule>): String = if (unmappable.size == 1) {
+        val only = unmappable.single()
+        "「" + only.displayName + "」" + only.description + " 的安排无法按新节次顺序安全重映射，请先在课程编辑中调整该课程。"
+    } else {
+        "有 " + unmappable.size + " 个上课安排无法按新节次顺序安全重映射（如「" + unmappable.first().displayName + "」" +
+            unmappable.first().description + "），请先在课程编辑中调整相关课程。"
+    }
 }
 
 private fun describeSchedule(dayOfWeek: Int, startPeriod: Int, endPeriod: Int, startWeek: Int, endWeek: Int): String =

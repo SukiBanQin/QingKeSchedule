@@ -2481,6 +2481,49 @@ class QingKeAppTest {
         assertEquals(emptyList<Course>(), model.state.value.data.courses)
     }
 
+    /**
+     * P3-06-R7-R1 evidence and regression: a legal reversed persisted order (9, 4, 20) cannot express a
+     * 4-9 arrangement after the first deletion, so both entries show the red error dialog and write nothing.
+     */
+    @Test fun p3r06R7ReversedPeriodsBlockedEvidence() {
+        val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(
+            Period(9, "08:00", "08:45"), Period(4, "08:55", "09:40"), Period(20, "10:00", "10:45"),
+        ))
+        val course = Course("course", "数学", "", "#287B74", listOf(CourseSchedule("span", 6, 4, 9, 1, 18, RepeatRule.EVERY, "A101")))
+        val repository = HostScheduleRepository(ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z"))
+        val model = ScheduleViewModel(ScheduleAppState(repository, HostPreferencesRepository()), { LocalDateTime.parse("2026-09-05T09:00") }, uniqueIds())
+        val evidence = mutableListOf("P3-06-R7-R1 reversed persisted numbers (9, 4, 20) with a 4-9 arrangement")
+        rule.setContent { QingKeApp(model) }
+        rule.waitUntil(5_000) { model.state.value.loadStatus == LoadStatus.READY }
+
+        rule.onNodeWithTag("settings-tab").performClick(); rule.waitForIdle()
+        val lastPeriod = model.form.value!!.periods.last().id
+        rule.onNodeWithTag("period-" + lastPeriod + "-delete").performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+
+        rule.onNodeWithTag("semester-save-toolbar").performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        rule.onNodeWithText("无法按新节次顺序安全重映射", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("第4-9节", substring = true).assertIsDisplayed()
+        rule.onAllNodesWithTag("semester-cascade").assertCountEquals(0)
+        assertEquals(0, repository.writes)
+        evidence.add("top entry: " + nodeLine("semester-save-error"))
+        saveCascadeScreenshot("p3-06-r7-08-reversed-periods-blocked.png")
+
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+        rule.onAllNodesWithTag("semester-save-error").assertCountEquals(0)
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        assertEquals(listOf(9, 4, 20), model.state.value.data.semester!!.periods.map { it.number })
+        assertEquals(listOf(course), model.state.value.data.courses)
+
+        rule.onNodeWithTag("semester-save").performScrollTo().performClick(); rule.waitForIdle()
+        rule.onNodeWithTag("semester-save-error").assertIsDisplayed()
+        assertEquals(0, repository.writes)
+        rule.onNodeWithTag("semester-save-error-confirm").performClick(); rule.waitForIdle()
+        assertEquals(listOf(1, 2), model.form.value!!.periods.map { it.number })
+        saveCascadeText("node-verification-reversed-20260919.txt", evidence.joinToString("\n") + "\n")
+    }
+
     @Test fun blockedSemesterInputOpensTheSameErrorDialogFromBothEntries() {
         val semester = Semester("semester", "测试学期", "2026-08-31", 18, listOf(Period(1, "08:00", "08:45")))
         val repository = HostScheduleRepository(ScheduleData(1, semester, emptyList(), "1970-01-01T00:00:00Z"))

@@ -1,0 +1,2 @@
+P3-06-R7-R1 reversed persisted numbers (9, 4, 20) with a 4-9 arrangement
+top entry: semester-save-error bounds=(l=105.0,t=878.0,r=975.0,b=1522.0) size=870.0x644.0 texts=[]
