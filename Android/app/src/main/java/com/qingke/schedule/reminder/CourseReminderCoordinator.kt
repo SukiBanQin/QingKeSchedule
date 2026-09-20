@@ -12,6 +12,9 @@ import kotlinx.coroutines.sync.withLock
 enum class ReminderReconcileReason {
     APP_START,
     ALARM_FIRED,
+
+    /** A08 third batch: the internal window fallback fired and asked for one re-plan. */
+    WINDOW_MAINTENANCE,
     DATA_SAVED,
     PREFERENCES_CHANGED,
     BOOT_COMPLETED,
@@ -30,7 +33,8 @@ enum class ReminderReconcileReason {
  * registered, not that AlarmManager still holds it (reboot, package replace, time change and process death all
  * drop the alarms).
  *
- * [failed] lists, once each, the identities whose platform call failed in this run and therefore need a retry.
+ * [failed] lists, once each, the identities whose platform call failed in this run and therefore need a retry. It
+ * may also carry [ReminderMaintenance.URI], the internal window fallback, which is not a course reminder.
  * [activeAlarms] is the saved registry content and the only source of [activeCount] and [degraded]: a failed
  * re-submit of an already registered alarm keeps its previous entry (so a later cancel can still remove the
  * platform alarm), while a failed first submission is never registered.
@@ -197,7 +201,11 @@ class CourseReminderCoordinator(
             if (desiredByUri[previous.uri] == null && previous.uri in cancelFailedUris) active += previous
         }
         val finalActive = active.distinctBy { it.uri }.sortedBy { it.fireAt }
-        val failed = (cancelFailed + submitFailed).distinct()
+        // A08 third batch: the window fallback is re-armed (or cleared) in the same pass, but it never enters the
+        // registry, so it cannot change the active count or the degraded flag.
+        val maintenanceFailed = runCatching { maintainWindowFallback(preferences, availability, moment) }.isFailure
+        val failed = (cancelFailed + submitFailed + if (maintenanceFailed) listOf(ReminderMaintenance.URI) else emptyList())
+            .distinct()
         val saved = registry.save(ReminderRegistryState(startState.generation + 1, finalActive))
 
         ReminderReconciliation(
@@ -228,19 +236,39 @@ class CourseReminderCoordinator(
                 onFailure = { failed += alarm.uri },
             )
         }
-        val failedUris = failed.toSet()
+        val failedAlarms = failed.distinct()
+        val failedUris = failedAlarms.toSet()
         val remaining = startState.alarms.filter { it.uri in failedUris }.distinctBy { it.uri }
         val saved = registry.save(ReminderRegistryState(startState.generation + 1, remaining))
+        // Turning reminders off also clears the window fallback; a failure is reported like any other cancel.
+        val maintenanceFailed = runCatching { scheduler.cancelMaintenance() }.isFailure
         ReminderReconciliation(
             reason = reason,
             generation = saved.generation,
             remindersEnabled = false,
             availability = availability,
             cancelled = cancelled,
-            failed = failed.distinct(),
+            failed = (failedAlarms + if (maintenanceFailed) listOf(ReminderMaintenance.URI) else emptyList()).distinct(),
             // Alarms whose cancel failed are still registered, so the reported active set must match the registry.
             activeAlarms = saved.alarms,
         )
+    }
+
+    /**
+     * A08 third batch: keeps exactly one window fallback while reminders are on and deliverable, and clears it
+     * otherwise. Re-scheduling the same identity is idempotent, so every rebuild, save, trigger or capability
+     * recovery renews the fallback - including while the current window holds no course at all.
+     */
+    private fun maintainWindowFallback(
+        preferences: SchedulePreferences,
+        availability: ReminderAvailability,
+        moment: Instant,
+    ) {
+        if (preferences.reminder.remindersEnabled && availability.canDeliver) {
+            scheduler.scheduleMaintenance(ReminderMaintenance.nextFireAt(moment, window))
+        } else {
+            scheduler.cancelMaintenance()
+        }
     }
 
     /**

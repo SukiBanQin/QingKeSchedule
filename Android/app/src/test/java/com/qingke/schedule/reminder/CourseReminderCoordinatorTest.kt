@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,6 +34,139 @@ class CourseReminderCoordinatorTest {
     private fun data(courses: List<Course> = listOf(Course("c1", "高等数学", "王老师", "#287B74", listOf(schedule())))) =
         ScheduleData(1, semester(), courses, "1970-01-01T00:00:00Z")
 
+    /** A08 third batch: the next occurrence is outside a 14 day window but inside the next one. */
+    private fun farData(): ScheduleData = ScheduleData(
+        1,
+        Semester("term", "测试学期", "2026-03-02", 18, listOf(Period(1, "08:00", "08:45"))),
+        listOf(Course("far", "远期课程", "", "#287B74", listOf(CourseSchedule("far-slot", 1, 1, 1, 3, 3, RepeatRule.EVERY, "")))),
+        "1970-01-01T00:00:00Z",
+    )
+
+    @Test fun theMaintenanceAlarmIsArmedHalfAWindowAhead() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+
+        coordinator(scheduler = scheduler, registry = registry, window = Duration.ofDays(14))
+            .reconcile(ReminderReconcileReason.APP_START)
+
+        assertEquals(nowInstant.plus(Duration.ofDays(7)), scheduler.maintenanceFireAt)
+        assertTrue("the period must never exceed half the window", scheduler.maintenanceFireAt!! <= nowInstant.plus(Duration.ofDays(14)))
+        assertTrue(scheduler.isMaintenanceRegistered())
+    }
+
+    @Test fun theMaintenanceAlarmSurvivesAnEmptyWindowAndBringsTheFarCourseIn() = runTest {
+        var moment = nowInstant
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(
+            scheduler = scheduler,
+            registry = registry,
+            data = farData(),
+            window = Duration.ofDays(14),
+            now = { moment },
+        )
+
+        val empty = model.reconcile(ReminderReconcileReason.APP_START)
+
+        assertTrue("no occurrence is inside the 14 day window yet", empty.submitted.isEmpty())
+        assertTrue(registry.state.alarms.isEmpty())
+        assertFalse("an internal fallback is not a course reminder", empty.activeAlarms.any { it.uri == ReminderMaintenance.URI })
+        assertEquals(0, empty.activeCount)
+        assertEquals(moment.plus(Duration.ofDays(7)), scheduler.maintenanceFireAt)
+
+        // The fallback fires a week later, when the far occurrence has entered the fresh window.
+        moment = moment.plus(Duration.ofDays(7))
+        val advanced = model.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
+
+        assertEquals(listOf("qingke://reminder/0/far/0/far-slot/3/2026-03-16"), advanced.submitted)
+        assertEquals(1, registry.state.alarms.size)
+        assertEquals(1, advanced.activeCount)
+        assertFalse(advanced.activeAlarms.any { it.uri == ReminderMaintenance.URI })
+        assertEquals(moment.plus(Duration.ofDays(7)), scheduler.maintenanceFireAt)
+    }
+
+    @Test fun repeatedMaintenanceTriggersAndTimeChangesNeverDuplicateIdentities() = runTest {
+        var moment = nowInstant
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry, now = { moment })
+
+        model.reconcile(ReminderReconcileReason.APP_START)
+        model.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
+        model.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
+        moment = moment.plus(Duration.ofDays(3))
+        model.reconcile(ReminderReconcileReason.TIME_CHANGED)
+        model.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
+
+        val uris = registry.state.alarms.map { it.uri }
+        assertEquals("the registry must not contain duplicate identities", uris.size, uris.toSet().size)
+        assertEquals(uris.toSet(), scheduler.registered.keys)
+        assertFalse(registry.state.alarms.any { it.uri == ReminderMaintenance.URI })
+        assertEquals(moment.plus(Duration.ofDays(30)), scheduler.maintenanceFireAt)
+    }
+
+    @Test fun theMaintenanceAlarmFollowsTheToggleAndTheDeliveryCapability() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.APP_START)
+        assertTrue(scheduler.isMaintenanceRegistered())
+
+        coordinator(scheduler = scheduler, registry = registry, preferences = preferences(enabled = false))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertNull("reminders off must clear the fallback", scheduler.maintenanceFireAt)
+
+        coordinator(scheduler = scheduler, registry = registry, presenter = FakeNotificationPresenter(permitted = false))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertNull("a missing notification permission must clear the fallback", scheduler.maintenanceFireAt)
+
+        coordinator(scheduler = scheduler, registry = registry, presenter = FakeNotificationPresenter(channelReady = false))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertNull("an unusable channel must clear the fallback", scheduler.maintenanceFireAt)
+
+        coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertTrue("a recovered capability must re-arm the fallback", scheduler.isMaintenanceRegistered())
+    }
+
+    @Test fun cancelAllClearsTheMaintenanceAlarmToo() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+        model.reconcile(ReminderReconcileReason.APP_START)
+        assertTrue(scheduler.isMaintenanceRegistered())
+
+        val cleared = model.cancelAll(ReminderReconcileReason.PREFERENCES_CHANGED)
+
+        assertNull(scheduler.maintenanceFireAt)
+        assertTrue(cleared.failed.isEmpty())
+        assertTrue(registry.state.alarms.isEmpty())
+    }
+
+    @Test fun aMaintenanceFailureIsReportedAndRetriedWithoutTouchingTheWindow() = runTest {
+        val scheduler = FakeAlarmScheduler().apply { failMaintenance = true }
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+
+        val failedRun = model.reconcile(ReminderReconcileReason.APP_START)
+
+        assertTrue(failedRun.failed.contains(ReminderMaintenance.URI))
+        assertEquals(2, failedRun.submitted.size)
+        assertEquals("the course window must stay consistent", 2, registry.state.alarms.size)
+        assertFalse(failedRun.activeAlarms.any { it.uri == ReminderMaintenance.URI })
+
+        scheduler.failMaintenance = false
+        val retried = model.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
+
+        assertTrue(retried.failed.isEmpty())
+        assertTrue(scheduler.isMaintenanceRegistered())
+
+        scheduler.failMaintenanceCancel = true
+        val off = coordinator(scheduler = scheduler, registry = registry, preferences = preferences(enabled = false))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+
+        assertTrue(off.failed.contains(ReminderMaintenance.URI))
+        assertTrue(registry.state.alarms.isEmpty())
+    }
+
     private fun preferences(enabled: Boolean = true, leadMinutes: Int = 10) =
         SchedulePreferences.defaults.copy(
             reminder = SchedulePreferences.defaults.reminder.copy(
@@ -49,15 +183,17 @@ class CourseReminderCoordinatorTest {
         preferences: SchedulePreferences = preferences(),
         dataSource: (suspend () -> ScheduleData)? = null,
         preferencesSource: (suspend () -> SchedulePreferences)? = null,
+        now: () -> Instant = { nowInstant },
+        window: Duration = Duration.ofDays(60),
     ) = CourseReminderCoordinator(
         dataSource = dataSource ?: { data },
         preferencesSource = preferencesSource ?: { preferences },
         scheduler = scheduler,
         presenter = presenter,
         registry = registry,
-        now = { nowInstant },
+        now = now,
         zone = { zone },
-        window = Duration.ofDays(60),
+        window = window,
     )
 
     @Test fun enabledAndPermittedSchedulesTheWindowOnceAndIsIdempotent() = runTest {
@@ -538,6 +674,9 @@ private class FakeAlarmScheduler(var exactAvailable: Boolean = true) : AlarmSche
     val cancelled = mutableListOf<String>()
     val failUris = mutableSetOf<String>()
     val failCancelUris = mutableSetOf<String>()
+    var maintenanceFireAt: Instant? = null
+    var failMaintenance = false
+    var failMaintenanceCancel = false
 
     override fun canScheduleExactAlarms(): Boolean = exactAvailable
 
@@ -553,6 +692,18 @@ private class FakeAlarmScheduler(var exactAvailable: Boolean = true) : AlarmSche
     }
 
     override fun isRegistered(uri: String): Boolean = uri in registered
+
+    override fun scheduleMaintenance(fireAt: Instant) {
+        if (failMaintenance) error("maintenance schedule failed")
+        maintenanceFireAt = fireAt
+    }
+
+    override fun cancelMaintenance() {
+        if (failMaintenanceCancel) error("maintenance cancel failed")
+        maintenanceFireAt = null
+    }
+
+    override fun isMaintenanceRegistered(): Boolean = maintenanceFireAt != null
 }
 
 private class FakeNotificationPresenter(

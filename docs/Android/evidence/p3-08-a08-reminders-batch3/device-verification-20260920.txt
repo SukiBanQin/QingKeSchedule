@@ -1,0 +1,60 @@
+P3-08／A08 第三批：14 天滚动窗口兜底设备记录（API 37 ARM64，emulator-5554）
+
+环境：AVD qingke-api37-r3-arm，API 37／arm64-v8a，wm size 1080x2400、density 420、动画缩放 0。应用为本轮
+debug APK；用 adb install + am instrument 直接运行，因为 Gradle connectedDebugAndroidTest 结束后会卸载应用并
+清除设备侧证据目录。
+
+## 1. 已授权权限：固定兜底闹钟的真实登记（granted run）
+
+```
+adb install -r app-debug.apk
+adb install -r app-debug-androidTest.apk
+adb shell pm grant com.qingke.schedule android.permission.POST_NOTIFICATIONS
+adb shell am instrument -w -e class com.qingke.schedule.reminder.ReminderMaintenanceTest \
+  -e additionalTestOutputDir /sdcard/Android/media/com.qingke.schedule/additional_test_output \
+  com.qingke.schedule.test/androidx.test.runner.AndroidJUnitRunner
+-> OK (3 tests)
+```
+
+课表为「本周一起 6 周学期、课程只排在第 5 周周一」，因此下一次课程occurrence 在 14 天滚动窗口之外：
+
+- reconcile 后 `submitted` 为空、注册表为空、`snapshot().activeCount == 0`、`degraded == false`——兜底闹钟不是
+  课程提醒，不进入注册表也不计入活动集合。
+- 兜底闹钟已登记：`AndroidAlarmScheduler.isMaintenanceRegistered() == true`，且 `dumpsys alarm` 中真实存在
+  属于本包的维护条目（见 maintenance-alarm-dump.txt，identity 为固定 action
+  `com.qingke.schedule.action.REMINDER_MAINTENANCE`）。
+- 再次 reconcile（含 WINDOW_MAINTENANCE）不会产生第二个条目：解析 `dumpsys alarm` 的 Alarm 块后，维护条目数
+  仍为 1，PendingIntent 身份固定。
+- 触发兜底（显式广播到 ReminderMaintenanceReceiver，因为 `setAndAllowWhileIdle` 的真实触发时间约在 7 天后，
+  自动化运行不可能等待）：通知栏新增通知数为 0（兜底不发通知）；注册表与 AlarmManager 保持一致（注册表条目
+  数 == 可用 PendingIntent 查到的条目数）；兜底在触发后重新登记，条目数仍为 1。
+
+## 2. 关闭提醒时清理、重新开启时重建（granted run 内）
+
+同一类的第二个用例：reconcile 后兜底存在 → `cancelAll`（用户关闭提醒走的生产入口）后
+`isMaintenanceRegistered() == false` 且 `dumpsys alarm` 中维护条目数为 0 → 重新写入开启偏好并 reconcile 后
+兜底重新登记且条目数为 1。
+
+## 3. 投递能力缺失时不保留兜底、恢复后重建（预撤销权限专门运行）
+
+```
+adb shell pm revoke com.qingke.schedule android.permission.POST_NOTIFICATIONS
+adb shell appops get com.qingke.schedule POST_NOTIFICATION
+-> Uid mode: POST_NOTIFICATION: ignore
+adb shell am instrument -w -e qingkePermissionDenied true \
+  -e class com.qingke.schedule.reminder.ReminderMaintenanceTest#anUndeliverableCapabilityKeepsTheFallbackClearedAndARecoveredOneRearmsIt \
+  com.qingke.schedule.test/androidx.test.runner.AndroidJUnitRunner
+-> OK (1 test)
+```
+
+- 预撤销权限（该专门运行通过 `-e qingkePermissionDenied true` 跳过测试自身的授权动作）：提醒偏好开启、reconcile
+  后 `isMaintenanceRegistered() == false`、维护条目数为 0、注册表为空——投递能力不可用时兜底必须取消。
+- 随后用 UiAutomation 授予 POST_NOTIFICATIONS（不重启应用、不再次修改设置），走生产能力恢复入口再次
+  reconcile：兜底重新登记，`dumpsys alarm` 中维护条目数为 1。
+
+## 未验证（不得声称通过）
+
+- 兜底闹钟的真实到期触发（周期为 7 天，自动化运行不等待），本记录用显式广播触发同一接收器与同一处理函数；
+- 真实重启后的 BOOT_COMPLETED 投递、系统投递的时间／时区／包替换／精确权限广播；
+- Doze／休眠／厂商真机后台限制下的实际投递时序；
+- 用户可见通知观感（本批不新增通知）。

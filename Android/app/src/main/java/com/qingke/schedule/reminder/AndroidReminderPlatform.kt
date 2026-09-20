@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import java.time.Instant
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import androidx.core.app.NotificationManagerCompat
 import com.qingke.schedule.MainActivity
 import com.qingke.schedule.R
@@ -50,11 +52,49 @@ internal class AndroidAlarmScheduler(private val context: Context) : AlarmSchedu
     private fun pendingIntent(alarm: ReminderAlarm, flags: Int): PendingIntent =
         PendingIntent.getBroadcast(context, REQUEST_CODE, baseIntent().setData(Uri.parse(alarm.uri)).putExtras(alarm.toExtras()), flags)
 
+    /**
+     * A08 third batch: the window fallback is a separate receiver, action and constant request code, and its
+     * identity is the fixed [ReminderMaintenance.URI], so it can never replace or cancel a course reminder.
+     */
+    override fun scheduleMaintenance(fireAt: Instant) {
+        val pending = maintenancePendingIntent(PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // Inexact on purpose: a late re-plan is acceptable and the fallback must not need SCHEDULE_EXACT_ALARM.
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt.toEpochMilli(), pending)
+    }
+
+    override fun cancelMaintenance() {
+        val pending = PendingIntent.getBroadcast(
+            context,
+            MAINTENANCE_REQUEST_CODE,
+            maintenanceIntent(),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        alarmManager.cancel(pending)
+        pending.cancel()
+    }
+
+    override fun isMaintenanceRegistered(): Boolean = PendingIntent.getBroadcast(
+        context,
+        MAINTENANCE_REQUEST_CODE,
+        maintenanceIntent(),
+        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+    ) != null
+
+    private fun maintenancePendingIntent(flags: Int): PendingIntent =
+        PendingIntent.getBroadcast(context, MAINTENANCE_REQUEST_CODE, maintenanceIntent(), flags)
+
+    private fun maintenanceIntent(): Intent = Intent(context, ReminderMaintenanceReceiver::class.java)
+        .setAction(ReminderMaintenanceReceiver.ACTION_REMINDER_MAINTENANCE)
+        .setData(ReminderMaintenance.URI.toUri())
+
     private fun baseIntent(): Intent = Intent(context, CourseReminderReceiver::class.java).setAction(CourseReminderReceiver.ACTION_COURSE_REMINDER)
 
     companion object {
         /** Alarm identity lives in the intent data, so one constant request code is enough. */
         const val REQUEST_CODE = 0
+
+        /** The fallback never shares the reminder request code, receiver, action or data. */
+        const val MAINTENANCE_REQUEST_CODE = 1
     }
 }
 

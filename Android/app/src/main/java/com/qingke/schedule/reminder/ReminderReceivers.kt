@@ -41,6 +41,31 @@ class CourseReminderReceiver : BroadcastReceiver() {
     }
 }
 
+/**
+ * A08 third batch: the internal window fallback fires here. It is not a course reminder - it posts nothing and
+ * only runs one reconciliation, which advances the rolling window and arms the next fallback.
+ */
+class ReminderMaintenanceReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != ACTION_REMINDER_MAINTENANCE) return
+        val application = context.applicationContext as? QingKeScheduleApplication ?: return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                performReminderMaintenance(application.dependencies.reminderCoordinator)
+            } catch (error: Throwable) {
+                // The fallback must never crash the app or corrupt data; the next entry point retries it.
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    companion object {
+        const val ACTION_REMINDER_MAINTENANCE = "com.qingke.schedule.action.REMINDER_MAINTENANCE"
+    }
+}
+
 /** A08: rebuild entries - boot, app update, time/timezone change and exact-alarm permission change. */
 class ReminderRebuildReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -75,6 +100,10 @@ internal fun reminderRebuildReason(action: String?): ReminderReconcileReason? = 
     ReminderRebuildReceiver.ACTION_EXACT_ALARM_PERMISSION_CHANGED -> ReminderReconcileReason.EXACT_ALARM_PERMISSION_CHANGED
     else -> null
 }
+
+/** A08 third batch: one reconcile from the window fallback; it re-arms the fallback for the next period. */
+internal suspend fun performReminderMaintenance(coordinator: CourseReminderCoordinator): ReminderReconciliation =
+    coordinator.reconcile(ReminderReconcileReason.WINDOW_MAINTENANCE)
 
 internal suspend fun performReminderRebuild(
     coordinator: CourseReminderCoordinator,

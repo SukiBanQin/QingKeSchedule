@@ -137,10 +137,13 @@ class ReminderReceiverTest {
 
         val alarmReceiver = packageInfo.receivers.orEmpty().firstOrNull { it.name == CourseReminderReceiver::class.java.name }
         val rebuildReceiver = packageInfo.receivers.orEmpty().firstOrNull { it.name == ReminderRebuildReceiver::class.java.name }
+        val maintenanceReceiver = packageInfo.receivers.orEmpty().firstOrNull { it.name == ReminderMaintenanceReceiver::class.java.name }
         assertNotNull("the alarm receiver must be declared", alarmReceiver)
         assertNotNull("the rebuild receiver must be declared", rebuildReceiver)
+        assertNotNull("the window fallback receiver must be declared", maintenanceReceiver)
         assertEquals(false, alarmReceiver!!.exported)
         assertEquals(false, rebuildReceiver!!.exported)
+        assertEquals(false, maintenanceReceiver!!.exported)
 
         listOf(
             Intent.ACTION_BOOT_COMPLETED,
@@ -158,6 +161,14 @@ class ReminderReceiverTest {
             .queryBroadcastReceivers(Intent(CourseReminderReceiver.ACTION_COURSE_REMINDER).setPackage(context.packageName), 0)
             .mapNotNull { it.activityInfo?.name }
         assertTrue(alarmResolved.contains(CourseReminderReceiver::class.java.name))
+
+        val maintenanceResolved = context.packageManager
+            .queryBroadcastReceivers(
+                Intent(ReminderMaintenanceReceiver.ACTION_REMINDER_MAINTENANCE).setPackage(context.packageName),
+                0,
+            )
+            .mapNotNull { it.activityInfo?.name }
+        assertTrue(maintenanceResolved.contains(ReminderMaintenanceReceiver::class.java.name))
     }
 
     @Test fun everyRebuildEntryPointRegistersThePlannedAlarms() {

@@ -1,5 +1,7 @@
 package com.qingke.schedule.reminder
 
+import java.time.Instant
+
 /**
  * A08/D03: the three capabilities are modelled separately. Reminders being switched on is never treated as
  * "reliably scheduled": the caller must look at notification permission, channel readiness and exact-alarm
@@ -32,6 +34,18 @@ interface AlarmScheduler {
      * it to decide whether a rebuild is needed.
      */
     fun isRegistered(uri: String): Boolean
+
+    /**
+     * Registers (or replaces) the single internal window fallback ([ReminderMaintenance]) at [fireAt]. It is
+     * deliberately inexact: the fallback only asks for a re-plan, so it must work without the exact-alarm
+     * capability.
+     */
+    fun scheduleMaintenance(fireAt: Instant)
+
+    fun cancelMaintenance()
+
+    /** Whether the fallback PendingIntent token currently exists; not proof AlarmManager still holds it. */
+    fun isMaintenanceRegistered(): Boolean
 }
 
 /** A08: replaceable notification backend (NotificationManager in production, a fake in tests). */

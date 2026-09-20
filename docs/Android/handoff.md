@@ -1,6 +1,42 @@
 # 安卓项目当前交接状态
 
-## P3-08／A08 第二批已通过用户视觉／交互验收（最新，2026-09-20）
+## P3-08／A08 第三批（14 天窗口兜底）已实施并自测，待 Sol 独立复审（最新，2026-09-20）
+
+用户授权实施 A08 第三批：消除「超过 14 天没有课程提醒触发且用户不打开 App，滚动窗口不再前进」的残留限制。
+本轮由同一 DeepSeek 执行窗口实施、自测、提交与推送，未创建子 Agent。
+
+- 当前基准：分支 `Android`，开始基准 `c4b3a4b`（= `origin/Android`；第一／二批已通过 Sol 独立技术复审，第二批设置页
+  与交互已通过用户验收），开始时工作区干净。本轮只新增实现提交，未改写历史、未强推、未合并 `main`；未改
+  iOS／Web／Room schema／DataStore 偏好键／共享版本 1；未新增界面或权限申请；未推进 A10／A11。
+- 实施内容：
+  1. 固定、无冲突、幂等的内部维护闹钟：独立 `ReminderMaintenanceReceiver`、独立 action 与常量 requestCode，
+     身份为固定 `Intent.data = qingke://reminder-maintenance/window`；周期取窗口一半（14 天 → 7 天）并记录依据。
+  2. 每次 `reconcile` 都用同一身份重排下一次兜底，因此课程触发、维护触发、应用启动、课表／偏好保存、重启、
+     包替换、时间／时区与精确权限变化的既有重建都会续期；`cancelAll` 与关闭提醒同样取消兜底。
+  3. 兜底不写注册表、不计入 `activeCount`／`degraded`、不投递通知、不使用精确闹钟 API；调度／取消失败以固定
+     身份进入既有 `failed` 诊断，不破坏课表、偏好与课程提醒注册表一致性。
+- 验证：Debug／Release JVM 各 **241 tests、0 failures／errors／skipped**（第三批新增 6 条）；API 37 ARM64
+  `connectedDebugAndroidTest` **165 tests、0 failures／errors／skipped**（第三批新增 3 条）；`assembleDebug`／`assembleRelease`／
+  `assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／24 warnings（全部为既有依赖版本、图标与工具链提示）；
+  文档测试 71 tests OK 与两个文档脚本、`git diff --check` 通过。
+- 证据：`docs/Android/evidence/p3-08-a08-reminders-batch3/`：真实 `dumpsys alarm` 中该兜底的登记条目
+  （固定 action tag，`maintenance-alarm-dump.txt`）、两次专门运行记录（`OK (3 tests)`／`OK (1 test)`、appops `ignore`）与
+  README。
+- 设备环境（沿用可写 AVD `emulator-5554`，1080x2400／420／动画关闭）：第一批的
+  `ReminderPlatformTest.exactAlarmCapabilityFollowsTheGrantedAppop` 会把 `SCHEDULE_EXACT_ALARM` 留在 `allow`，
+  而设备上撤销该 appop 会立刻杀死应用进程；连续第二次运行整套设备测试前必须先卸载应用（或用 shell 把该
+  appop 置回 `deny`），否则该用例的 deny 步骤会终止整轮运行。本轮的最终整套运行即在重置该状态后通过。
+- **本环境无法验证，不得声称通过**：兜底的真实到期触发（周期 7 天，自动化用显式广播触发同一接收器与处理
+  函数）；真实重启 BOOT_COMPLETED 投递；系统受保护广播；Doze／休眠与厂商真机后台时序；用户可见通知观感
+  （本批不新增通知）。
+- 准确状态：**A08 第一／二批（含各自 R1／R2）已通过 Sol 独立技术复审，第二批设置页与交互已通过用户验收；
+  A08 第三批已实现并自测，待 Sol 独立复审；用户验收未进行**。A10／A11、整个 P3 与完整 App 仍未完成。
+- 保持不变的既有状态：P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和用户视觉／交互
+  验收；P3-07／A07 原实现已通过技术复审且视觉风格获用户确认，**P3-07-R1 新增警告框与文案仍待用户验收**。
+
+## P3-08／A08 第二批已通过用户视觉／交互验收（历史，2026-09-20）
+
+> 后续状态：第三批（14 天窗口兜底）已实施并自测，现待 Sol 独立复审；见本文档首节。
 
 用户已确认模拟器中的「04 上课提醒」设置页与本批交互可以通过、没有不满意之处。该确认关闭 A08 第二批
 设置页、显式权限入口、提前量选择、能力状态与失败提示的用户视觉／交互验收门槛；R1 `821ff40` 此前已经通过

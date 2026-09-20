@@ -31,6 +31,14 @@
         </receiver>
 
         <receiver
+            android:name=".reminder.ReminderMaintenanceReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.qingke.schedule.action.REMINDER_MAINTENANCE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".reminder.ReminderRebuildReceiver"
             android:exported="false">
             <intent-filter>
