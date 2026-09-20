@@ -4,12 +4,12 @@
 
 更新日期：2026-09-15。用户已确认本文档及 P1、P2 阶段结果；P1-01 已完成修正和[独立审查](p1-01-review.md)。P1-03 的 API 37 工具链、源码／依赖边界和设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成。用户已确认版本 1 未知字段两端严格拒绝，P1-04 及 P1-04-IOS-SYNC 均已通过独立复审。P2-01、P2-02-R1 已独立复审，[P2-03 表单草稿与保存评估](p2-03-form-drafts.md)已通过最终独立复审；[P2-04 应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受其组织性独立限制并确认 P2。[P3-01 今日与周课表展示模型](p3-01-schedule-presentation.md)和 [P3-02 应用壳、状态加载与首次学期设置](p3-02-app-shell-onboarding.md)均已实现、测试、最终独立复审并获用户确认；[P3-03 今日课表页面与实时刷新](p3-03-today-schedule.md)及 R1 已完成技术复审，[P3-03-R2 今日页与共享主壳视觉对齐](p3-03-r2-visual-alignment.md)已实施、完成 API 37 设备验证、通过 Sol 技术独立复审并获用户视觉验收。[P3-04 课程新增、编辑与删除](p3-04-course-editor.md)已实现、测试、完成 API 37 生产验证、通过 Sol 技术独立复审，并于 2026-09-15 获用户产品／视觉验收。P3-04／A04／A05 当前实现范围的验收门槛已关闭；该确认不扩大为其他 A 项、整个 P3 或完整 App 验收。
 
-最新状态（2026-09-20）：P3-05／A03、P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和相应用户验收。P3-07／A07 原实现及 R1 已通过技术复审与用户验收。D03 已确认；A08 三批应用实现均通过 Sol 独立技术复审，第二批设置页视觉／交互已获用户确认；真实系统权限弹窗、通知观感、真实重启／Doze 与厂商真机后台投递仍待验证。D01 已确认；P4／A10 JSON 导入导出（含 R1）已实现、测试、通过 Sol 独立技术复审并获用户验收。P3-09／A11 已实现、自测并通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)：正式设置页 `06 外观／DISPLAY`、三态即时主题、SYSTEM 动态跟随、相同值与写入中门禁、失败保留旧模式、320dp／130%／无障碍字号竖排与 48dp 触控均符合边界；API 37 真实设备完成系统 light／dark、强制主题与 force-stop 持久化，并确认品牌 Logo 修正。**A11 待用户验收**；A08 产品验收、整个 P3 与完整 App 仍未完成。
+最新状态（2026-09-21）：P3-05／A03、P3-06-R7（含 R1／R2）、P3-04-R8（含 R1／R2）与 P3-07／A07 均已通过相应技术复审和用户验收。D03 已确认；A08 三批应用实现均通过 Sol 独立技术复审，第二批设置页视觉／交互已获用户确认；真实系统权限弹窗、通知观感、真实重启／Doze 与厂商真机后台投递仍待验证。D01 已确认；P4／A10 JSON 导入导出（含 R1）已通过技术复审及用户验收。P3-09／A11 已实现、自测、通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)，并于 2026-09-21 通过用户验收。A08 产品验收、整个 P3 与完整 App 仍未完成。
 
 准确状态是 P3-03-R2、P3-04 与 P3-05／A03 的用户视觉验收均已通过；P3-04 按“源课程位置＋打开时数据指纹”精确操作
 重复 ID 课程，业务 ID、导入协议和共享 schema 不变，iOS 同步未授权。A03／A04／A05 当前实现范围已经完成，
 A06 R6 已通过技术复审与用户视觉验收，P3-06-R7、R1、R2 已完成，已通过 Sol 技术复审与用户视觉验收；A07 原实现及 R1 已通过技术复审与用户验收，
-但 A01—A11 尚未全部验收，A02、A08、A09、A11、整个 P3 和完整 App 仍未完成验收；P4／A10（含 R1）已实现、测试、通过 Sol 独立技术复审并获用户验收；P3-09／A11 已实施、自测并通过 Sol 独立技术复审，**待用户验收**；A11 之后的阶段仍未授权。
+但 A01—A11 尚未全部验收，A02、A08、A09、整个 P3 和完整 App 仍未完成验收；P4／A10（含 R1）与 P3-09／A11 均已实现、测试、通过 Sol 独立技术复审并获用户验收；P6 仍未授权。
 
 用户已确认的目标：安卓拥有当前 iOS App 的全部已有功能，业务行为一致，页面信息、布局和视觉风格尽量一致；系统交互采用安卓方式。本文用于落实“照着 iOS 做”，不重新设计产品。新增需求及对现有行为的修正需明确记录。
 
@@ -44,7 +44,7 @@ iOS 当前源码参考提交：`fc3ddfb8ffa14b205a591ffdbed5632d5f975001`（`fix
 | A08 | 提醒开关、预设与自定义提前时间；修改课表后更新、删除后取消 | [通知规划与协调](../../ios/QingKeSchedule/Notifications/NotificationScheduling.swift)、[提醒界面](../../ios/QingKeSchedule/Features/ReminderSettingsSection.swift) | 拒绝权限仍可使用课表；测试时间、内容、取消和真机投递；第一、二、三批均已通过 Sol 独立技术复审，第二批设置页视觉／交互已获用户确认；第三批 14 天窗口兜底不显示通知、不计入活动数、不要求精确闹钟；真实通知观感与厂商真机后台投递仍未完成 |
 | A09 | 离线保存学期及课程，失败有反馈，失败替换保留旧数据 | [SwiftData 仓库](../../ios/QingKeSchedule/Persistence/SwiftDataScheduleRepository.swift) | 重启、离线增改删、模拟写入失败和替换失败 |
 | A10 | JSON 导入先校验、预览、确认后整体替换；导出课表备份 | [数据传输](../../ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift)、[文件界面](../../ios/QingKeSchedule/Features/DataTransferSection.swift) | D01 已确认继续使用版本 1，只迁移学期与课程且保留本机偏好；已覆盖有效／无效／未知版本／超大文件、取消、写入失败与失败保留原数据、双向文件往返及系统返回（[实施记录](p4-a10-json-transfer.md)、[设备证据](evidence/p4-a10-json-transfer/README.md)）；R1 `156b004` 已通过 [Sol 独立技术再复审](p4-a10-json-transfer-review.md)，用户验收通过 |
-| A11 | 跟随系统、浅色、深色；保持品牌、颜色、信息层级和终端风格 | [CourseStyle](../../ios/QingKeSchedule/Features/CourseStyle.swift)、[应用状态](../../ios/QingKeSchedule/State/ScheduleAppState.swift) | [只读分析](p3-09-a11-appearance-analysis.md)确认既有三态持久化与主题消费；已实现正式设置页 `06 外观／DISPLAY`、`ScheduleViewModel.setAppearanceMode` 单一路径、实际生效文字与响应式三选项（[实施记录](p3-09-a11-appearance.md)）；即时切换、SYSTEM 跟随、重启持久化、失败保留、小屏／大字体、48dp 触控、读屏语义与 Logo 修正已通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)。**待用户验收** |
+| A11 | 跟随系统、浅色、深色；保持品牌、颜色、信息层级和终端风格 | [CourseStyle](../../ios/QingKeSchedule/Features/CourseStyle.swift)、[应用状态](../../ios/QingKeSchedule/State/ScheduleAppState.swift) | [只读分析](p3-09-a11-appearance-analysis.md)确认既有三态持久化与主题消费；正式设置页、单一写入路径、即时切换、SYSTEM 跟随、重启持久化、失败保留、响应式、48dp 触控、读屏语义与 Logo 修正均已通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)，并于 2026-09-21 通过用户验收 |
 
 ## 关键业务边界
 
