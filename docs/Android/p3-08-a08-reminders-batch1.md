@@ -51,7 +51,7 @@ Sol 对第一批提交 `c4cb5e7` 的独立复审提出七项意见，本轮逐�
 | 复审意见 | 处理 | 代码／测试 |
 | --- | --- | --- |
 | 1. 重建不能把持久化注册表当成系统闹钟仍存在的证明 | `reconcile` 每轮无条件重新提交全部应排闹钟（同一 PendingIntent 幂等），不再用「注册表非空」或「PendingIntent 存在」推断平台仍有闹钟；取消只针对注册表里已不该存在的条目；取消失败保留待下次重试 | `CourseReminderCoordinator.reconcile`；`CourseReminderCoordinatorTest.rebuildResubmitsEveryExpectedAlarmAfterThePlatformLostThem`（先清空平台闹钟再重建）、`everyRebuildReasonResubmitsTheExpectedAlarmsIdempotently`；真机 `ReminderReceiverTest.rebuildResubmitsWhenThePlatformLostItsAlarms`（先 `AlarmManager.cancel` 再以 `BOOT_COMPLETED` 重建） |
-| 2. 触发前复核课表／`remindersEnabled`／通知权限／渠道，任一不可投递即抑制，不得先通知后取消，也不得把静默未发布报告为 Delivered | `deliver()` 在任何平台副作用前依次判定 payload 是否仍属于当前已提交课表、`remindersEnabled`、`notificationsPermitted`、`channelReady`；任一不满足返回 `Suppressed`；`notify()` 改为返回 Boolean，`false` 记为 `Failed("notification was not published")` | `CourseReminderCoordinator.deliver`／`AndroidNotificationPresenter.notify`；`CourseReminderCoordinatorTest` 的 `deliverSuppressesWhenRemindersAreDisabled`／`deliverSuppressesWhenNotificationsAreDenied`／`deliverSuppressesWhenTheReminderChannelIsUnusable`／`aSilentNonPostIsReportedAsFailedNotDelivered`／`deliverReportsAFailedPostWithoutThrowing`；设备端权限撤销证据见 [证据目录](evidence/p3-08-a08-reminders/README.md) |
+| 2. 触发前复核课表／`remindersEnabled`／通知权限／渠道，任一不可投递即抑制，不得先通知后取消，也不得把静默未发布报告为 Delivered | `deliver()` 在通知前判定 `remindersEnabled`、`notificationsPermitted`、`channelReady`，并核对 payload 是否仍属于当前已提交课表；任一不满足返回 `Suppressed`；`notify()` 改为返回 Boolean，`false` 记为 `Failed("notification was not published")` | `CourseReminderCoordinator.deliver`／`AndroidNotificationPresenter.notify`；`CourseReminderCoordinatorTest` 的 `deliverSuppressesWhenRemindersAreDisabled`／`deliverSuppressesWhenNotificationsAreDenied`／`deliverSuppressesWhenTheReminderChannelIsUnusable`／`aSilentNonPostIsReportedAsFailedNotDelivered`／`deliverReportsAFailedPostWithoutThrowing`；设备端权限撤销证据见 [证据目录](evidence/p3-08-a08-reminders/README.md) |
 | 3. `channelReady` 必须把 `IMPORTANCE_NONE` 判为不可用 | `ensureChannel()` 以「渠道 importance != IMPORTANCE_NONE」判定可用，用户关闭的渠道直接报不可用 | `AndroidNotificationPresenter.ensureChannel()`；`ReminderPlatformTest.aChannelTheUserTurnedOffIsReportedAsUnusable` |
 | 4. 通知身份不得只用 `uri.hashCode()` | 通知以完整提醒 URI 作为 tag、id 固定 0，投递与取消都按 tag 定位；PendingIntent 身份同样使用 URI 作为 `Intent.data` | `AndroidNotificationPresenter.notify`／`cancelNotification`；`ReminderPlatformTest.notificationIdentityUsesTheUriTagSoHashCollisionsCannotOverrideEachOther`（`Aa`／`BB` hash 碰撞不互相覆盖、取消其一不影响另一条） |
 | 5. `degraded` 必须反映当前全部活动提醒 | `degraded`／`activeCount` 改为由当前全部活动提醒（含 retained 的非精确提醒）计算，不再只看本轮提交 | `CourseReminderCoordinator`；`CourseReminderCoordinatorTest.degradedReflectsActiveInexactAlarmsAcrossRuns` |
@@ -64,7 +64,7 @@ Sol 对第一批提交 `c4cb5e7` 的独立复审提出七项意见，本轮逐�
   - `CourseReminderPlannerTest`（18）：每周／单双周、首末周与越界收敛、停课日、周末关闭、调课跟随星期
     ＋按自身教学周筛选（含奇偶）、0／180 分钟与跨日、过去与窗口外跳过、限流、同刻排序、教室正文格式、
     重复 ID 身份不碰撞、URI 转义、午休无关、时区差异、夏令时保持墙钟时间、无学期／无课程／未知节次。
-  - `CourseReminderCoordinatorTest`（17）：排程与幂等、停用清空、通知被拒时清空且不排程、非精确降级与
+  - `CourseReminderCoordinatorTest`（23）：排程与幂等、停用清空、通知被拒时清空且不排程、非精确降级与
     标记、获得精确能力后替换、提前量变化替换、单条排程失败与重试、取消失败保留重试、generation 被更新
     时 superseded 且零副作用、并发协调串行无重复、注册表重启恢复、数据不可读时平台与注册表零改动、
     投递判定（有效／旧课表／fireAt 变化／位置变化／过晚）。
@@ -109,8 +109,10 @@ submitted／unchanged／cancelled／active／generation、未验证清单）＋`
 
 ## 准确状态
 
-A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 复审七项意见完成返修并自测（JVM 215、设备 148、lint
-0 errors／24 warnings、截图与两份设备记录齐备）；**R1 待 Sol 独立复审，用户验收仍未进行**。A08 其余部分
+A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 首轮七项意见完成返修并自测（`f4be82f`；JVM 215、设备 148、
+lint 0 errors／24 warnings、截图与两份设备记录齐备）；Sol 再复审发现部分失败时注册表活动集合丢失，以及权限
+撤销设备用例按错误字段检查标题，故 **R1 独立复审未通过，待 R2；用户验收仍未进行**。详情见
+[P3-08-R1 独立技术复审](p3-08-r1-review.md)。A08 其余部分
 （提醒设置 UI、运行时权限流程、编辑后自动重算）、A10／A11、整个 P3 与完整 App 仍未完成、未授权。
 P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与用户验收结论不变；P3-07-R1 新增警告框与文案仍待用户
 验收。

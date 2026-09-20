@@ -110,7 +110,9 @@ iOS 同步修改授权。页面、ViewModel、确认流程、生产入口和验�
 
 需覆盖通知权限、通知渠道状态、精确闹钟能力检查、重启、时间／时区变化、权限变化、进程结束及重新进入应用后的重建。取消和重建应可重复执行，失败不得破坏已保存课表；必要时序列化协调并忽略旧状态任务，防止快速编辑留下过期提醒。
 
-精确能力不可用的降级及文案属于待定 D03；不能承诺强制停止应用后仍一定提醒，也不能用常驻服务掩盖未处理的系统限制。iOS 的最近 60 条策略不直接作为安卓方案。
+D03 已确认：精确提醒优先；精确能力不可用时降级为非精确并明确标注「可能延迟」；采用可撤销的
+`SCHEDULE_EXACT_ALARM`，不使用 `USE_EXACT_ALARM`。仍不能承诺强制停止应用后一定提醒，也不能用常驻服务
+掩盖未处理的系统限制；iOS 的最近 60 条策略不直接作为安卓方案。
 
 参考：[闹钟调度](https://developer.android.com/develop/background-work/services/alarms)、[通知权限](https://developer.android.com/develop/ui/compose/notifications/notification-permission)。实施时重新核实目标版本要求；真实可靠性以目标设备测试为准。
 
