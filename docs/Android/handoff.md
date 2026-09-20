@@ -24,6 +24,11 @@
 - 证据：`docs/Android/evidence/p3-08-a08-reminders-batch2/`：已授权权限的真实设置页截图、预先 `pm revoke`
   POST_NOTIFICATIONS 后的真实设置页截图、专门运行记录（`OK (3 tests)`／`OK (1 test)`／`OK (1 test)`、appops 状态
   `ignore`）与 README。
+- 设备环境（本窗口记录，供复审复用）：本机沙箱不允许写入 `/Users/takagisan/.android`，直接用用户原 AVD 启动
+  模拟器会报 snapshot lock 超时；本窗口改为只读复制原 AVD 配置、在 `/private/tmp/qingke-avd/qingke-api37-r3-arm.avd`
+  新建可写 AVD，并用 `-no-snapshot -no-window -gpu software -no-audio -no-boot-anim` 启动。当前 `adb` 可见
+  `emulator-5554`（API 37／arm64-v8a，已设 `wm size 1080x2400`、`density 420`、动画缩放 0），复审可直接复用；若需重启，
+  必须同样指定可写的 `ANDROID_AVD_HOME`，否则会在用户原 AVD 上失败。
 - **本环境无法验证，不得声称通过**：真实系统权限弹窗的人工观感（自动化只断言拒绝后的界面状态）；真实重启后的
   BOOT_COMPLETED 投递；系统投递的受保护广播；Doze／休眠唤醒与精确／非精确真实投递时间；用户可见提醒通知的
   观感验收。
