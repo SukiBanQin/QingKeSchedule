@@ -174,12 +174,130 @@ class CourseReminderCoordinatorTest {
         assertEquals(listOf(failing), result.failed)
         assertEquals(1, registry.state.alarms.size)
         assertFalse(registry.state.alarms.any { it.uri == failing })
+        // A first submission that failed is never registered, and every reported view comes from the saved set.
+        assertEquals(registry.state.alarms, result.activeAlarms)
+        assertEquals(1, result.activeCount)
+        assertEquals(1, result.activeAlarms.map { it.uri }.toSet().size)
 
         scheduler.failUris.clear()
         val retry = model.reconcile(ReminderReconcileReason.MANUAL)
         assertEquals(2, retry.submitted.size)
         assertEquals(2, scheduler.registered.size)
         assertEquals(2, registry.state.alarms.size)
+    }
+
+    @Test fun unchangedResubmitFailureKeepsTheAlarmForRetryAndLaterCancel() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+        model.reconcile(ReminderReconcileReason.APP_START)
+        val failing = scheduler.registered.keys.first()
+
+        scheduler.failUris += failing
+        val failedRun = model.reconcile(ReminderReconcileReason.ALARM_FIRED)
+
+        assertEquals(listOf(failing), failedRun.failed)
+        assertEquals(2, failedRun.unchanged.size)
+        // The failed re-submit keeps the previous entry: it is the only handle to a platform alarm that may
+        // still exist, so a later cancel must still be able to remove it.
+        assertEquals(2, registry.state.alarms.size)
+        assertTrue(registry.state.alarms.any { it.uri == failing })
+        assertEquals(registry.state.alarms, failedRun.activeAlarms)
+        assertEquals(2, failedRun.activeCount)
+        assertFalse(failedRun.degraded)
+
+        scheduler.failUris.clear()
+        val retried = model.reconcile(ReminderReconcileReason.MANUAL)
+        assertEquals(2, retried.submitted.size)
+        assertEquals(2, registry.state.alarms.size)
+
+        val off = coordinator(scheduler = scheduler, registry = registry, preferences = preferences(enabled = false))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertEquals(2, off.cancelled.size)
+        assertTrue(scheduler.registered.isEmpty())
+        assertTrue(registry.state.alarms.isEmpty())
+    }
+
+    @Test fun failedCancelWithFailedResubmitKeepsThePreviousEntry() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.APP_START)
+        val previous = registry.state.alarms
+        val uris = previous.map { it.uri }
+
+        scheduler.failCancelUris += uris
+        scheduler.failUris += uris
+        val result = coordinator(scheduler = scheduler, registry = registry, preferences = preferences(leadMinutes = 0))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+
+        assertEquals(0, result.cancelled.size)
+        assertEquals(0, result.submitted.size)
+        assertEquals(uris.toSet(), result.failed.toSet())
+        assertEquals(uris.size, result.failed.size)
+        assertEquals(previous, result.activeAlarms)
+        assertEquals(registry.state.alarms, result.activeAlarms)
+        assertEquals(2, result.activeCount)
+    }
+
+    @Test fun cancelledPreviousEntryIsDroppedWhenTheResubmitFails() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.APP_START)
+        val uris = registry.state.alarms.map { it.uri }
+
+        scheduler.failUris += uris
+        val result = coordinator(scheduler = scheduler, registry = registry, preferences = preferences(leadMinutes = 0))
+            .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+
+        assertEquals(uris.size, result.cancelled.size)
+        assertEquals(0, result.submitted.size)
+        assertEquals(uris.toSet(), result.failed.toSet())
+        // The previous alarms really were cancelled, so their entries must not survive as stale handles.
+        assertTrue(result.activeAlarms.isEmpty())
+        assertEquals(0, result.activeCount)
+        assertTrue(registry.state.alarms.isEmpty())
+        assertTrue(scheduler.registered.isEmpty())
+    }
+
+    @Test fun duplicateRegistryEntriesCollapseIntoOneActiveAlarm() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+        val planned = model.reconcile(ReminderReconcileReason.APP_START).activeAlarms
+        registry.state = ReminderRegistryState(registry.state.generation, planned + planned)
+
+        val result = model.reconcile(ReminderReconcileReason.MANUAL)
+
+        assertEquals(planned.size, result.activeCount)
+        assertEquals(planned.map { it.uri }, result.activeAlarms.map { it.uri })
+        assertEquals(planned, registry.state.alarms)
+    }
+
+    @Test fun cancelAllPartialFailureReportsTheRemainingActiveAlarms() = runTest {
+        val scheduler = FakeAlarmScheduler(exactAvailable = false)
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+        model.reconcile(ReminderReconcileReason.APP_START)
+        val remaining = registry.state.alarms.last()
+        scheduler.failCancelUris += remaining.uri
+
+        val partial = model.cancelAll(ReminderReconcileReason.PREFERENCES_CHANGED)
+
+        assertEquals(1, partial.cancelled.size)
+        assertEquals(listOf(remaining.uri), partial.failed)
+        assertEquals(listOf(remaining), partial.activeAlarms)
+        assertEquals(1, partial.activeCount)
+        assertTrue("the retained alarm is inexact, so delivery stays degraded", partial.degraded)
+        assertEquals(registry.state.alarms, partial.activeAlarms)
+        assertEquals(1, scheduler.registered.size)
+
+        scheduler.failCancelUris.clear()
+        val cleared = model.cancelAll(ReminderReconcileReason.PREFERENCES_CHANGED)
+        assertEquals(1, cleared.cancelled.size)
+        assertTrue(cleared.activeAlarms.isEmpty())
+        assertEquals(0, cleared.activeCount)
+        assertTrue(registry.state.alarms.isEmpty())
+        assertTrue(scheduler.registered.isEmpty())
     }
 
     @Test fun cancelFailureKeepsTheAlarmRegisteredForTheNextRun() = runTest {

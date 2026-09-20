@@ -56,18 +56,31 @@ Sol 对第一批提交 `c4cb5e7` 的独立复审提出七项意见，本轮逐�
 | 4. 通知身份不得只用 `uri.hashCode()` | 通知以完整提醒 URI 作为 tag、id 固定 0，投递与取消都按 tag 定位；PendingIntent 身份同样使用 URI 作为 `Intent.data` | `AndroidNotificationPresenter.notify`／`cancelNotification`；`ReminderPlatformTest.notificationIdentityUsesTheUriTagSoHashCollisionsCannotOverrideEachOther`（`Aa`／`BB` hash 碰撞不互相覆盖、取消其一不影响另一条） |
 | 5. `degraded` 必须反映当前全部活动提醒 | `degraded`／`activeCount` 改为由当前全部活动提醒（含 retained 的非精确提醒）计算，不再只看本轮提交 | `CourseReminderCoordinator`；`CourseReminderCoordinatorTest.degradedReflectsActiveInexactAlarmsAcrossRuns` |
 | 6. 补齐生产 `APP_START` 恢复入口，不申请权限、不新增 UI | `QingKeScheduleApplication.requestReminderSync(reason = APP_START)`，由 `MainActivity.onCreate` 调用；不申请权限、不加界面 | `QingKeScheduleApplication`／`MainActivity`；真机 `ReminderStartupEntryTest` |
-| 7. 清理状态文档矛盾 | D03 已确认；A08 第一批已实施、R1 待复审；删除仍称「只授权只读分析」的过时状态；保留 P3-07-R1 文案待用户验收、A08 与 P3 整体未完成 | 本文件、[交接状态](handoff.md)、[实施计划](implementation-plan.md)、[产品基准](product-baseline.md) |
+| 7. 清理状态文档矛盾 | D03 已确认；A08 第一批已实施、R1 待复审（该次复审后来未通过，见下节 R2）；删除仍称「只授权只读分析」的过时状态；保留 P3-07-R1 文案待用户验收、A08 与 P3 整体未完成 | 本文件、[交接状态](handoff.md)、[实施计划](implementation-plan.md)、[产品基准](product-baseline.md) |
+
+## R2 返修：部分失败一致性与权限撤销证据
+
+Sol 对 R1（`f4be82f`）的增量独立复审未通过，提出两个必须修正的问题，本轮逐条收口：
+
+| 复审问题 | 处理 | 代码／测试 |
+| --- | --- | --- |
+| 1a. 既有且未变化的闹钟在本轮重提交失败时会从注册表删除，原平台闹钟可能仍存在，之后无法可靠取消 | `reconcile` 区分首次提交失败与既有条目重提交失败：首次失败不写入注册表；既有且内容相同的条目重提交失败时保守保留原条目（它是取消平台闹钟的唯一依据）并在下一轮重试；旧条目已成功取消而新提交失败时不保留；取消与提交同时失败时保留旧条目 | `CourseReminderCoordinator.reconcile`；`CourseReminderCoordinatorTest.unchangedResubmitFailureKeepsTheAlarmForRetryAndLaterCancel`／`failedCancelWithFailedResubmitKeepsThePreviousEntry`／`cancelledPreviousEntryIsDroppedWhenTheResubmitFails` |
+| 1b. 最终注册表、`activeAlarms`、`activeCount`、`degraded` 与失败列表必须来自同一最终活动集合，URI 不重复 | 由一次计算得到最终活动集合并按 URI 去重；注册表、`activeAlarms`、`activeCount`、`degraded` 全部取自已保存的注册表内容；`failed` 为去重后的失败身份列表 | 同上；`duplicateRegistryEntriesCollapseIntoOneActiveAlarm`（注册表里的重复条目收敛为一条） |
+| 1c. `cancelAll` 取消失败时没有把注册表中仍活动的条目写回 `activeAlarms` | `cancelAll` 用去重后的失败集合保存剩余条目，并把这些条目写入返回对象的 `activeAlarms`，使 `activeCount`／`degraded` 与注册表一致 | `CourseReminderCoordinator.cancelAll`；`CourseReminderCoordinatorTest.cancelAllPartialFailureReportsTheRemainingActiveAlarms` |
+| 2. 权限撤销设备用例用正文 `android.text` 与课程标题比较，「通知栏没有该标题」的断言实际上查不到任何东西 | 改为按生产使用的身份检查通知栏：`notification tag == 完整提醒 URI`，并辅以 `android.title`；常规已授权分支改为断言明确的 `Delivered`，且必须能按 URI tag 在通知栏找到该提醒 | `ReminderPermissionRevocationTest`；重新取证的专门运行见 [证据目录](evidence/p3-08-a08-reminders/README.md) 的 `permission-denied-20260920.txt`（含 `permitted=false` 分支记录） |
 
 ## 测试
 
-- Debug／Release JVM 各 **215 tests、0 failures／errors／skipped**（本批新增 40；R1 新增 7 条协调器用例并移除 1 条把注册表当作平台闹钟凭据的旧用例）：
+- Debug／Release JVM 各 **220 tests、0 failures／errors／skipped**（本批新增 40；R1 新增 7 条协调器用例并移除 1 条把注册表当作平台闹钟凭据的旧用例；R2 再新增 5 条协调器用例覆盖部分失败与 `cancelAll` 状态）：
   - `CourseReminderPlannerTest`（18）：每周／单双周、首末周与越界收敛、停课日、周末关闭、调课跟随星期
     ＋按自身教学周筛选（含奇偶）、0／180 分钟与跨日、过去与窗口外跳过、限流、同刻排序、教室正文格式、
     重复 ID 身份不碰撞、URI 转义、午休无关、时区差异、夏令时保持墙钟时间、无学期／无课程／未知节次。
-  - `CourseReminderCoordinatorTest`（23）：排程与幂等、停用清空、通知被拒时清空且不排程、非精确降级与
+  - `CourseReminderCoordinatorTest`（28）：排程与幂等、停用清空、通知被拒时清空且不排程、非精确降级与
     标记、获得精确能力后替换、提前量变化替换、单条排程失败与重试、取消失败保留重试、generation 被更新
-    时 superseded 且零副作用、并发协调串行无重复、注册表重启恢复、数据不可读时平台与注册表零改动、
-    投递判定（有效／旧课表／fireAt 变化／位置变化／过晚）。
+    时 superseded 且零副作用、并发协调串行无重复、数据不可读时平台与注册表零改动、投递判定（有效／旧课表／
+    fireAt 变化／位置变化／过晚）；R1 新增重建后无条件重提交、`degraded` 口径与投递前抑制；R2 新增既有
+    条目重提交失败后保留并可重试与后续取消、取消与提交同时失败保留旧条目、旧条目已取消而新提交失败不保留、
+    注册表重复条目收敛为一条、`cancelAll` 部分失败返回剩余活动条目。
   - `CourseReminderDeliveryTest`（5）：身份一致投递、fireAt 变化抑制、occurrence 不再存在抑制、位置变化
     仍投递、过晚抑制与非精确宽限。
 - API 37 ARM64 `connectedDebugAndroidTest` **148 tests、0 failures／errors／skipped**（本批新增 10；R1 在提醒相关测试类新增 5 条）：
@@ -94,7 +107,8 @@ Sol 对第一批提交 `c4cb5e7` 的独立复审提出七项意见，本轮逐�
 `docs/Android/evidence/p3-08-a08-reminders/`：真实通知栏截图（R1 重新采集，「证据课程」／「08:00–08:45 ·
 A101 （可能延迟）」，提醒分区）＋设备记录（身份 URI、能力三项、渠道与通知内容、reconcile 的
 submitted／unchanged／cancelled／active／generation、未验证清单）＋`permission-denied-20260920.txt`
-（预先撤销 POST_NOTIFICATIONS 的专门运行，appops 状态 `ignore`、`OK (1 test)`）＋README。截图与权限记录用
+（预先撤销 POST_NOTIFICATIONS 的专门运行，appops 状态 `ignore`、`OK (1 test)`，并记录该次运行的
+`permitted=false` 分支；R2 起该用例按通知 tag 与 `android.title` 检查通知栏）＋README。截图与权限记录用
 `adb install` + `am instrument` 采集，因为 Gradle connected 任务结束会卸载应用并清除通知。
 
 **本环境无法验证，不得声称通过**：真实重启后的 BOOT_COMPLETED 投递；系统投递的时间／时区／包替换／精确
@@ -109,9 +123,10 @@ submitted／unchanged／cancelled／active／generation、未验证清单）＋`
 
 ## 准确状态
 
-A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 首轮七项意见完成返修并自测（`f4be82f`；JVM 215、设备 148、
-lint 0 errors／24 warnings、截图与两份设备记录齐备）；Sol 再复审发现部分失败时注册表活动集合丢失，以及权限
-撤销设备用例按错误字段检查标题，故 **R1 独立复审未通过，待 R2；用户验收仍未进行**。详情见
+A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 首轮七项意见完成返修（`f4be82f`），Sol 再复审发现部分失败时
+注册表活动集合丢失、`cancelAll` 活动集合失真，以及权限撤销设备用例按错误字段检查标题，因此 R1 独立
+复审未通过；R2 已修正上述问题并自测通过（JVM 220、设备 148、lint 0 errors／24 warnings、证据目录已更新），
+**R2 待 Sol 再复审，用户验收仍未进行**。详情见
 [P3-08-R1 独立技术复审](p3-08-r1-review.md)。A08 其余部分
 （提醒设置 UI、运行时权限流程、编辑后自动重算）、A10／A11、整个 P3 与完整 App 仍未完成、未授权。
 P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与用户验收结论不变；P3-07-R1 新增警告框与文案仍待用户

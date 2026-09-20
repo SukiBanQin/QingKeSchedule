@@ -1,4 +1,4 @@
-# P3-08／A08 上课提醒第一批 R1 证据（2026-09-20）
+# P3-08／A08 上课提醒第一批 R1／R2 证据（2026-09-20）
 
 本目录只记录 P3-08／A08 第一批（纯规划器与 Android 平台基础设施）及其 R1 返修，不覆盖其他任务证据。
 
@@ -14,7 +14,7 @@
 | --- | --- |
 | `notification-shade-api37.png` | 真实通知栏截图（R1 重新采集）：标题「证据课程」、正文「08:00–08:45 · A101 （可能延迟）」，位于提醒（非静默）分区，说明渠道可用、正文与 D03 非精确标记都真实呈现 |
 | `device-verification-20260920.txt` | 证据用例记录：计划提醒 URI／fireAt／startAt／title／body／exact、reconcile 的 submitted／unchanged／cancelled／active／generation、三项能力（notificationsPermitted／channelReady／exactAlarmsAvailable／degraded）、渠道 id／name／importance、活动通知标题与正文，以及本环境无法验证的项目清单 |
-| `permission-denied-20260920.txt` | R1：预先撤销 POST_NOTIFICATIONS 的专门运行记录（appops 状态 `ignore`、`OK (1 test)`），验证投递前抑制、不先通知后取消、不把静默未发布报告为 Delivered |
+| `permission-denied-20260920.txt` | R1／R2：预先撤销 POST_NOTIFICATIONS 的专门运行记录（appops 状态 `ignore`、`OK (1 test)`、logcat 中的 `permitted=false`），验证投递前抑制、不先通知后取消、不把静默未发布报告为 Delivered；R2 起该用例按通知 tag（完整提醒 URI）并辅以 `android.title` 检查通知栏，常规已授权分支必须真正投递成功 |
 
 关键量化（当次设备运行）：
 
@@ -24,13 +24,14 @@
 - 渠道：`course_reminders`／「上课提醒」／importance=4（HIGH）。
 - 协调器：一次 `reconcile` 提交 2 条闹钟、unchanged=0、cancelled=0、active=2，generation 递增到 4。
 
-## R1 在设备上覆盖的行为
+## R1／R2 在设备上覆盖的行为
 
 - 通知身份：以完整提醒 URI 作为通知 tag（id=0），`Aa`／`BB` 这类 Java hash 碰撞不会互相覆盖或误取消
   （`ReminderPlatformTest.notificationIdentityUsesTheUriTagSoHashCollisionsCannotOverrideEachOther`）。
 - 渠道被关闭：平台把 IMPORTANCE_NONE 报告为不可用；用例使用私有探测渠道验证，避免把共享提醒渠道推进 NONE
   ——平台会跨应用侧删除／重建保留这个已关闭状态，之后无法恢复。
-- 权限撤销：见 `permission-denied-20260920.txt`。
+- 权限撤销：见 `permission-denied-20260920.txt`；R2 修正了断言对象（通知 tag 与 `android.title`，不再拿正文与标题比较），
+  并让常规已授权分支断言明确的 `Delivered` 结果。
 - 重建不信任注册表：先清空平台闹钟再以 `BOOT_COMPLETED` 动作重建，验证按预期重新提交
   （`ReminderReceiverTest.rebuildResubmitsWhenThePlatformLostItsAlarms`）；受保护广播本身仍无法由应用发送。
 

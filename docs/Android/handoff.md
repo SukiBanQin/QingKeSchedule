@@ -1,6 +1,46 @@
 # 安卓项目当前交接状态
 
-## P3-08／A08 第一批 R1 再复审未通过，待 R2（最新，2026-09-20）
+## P3-08／A08 第一批 R2 已实施并自测，待 Sol 再复审（最新，2026-09-20）
+
+Sol 对 R1 提交 `f4be82f` 的增量复审未通过：部分失败时注册表活动集合会丢失、`cancelAll` 的活动集合失真，
+以及权限撤销设备用例按错误字段检查通知栏。本轮由原 DeepSeek 执行窗口在同一任务内完成 R2 修正、自测、提交与
+推送，未创建子 Agent。复审结论见 [P3-08-R1 独立技术复审](p3-08-r1-review.md)。
+
+- 当前基准：分支 `Android`，R2 开始基准 `67eb59e`（= `origin/Android`，其中应用代码为 R1 `f4be82f`、
+  审查文档为 `67eb59e`），开始时工作区干净。本轮只新增实现提交，未改写历史、未强推、未合并 `main`；未改
+  iOS／Web／Room schema／DataStore 用户偏好结构／共享 JSON schema／版本 1；未推进 A08 其余部分（提醒设置 UI、
+  运行时权限流程、编辑后自动重算）与 A10／A11。
+- 返修内容：
+  1. `reconcile` 的最终活动集合改为一次计算并按 URI 去重，注册表、`activeAlarms`、`activeCount`、
+     `degraded` 与 `failed` 全部来自该集合：首次提交失败不写入注册表；既有且内容相同的条目重提交失败时
+     保守保留原条目（它仍是取消平台闹钟的唯一依据）并在下一轮重试；旧条目已成功取消而新提交失败时不保留；
+     取消与提交同时失败时保留旧条目。
+  2. `cancelAll` 用去重后的失败集合保存剩余条目，并把它们写入返回对象的 `activeAlarms`，使 `activeCount`／
+     `degraded` 与注册表一致。
+  3. `ReminderPermissionRevocationTest` 改为按通知 tag（完整提醒 URI）检查通知栏并辅以 `android.title`；
+     常规已授权分支断言明确 `Delivered` 且必须能按 URI tag 找到该通知；专门撤销运行重新取证，并在记录里写明
+     本次运行的 `permitted=false` 分支。
+- 验证：Debug／Release JVM 各 **220 tests、0 failures／errors／skipped**（提醒包 51 项，其中协调器 28 项）；
+  API 37 ARM64 `connectedDebugAndroidTest` **148 tests、0 failures／errors／skipped**；`assembleDebug`／
+  `assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／24 warnings（全部为既有依赖
+  版本、图标与工具链提示）；文档测试 71 tests OK 与 `documentation.test.sh`、`repository-layout.test.sh`、
+  `git diff --check` 通过。
+- 证据：`docs/Android/evidence/p3-08-a08-reminders/` 的 `permission-denied-20260920.txt` 已按 R2 重新取证
+  （`pm revoke` 后 appops 状态 `ignore`、`OK (1 test)`、logcat 记录 `permitted=false`，并说明撤销分支无法在
+  整套 connected 运行内构造）；通知栏截图与设备记录沿用 R1 采集结果（提醒身份、渠道与通知内容未变）。
+- **本环境无法验证，不得声称通过**：真实重启后的 BOOT_COMPLETED 投递；系统投递的 TIME_SET／
+  TIMEZONE_CHANGED／MY_PACKAGE_REPLACED／SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED（受保护广播）；
+  Doze／休眠唤醒与精确／非精确真实投递时间；用户可见通知观感验收。POST_NOTIFICATIONS 的「已撤销」分支只能
+  由专门运行取证，整套运行中该用例走「已授权」分支。
+- 准确状态：**A08 第一批（`c4cb5e7`）已实现；R1（`f4be82f`）复审未通过；R2 已实施并自测，待 Sol 再复审；
+  用户验收未进行**。A08 其余部分、A10／A11、整个 P3 与完整 App 均未完成、未授权。
+- 保持不变的既有状态：P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和用户视觉／交互
+  验收；P3-07／A07 原实现已通过技术复审且视觉风格获用户确认，**P3-07-R1 新增警告框与文案仍待用户验收**。
+
+## P3-08／A08 第一批 R1 再复审未通过，待 R2（历史，2026-09-20）
+
+> 后续状态：R2 已修正本节指出的部分失败一致性与权限撤销证据问题并自测，现待 Sol 再复审（见本文档
+> 首节）；本节的「待 R2」已被其取代。
 
 Sol 已对 R1 提交 `f4be82f` 完成增量独立复审，范围为 `c4cb5e7..f4be82f`。七项首轮意见的主路径均已落实，
 但发现一个部分失败一致性缺口和一个设备证据断言错误，因此 R1 **未通过技术复审**，需由原 DeepSeek 执行窗口

@@ -29,6 +29,11 @@ enum class ReminderReconcileReason {
  * expected set instead of trusting the persisted registry, because the registry says what the app *wants*
  * registered, not that AlarmManager still holds it (reboot, package replace, time change and process death all
  * drop the alarms).
+ *
+ * [failed] lists, once each, the identities whose platform call failed in this run and therefore need a retry.
+ * [activeAlarms] is the saved registry content and the only source of [activeCount] and [degraded]: a failed
+ * re-submit of an already registered alarm keeps its previous entry (so a later cancel can still remove the
+ * platform alarm), while a failed first submission is never registered.
  */
 data class ReminderReconciliation(
     val reason: ReminderReconcileReason,
@@ -93,9 +98,10 @@ class CourseReminderCoordinator(
 
         val desired = desiredAlarms(data, preferences, availability, moment)
         val current = startState.alarms
+        val currentByUri = current.associateBy { it.uri }
         val desiredByUri = desired.associateBy { it.uri }
         val stale = current.filter { existing -> desiredByUri[existing.uri] != existing }
-        val unchanged = desired.filter { candidate -> current.any { it == candidate } }
+        val unchanged = desired.filter { candidate -> currentByUri[candidate.uri] == candidate }
 
         if (registry.load().generation != startState.generation) {
             return ReminderReconciliation(
@@ -109,26 +115,50 @@ class CourseReminderCoordinator(
         }
 
         val cancelled = mutableListOf<String>()
-        val failed = mutableListOf<String>()
+        val cancelFailed = mutableListOf<String>()
         stale.forEach { alarm ->
             runCatching { scheduler.cancel(alarm.uri) }.fold(
                 onSuccess = { cancelled += alarm.uri },
-                onFailure = { failed += alarm.uri },
+                onFailure = { cancelFailed += alarm.uri },
             )
         }
         // Every expected alarm is (re)submitted: AlarmManager replaces an alarm with the same identity, so this
         // is idempotent and it repairs a platform that lost its alarms without changing the registry.
         val submitted = mutableListOf<String>()
+        val submitFailed = mutableListOf<String>()
         desired.forEach { alarm ->
             runCatching { scheduler.schedule(alarm) }.fold(
                 onSuccess = { submitted += alarm.uri },
-                onFailure = { failed += alarm.uri },
+                onFailure = { submitFailed += alarm.uri },
             )
         }
 
-        val active = desired.filter { it.uri in submitted } +
-            stale.filter { it.uri in failed }.mapNotNull { previous -> current.firstOrNull { it.uri == previous.uri } }
-        val saved = registry.save(ReminderRegistryState(startState.generation + 1, active.sortedBy { it.fireAt }))
+        // The final active set is the only source for the registry, activeAlarms, activeCount and degraded, so
+        // the persisted state can never disagree with what the platform is believed to hold.
+        val cancelledUris = cancelled.toSet()
+        val cancelFailedUris = cancelFailed.toSet()
+        val unchangedUris = unchanged.map { it.uri }.toSet()
+        val active = mutableListOf<ReminderAlarm>()
+        desired.forEach { alarm ->
+            when {
+                alarm.uri !in submitFailed -> active += alarm
+                // An unchanged alarm was already registered: a failed re-submit keeps the previous entry, which
+                // is the only handle to a platform alarm that may still exist and must stay cancellable.
+                alarm.uri in unchangedUris -> currentByUri[alarm.uri]?.let { active += it }
+                // The previous entry for this identity was really cancelled, so nothing may be left behind.
+                alarm.uri in cancelledUris -> Unit
+                // Cancelling the previous entry failed as well, so keep it for the next retry.
+                alarm.uri in cancelFailedUris -> currentByUri[alarm.uri]?.let { active += it }
+                // A first submission that failed is never registered: there is nothing to cancel yet.
+            }
+        }
+        // Identities that are no longer expected stay registered only while their cancel keeps failing.
+        stale.forEach { previous ->
+            if (desiredByUri[previous.uri] == null && previous.uri in cancelFailedUris) active += previous
+        }
+        val finalActive = active.distinctBy { it.uri }.sortedBy { it.fireAt }
+        val failed = (cancelFailed + submitFailed).distinct()
+        val saved = registry.save(ReminderRegistryState(startState.generation + 1, finalActive))
 
         ReminderReconciliation(
             reason = reason,
@@ -158,16 +188,18 @@ class CourseReminderCoordinator(
                 onFailure = { failed += alarm.uri },
             )
         }
-        val saved = registry.save(
-            ReminderRegistryState(startState.generation + 1, startState.alarms.filter { it.uri in failed }),
-        )
+        val failedUris = failed.toSet()
+        val remaining = startState.alarms.filter { it.uri in failedUris }.distinctBy { it.uri }
+        val saved = registry.save(ReminderRegistryState(startState.generation + 1, remaining))
         ReminderReconciliation(
             reason = reason,
             generation = saved.generation,
             remindersEnabled = false,
             availability = availability,
             cancelled = cancelled,
-            failed = failed,
+            failed = failed.distinct(),
+            // Alarms whose cancel failed are still registered, so the reported active set must match the registry.
+            activeAlarms = saved.alarms,
         )
     }
 
