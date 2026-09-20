@@ -8,19 +8,25 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.click as touchClick
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
@@ -37,6 +43,9 @@ import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleState
 import com.qingke.schedule.transfer.ScheduleDataTransfer
 import com.qingke.schedule.transfer.ScheduleImportPreview
+import com.qingke.schedule.viewmodel.CourseEditorMode
+import com.qingke.schedule.viewmodel.CourseEditorState
+import com.qingke.schedule.viewmodel.CourseScheduleFormState
 import com.qingke.schedule.viewmodel.MainTab
 import com.qingke.schedule.viewmodel.PeriodFormState
 import com.qingke.schedule.viewmodel.SemesterFormState
@@ -44,6 +53,7 @@ import com.qingke.schedule.viewmodel.TransferUiState
 import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -222,6 +232,137 @@ class DataTransferSectionTest {
             val bounds = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
             assertTrue("$tag must keep a 48dp touch target", bounds.height >= 48.dp)
         }
+    }
+
+    @Test
+    fun aVisiblePreviewGivesSystemBackToTheCancelActionOnceAndKeepsThePage() {
+        var confirms = 0
+        var dismissals = 0
+        val state = mutableStateOf(TransferUiState(preview = preview()))
+        setContent(
+            state,
+            QingKeAppActions(
+                confirmImport = { confirms++ },
+                dismissTransferPrompt = { dismissals++; state.value = state.value.copy(preview = null, writeFailure = null) },
+            ),
+        )
+        rule.onNodeWithTag("transfer-import-preview").assertIsDisplayed()
+
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle()
+
+        assertEquals("a system back must reach the cancel action exactly once", 1, dismissals)
+        assertEquals("a system back must never confirm the replace", 0, confirms)
+        rule.onAllNodesWithTag("transfer-import-preview").assertCountEquals(0)
+        rule.onNodeWithTag("main-shell").assertIsDisplayed()
+        rule.onNodeWithTag("settings-transfer-section").assertExists()
+        assertFalse("the page must stay alive", rule.activity.isFinishing)
+    }
+
+    @Test
+    fun anImportFailureAndARetryableWriteFailureAlsoGiveSystemBackToTheirCancelAction() {
+        var confirms = 0
+        var dismissals = 0
+        val state = mutableStateOf(TransferUiState(importFailure = "不支持的课表数据版本：2"))
+        setContent(
+            state,
+            QingKeAppActions(
+                confirmImport = { confirms++ },
+                dismissTransferPrompt = { dismissals++; state.value = TransferUiState() },
+            ),
+        )
+
+        rule.onNodeWithTag("transfer-import-error").assertIsDisplayed()
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle()
+        assertEquals(1, dismissals)
+        assertEquals(0, confirms)
+        rule.onAllNodesWithTag("transfer-import-error").assertCountEquals(0)
+        rule.onNodeWithTag("main-shell").assertIsDisplayed()
+        assertFalse(rule.activity.isFinishing)
+
+        state.value = TransferUiState(preview = preview(), writeFailure = "课表存储损坏：读取失败")
+        rule.waitForIdle()
+        rule.onNodeWithTag("transfer-import-retry").assertIsDisplayed()
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle()
+        assertEquals("the retryable write failure must cancel through the same action", 2, dismissals)
+        assertEquals("back must never retry the transaction by itself", 0, confirms)
+        rule.onAllNodesWithTag("transfer-import-retry").assertCountEquals(0)
+        rule.onNodeWithTag("main-shell").assertIsDisplayed()
+        assertFalse(rule.activity.isFinishing)
+    }
+
+    @Test
+    fun aWritingPreviewConsumesSystemBackWithoutCancellingOrLeavingTheActivity() {
+        var confirms = 0
+        var dismissals = 0
+        setContent(
+            TransferUiState(preview = preview(), isWriting = true),
+            QingKeAppActions(confirmImport = { confirms++ }, dismissTransferPrompt = { dismissals++ }),
+        )
+        rule.onNodeWithTag("transfer-import-preview").assertIsDisplayed()
+        rule.onNodeWithTag("transfer-import-preview-confirm").assertIsNotEnabled()
+        rule.onNodeWithTag("transfer-import-preview-dismiss").assertIsNotEnabled()
+
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle()
+
+        assertEquals("back must not confirm while the transaction is in flight", 0, confirms)
+        assertEquals("back must not dismiss while the transaction is in flight", 0, dismissals)
+        rule.onNodeWithTag("transfer-import-preview").assertIsDisplayed()
+        rule.onNodeWithTag("main-shell").assertIsDisplayed()
+        assertFalse("the activity must not leave during the replace", rule.activity.isFinishing)
+    }
+
+    @Test
+    fun theBackContractStaysOffWhileNoTransferPromptIsVisible() {
+        var editorBacks = 0
+        var dismissals = 0
+        var confirms = 0
+        rule.setContent {
+            QingKeAppContent(
+                settingsState(AppearanceMode.SYSTEM),
+                settingsForm(),
+                MainTab.TODAY,
+                QingKeAppActions(
+                    editorBack = { editorBacks++ },
+                    dismissTransferPrompt = { dismissals++ },
+                    confirmImport = { confirms++ },
+                ),
+                transfer = TransferUiState(statusMessage = "已导入 6 门课程"),
+                editor = CourseEditorState(
+                    CourseEditorMode.CREATE,
+                    name = "算法",
+                    schedules = listOf(CourseScheduleFormState("s", 1, 1, 1, 1, 18, RepeatRule.EVERY, "")),
+                ),
+            )
+        }
+
+        androidx.test.espresso.Espresso.pressBack()
+        rule.waitForIdle()
+
+        assertEquals("the course editor keeps its own back handling", 1, editorBacks)
+        assertEquals(0, dismissals)
+        assertEquals(0, confirms)
+        assertFalse(rule.activity.isFinishing)
+    }
+
+    @Test
+    fun thePreviewScrimStillBlocksTouchesToThePageBehindIt() {
+        var imports = 0
+        setContent(TransferUiState(preview = preview()), QingKeAppActions(requestImport = { imports++ }))
+        rule.onNodeWithTag("transfer-import-preview").assertIsDisplayed()
+        rule.onNodeWithTag("transfer-import-preview-backdrop", useUnmergedTree = true).assertHasNoClickAction()
+
+        rule.onNodeWithTag("settings-transfer-import").performScrollTo()
+        val importBounds = rule.onNodeWithTag("settings-transfer-import").fetchSemanticsNode().boundsInRoot
+        rule.onRoot().performTouchInput { touchClick(Offset(importBounds.center.x, importBounds.center.y)) }
+        rule.waitForIdle()
+
+        assertEquals("the shared scrim must swallow the raw touch", 0, imports)
+        rule.onNodeWithTag("transfer-import-preview").assertIsDisplayed()
+        assertFalse(rule.activity.isFinishing)
     }
 
     private fun setContent(

@@ -1,6 +1,38 @@
 # 安卓项目当前交接状态
 
-## P4／A10 独立技术复审未通过，待 R1（最新，2026-09-20）
+## P4／A10-R1 系统返回修正已实施并自测，待 Sol 再复审（最新，2026-09-20）
+
+R0 复审的唯一阻断（传输弹窗没有接管 Android 系统返回）已由同一 DeepSeek V4.1 FLASH 执行窗口在 R1 修正并自测，
+未创建子 Agent；实际模型标识／服务／思考参数以用户客户端为准，本窗口无法读取，未核实。
+
+- 当前基准：分支 `Android`，开始基准 `5ab64f974e356122fca6ecdeb3ab80ed5f1419b8`（= `origin/Android`，R0 审查提交），
+  开始时工作区干净；A10 应用实现提交为 `b56eda8`。本轮只改本任务文件，未改写历史、未强推、未合并 `main`。
+- 修改：`TransferUiState.showsPrompt` 作为传输提示可见性的唯一判定；`TransferDialogHost` 用同一判定驱动弹窗与
+  `BackHandler(enabled = ...)`。可取消态（预览／解析失败／导出失败／可重试写入失败）的系统返回只调用一次
+  `dismissTransferPrompt()` 并停留原页面；`isWriting` 时只消费返回，不调用 confirm／dismiss、不取消事务、
+  不退出 Activity；没有传输提示时不注册，SAF 文件面板、课程编辑器、学期保存弹窗与普通页面返回行为不变。
+- 未改：共享 JSON version 1、5 MiB 边界、严格解码／校验、Room 整体事务替换、`DATA_SAVED` 提醒协调、D01 本地
+  偏好边界，以及 iOS／Web／共享 schema／fixtures／Room schema／DataStore 键／A11／发布／`main`。
+- 验证（实际运行）：Debug／Release JVM 各 **273 tests、0 failures／0 errors／0 skipped**；
+  API 37 ARM64 `connectedDebugAndroidTest` **189 tests、0 failures／0 errors／0 skipped**（R0 184 + R1 新增 5，
+  `DataTransferSectionTest` 15）；`assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；
+  `lintDebug` **0 errors／24 warnings**（全部既有类别，R1 无新增）；`python3 docs/tests/android-documentation.test.py`
+  71 tests OK；`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
+- 真实设备（`emulator-5554`，API 37 ARM64）：真实 `ACTION_OPEN_DOCUMENT` 选入 version 1 文件得到预览弹窗后按系统
+  返回 —— 弹窗消失、`topResumedActivity` 仍是 `com.qingke.schedule/.MainActivity`、页面仍是原首次设置页、
+  没有出现「已导入 …」；无弹窗时再按返回则离开应用，证明普通页面返回未被抢占。记录与截图见
+  [R1 证据](evidence/p4-a10-json-transfer/r1-system-back-20260920.txt) 与
+  `evidence/p4-a10-json-transfer/13-r1-preview-back-dismissed-api37.png`。
+- 未验证限制：写入中的返回无法用 adb 手工捕捉（事务毫秒级完成），由自动化设备测试确定性证明；R0 已记录的
+  iOS App 真实 UI 往返与 A08 真实重启／Doze／厂商真机投递等限制不变。
+- 准确状态：**R1 已实施并自测，待 Sol 再复审；用户验收未进行。** R0 结论中“未通过”在再复审前继续有效；
+  A11、发布与 `main` 合并仍未授权。
+- 实现记录与 R1 细节见 [P4／A10 实施记录](p4-a10-json-transfer.md)，R0 结论与 R1 执行窗口记录见
+  [独立技术复审记录](p4-a10-json-transfer-review.md)。
+
+## P4／A10 独立技术复审未通过，待 R1（历史，2026-09-20）
+
+> 后续状态：R1 已修正并自测，见本文档首节；本节的“待 R1”已被其取代，R0 结论中“未通过”在 Sol 再复审前继续有效。
 
 Sol 已对提交 `b56eda8` 完成独立复审，范围为 `c730c62..b56eda8`。有界读取、严格校验、预览确认后事务替换、
 失败保留原数据、成功后的草稿重建与 `DATA_SAVED` 提醒协调、系统文件导出、D01 本地偏好不变及双向版本 1

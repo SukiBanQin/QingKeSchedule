@@ -369,10 +369,25 @@ fun QingKeAppContent(
 /**
  * P4／A10: the import preview and its failures reuse the terminal dialog. The preview shows the semester, the
  * course count, `updatedAt` and the destructive scope, and the replace runs only from the confirm action.
+ *
+ * P4／A10-R1: the same host owns the Android system back contract. [TransferUiState.showsPrompt] is computed once
+ * and drives both the rendered dialog and the back registration, so back is consumed only while a transfer prompt
+ * is really visible and never while the SAF panels, the course editor or an ordinary page is in front. A back press
+ * during the destructive replace is consumed without dismissing the preview or cancelling the transaction, and the
+ * prompt keeps following the committed success／failure state afterwards.
  */
 @Composable private fun TransferDialogHost(transfer: TransferUiState, dark: Boolean, actions: QingKeAppActions) {
+    val showsRetry = transfer.showsWriteRetry
+    val preview = if (transfer.showsPreview) transfer.preview else null
+    val showsImportFailure = transfer.showsImportFailure
+    val showsExportFailure = transfer.showsExportFailure
+
+    BackHandler(enabled = transfer.showsPrompt) {
+        if (!transfer.isWriting) actions.dismissTransferPrompt()
+    }
+
     when {
-        transfer.showsWriteRetry -> TerminalDialog(
+        showsRetry -> TerminalDialog(
             code = "DANGER / IMPORT", status = "WRITE FAILED", title = "导入失败",
             message = transfer.writeFailure.orEmpty() + "\n\n原课表与设置保持不变，可以重试。",
             confirm = "重试", dismiss = "取消",
@@ -380,24 +395,22 @@ fun QingKeAppContent(
             tag = "transfer-import-retry", dismissTag = "transfer-import-retry-dismiss",
             confirmTag = "transfer-import-retry-confirm", danger = true, dark = dark,
         )
-        transfer.showsPreview -> transfer.preview?.let { preview ->
-            TerminalDialog(
-                code = "IMPORT / VERIFY", status = "REPLACE DATA", title = "替换当前课表？",
-                message = ScheduleDataTransfer.previewMessage(preview),
-                confirm = if (transfer.isWriting) "正在导入…" else "替换当前课表", dismiss = "取消",
-                onConfirm = actions.confirmImport, onDismiss = actions.dismissTransferPrompt,
-                tag = "transfer-import-preview", dismissTag = "transfer-import-preview-dismiss",
-                confirmTag = "transfer-import-preview-confirm", enabled = !transfer.isWriting, dark = dark,
-            )
-        }
-        transfer.showsImportFailure -> TerminalDialog(
+        preview != null -> TerminalDialog(
+            code = "IMPORT / VERIFY", status = "REPLACE DATA", title = "替换当前课表？",
+            message = ScheduleDataTransfer.previewMessage(preview),
+            confirm = if (transfer.isWriting) "正在导入…" else "替换当前课表", dismiss = "取消",
+            onConfirm = actions.confirmImport, onDismiss = actions.dismissTransferPrompt,
+            tag = "transfer-import-preview", dismissTag = "transfer-import-preview-dismiss",
+            confirmTag = "transfer-import-preview-confirm", enabled = !transfer.isWriting, dark = dark,
+        )
+        showsImportFailure -> TerminalDialog(
             code = "IMPORT / ERROR", status = "INVALID FILE", title = "无法导入课表",
             message = transfer.importFailure.orEmpty(), confirm = "好",
             onConfirm = actions.dismissTransferPrompt, onDismiss = actions.dismissTransferPrompt,
             tag = "transfer-import-error", dismissTag = null, confirmTag = "transfer-import-error-confirm",
             danger = true, dark = dark,
         )
-        transfer.showsExportFailure -> TerminalDialog(
+        showsExportFailure -> TerminalDialog(
             code = "TRANSFER / ERROR", status = "EXPORT FAILED", title = "无法导出备份",
             message = transfer.exportFailure.orEmpty(), confirm = "知道了",
             onConfirm = actions.dismissTransferPrompt, onDismiss = actions.dismissTransferPrompt,

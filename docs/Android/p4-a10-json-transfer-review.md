@@ -1,5 +1,10 @@
 # P4／A10 JSON 导入导出独立技术复审
 
+> R1 执行窗口记录（2026-09-20，非复审结论）：下面 R0 的阻断项已由执行窗口在 R1 修正并自测
+> （`TransferDialogHost` 按可见性注册 `BackHandler`；新增真实系统返回设备测试；完整回归 JVM 各 273、
+> 设备 189，0 失败），详见本文末尾“R1 执行窗口记录”与 [R1 证据](evidence/p4-a10-json-transfer/r1-system-back-20260920.txt)。
+> **R1 尚未经过 Sol 再复审，也未进行用户验收**；R0 结论中“未通过”的状态在再复审前继续有效。
+
 ## R0 复审结论（2026-09-20）
 
 提交 `b56eda8f79221837dbe06f89ee44f43f152bd5d5` 已完成 A10 的主要实现、测试与设备证据，但本次 Sol
@@ -69,3 +74,29 @@ R1 应保持现有业务和协议不变，并至少完成：
 
 A10 已实现并完成执行者自测，但因系统返回阻断，**技术门槛未关闭，待 R1 和 Sol 再复审；用户验收未进行**。
 A11、发布和 `main` 合并仍未授权。本次 Sol 只维护审查与交接文档，不修改应用代码，不扩大 D01。
+## R1 执行窗口记录（2026-09-20，非复审结论）
+
+R1 只修正 R0 指出的「导入弹窗没有接管系统返回」一项，未改共享版本 1、5 MiB 边界、严格解码／校验、Room 整体
+事务替换、`DATA_SAVED` 提醒协调或 D01 本地偏好边界。
+
+- `TransferUiState.showsPrompt`：传输提示（预览／解析失败／导出失败／可重试写入失败）是否可见的唯一判定。
+- `TransferDialogHost`：`BackHandler(enabled = transfer.showsPrompt)` 与弹窗渲染共用同一判定；非写入态的系统
+  返回只调用一次 `dismissTransferPrompt()` 并停留原页面；`isWriting` 时只消费返回，不调用 confirm／dismiss、
+  不取消事务、不退出 Activity；事务结束后沿用既有成功／失败状态。没有传输提示时不注册，SAF 文件面板、课程
+  编辑器、学期保存弹窗与普通页面返回行为不变。
+- 新增 `DataTransferSectionTest` 5 个用例（真实 `Espresso.pressBack()`）：可取消预览态只 dismiss 一次且页面／
+  Activity 仍在、解析失败与可重试写入失败态各 dismiss 一次且 confirm 0 次、写入态 confirm／dismiss 均 0 次且
+  按钮仍禁用、无提示时课程编辑器仍收到返回、遮罩仍吞掉落在弹窗后导入行的真实触摸。
+- 回归（实际运行）：Debug／Release JVM 各 **273 tests、0 failures／0 errors／0 skipped**；API 37 ARM64
+  `connectedDebugAndroidTest` **189 tests、0 failures／0 errors／0 skipped**（R0 184 + R1 5）；
+  `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**
+  （全部既有类别，R1 无新增）；`python3 docs/tests/android-documentation.test.py` 71 tests OK；
+  `documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
+- 真实设备（`emulator-5554`，API 37 ARM64）：真实 `ACTION_OPEN_DOCUMENT` 选入 version 1 文件得到预览后按系统
+  返回，弹窗消失、`topResumedActivity` 仍是本应用、页面仍是原首次设置页、无「已导入 …」；无弹窗时再按返回则
+  离开应用（前台变为 Launcher）。记录与截图：
+  `evidence/p4-a10-json-transfer/r1-system-back-20260920.txt`、
+  `evidence/p4-a10-json-transfer/13-r1-preview-back-dismissed-api37.png`。
+- R1 限制：写入中的返回无法用 adb 手工捕捉（事务毫秒级完成），由自动化设备测试证明。
+
+**本记录由执行窗口填写，不是复审结论。R1 已实施并自测，待 Sol 再复审；不得据此宣布复审或用户验收通过。**

@@ -21,4 +21,11 @@ data class TransferUiState(
     val showsImportFailure: Boolean get() = preview == null && importFailure != null
     val showsWriteRetry: Boolean get() = preview != null && writeFailure != null
     val showsExportFailure: Boolean get() = preview == null && importFailure == null && exportFailure != null
+
+    /**
+     * P4／A10-R1: true exactly while one of the four transfer dialogs is rendered. The host derives both the
+     * dialog and the system-back registration from this one value, so back is never consumed when no transfer
+     * prompt is visible.
+     */
+    val showsPrompt: Boolean get() = preview != null || importFailure != null || exportFailure != null
 }

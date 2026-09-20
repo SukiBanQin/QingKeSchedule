@@ -1,7 +1,8 @@
 # P4／A10 Android JSON 导入导出实施记录
 
-状态：**已实现、已测试（JVM、设备、真实系统文件面板与双向文件往返），待 Sol 独立复审和用户验收。**
+状态：**已实现、已测试（JVM、设备、真实系统文件面板与双向文件往返）；R0 独立复审未通过，R1 已实施并自测，待 Sol 再复审；用户验收未进行。**
 本文只记录 A10 本轮范围，不代表 A11、整个 P4 或完整 App 完成。文档不预先写入本次提交号（见交付消息或 `git log`）。
+R0 复审结论与 R1 修正见 [独立技术复审记录](p4-a10-json-transfer-review.md) 与本文档“R1”一节。
 
 - 角色：DeepSeek V4.1 FLASH 执行窗口，负责实施、自测、设备证据、文档、提交与推送。实际模型标识／服务／
   思考参数以用户客户端为准，本窗口无法读取，未核实。
@@ -103,4 +104,43 @@
 1. iOS App 真实 UI（文件 App／ShareLink）往返未执行：本会话沙箱无法编译 SwiftUI 宏
    （`swift-plugin-server ... malformed response`，1068 处错误，非代码缺陷），替换证据是未修改 iOS 源码的主机编译实现。
 2. 真实重启、Doze、厂商真机后台投递与通知观感仍是 A08 遗留未验证项。
-3. 尚未经过 Sol 独立复审，也未进行用户验收；“已测试”不等于“已审查”或“已验收”。
+3. R0 独立复审未通过（传输弹窗的系统返回），R1 已修正并自测、**待 Sol 再复审**，用户验收未进行；
+   “已测试”不等于“已审查”或“已验收”。
+
+## R1：传输弹窗的系统返回（2026-09-20）
+
+R0 [Sol 独立复审](p4-a10-json-transfer-review.md)未通过，唯一阻断是 `TransferDialogHost` 没有接管 Android 系统返回：
+共用遮罩只拦截指针，普通状态返回会退出页面／Activity，`isWriting` 时按钮虽禁用但返回仍可退出。R1 只修这一项，
+未改协议、5 MiB 边界、严格解码／校验、Room 整体事务替换、`DATA_SAVED` 提醒协调与 D01 本地偏好边界。
+
+### 修改
+
+- `viewmodel/TransferUiState.kt`：新增 `showsPrompt`，作为「传输提示确实可见」的唯一判定。
+- `ui/QingKeApp.kt` 的 `TransferDialogHost`：`showsPrompt` 同时驱动弹窗渲染与
+  `BackHandler(enabled = transfer.showsPrompt)`，两者不会漂移；回调在非写入态只调用一次
+  `actions.dismissTransferPrompt()`，`isWriting` 时只消费返回（不调用 confirm／dismiss、不取消事务、不退出
+  Activity），事务结束后仍沿用既有成功／失败状态。
+- 由于 `enabled` 由可见性决定，SAF 文件面板、课程编辑器、学期保存弹窗与普通页面返回都不受影响；课程编辑器
+  自己的 `BackHandler` 仍在没有传输提示时正常收到返回。
+
+### R1 验证
+
+- `DataTransferSectionTest` 新增 5 个用例，用真实系统返回事件（`androidx.test.espresso.Espresso.pressBack()`，
+  与仓库既有时间选择器返回测试同一机制）覆盖：可取消预览态（返回只调用一次 dismiss、confirm 0 次、弹窗消失、
+  页面与 Activity 仍在）、解析失败态与可重试写入失败态（各一次 dismiss、confirm 0 次）、写入态
+  （confirm／dismiss 均 0 次、预览仍显示、两个按钮仍禁用、Activity 未结束）、无提示时课程编辑器仍收到返回、
+  遮罩仍吞掉落在弹窗后导入行的真实触摸。
+- 完整回归：Debug／Release JVM 各 **273 tests、0 failures／0 errors／0 skipped**；
+  API 37 ARM64 `connectedDebugAndroidTest` **189 tests、0 failures／0 errors／0 skipped**（R0 184 + R1 5）；
+  `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**
+  （全部既有类别，R1 无新增）；文档测试与 `git diff --check` 通过。
+- API 37 ARM64（`emulator-5554`）真实运行：通过真实 `ACTION_OPEN_DOCUMENT` 选入 version 1 文件得到预览弹窗后
+  按系统返回，弹窗消失、`topResumedActivity` 仍是 `com.qingke.schedule/.MainActivity`、页面仍是原首次设置页、
+  没有出现「已导入 …」；随后在无弹窗状态再按返回，前台变为 Launcher，证明普通页面返回未被抢占。
+  记录与截图见 [R1 证据](evidence/p4-a10-json-transfer/r1-system-back-20260920.txt)、
+  `evidence/p4-a10-json-transfer/13-r1-preview-back-dismissed-api37.png`。
+
+### R1 限制
+
+- 写入中的返回无法用 adb 手工捕捉（事务在毫秒级完成），该项由上面的自动化设备测试确定性证明。
+- R1 已实施并自测，**待 Sol 再复审**；本文档不宣布复审或用户验收通过。A11／发布／`main` 仍未授权。

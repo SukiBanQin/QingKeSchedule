@@ -56,3 +56,27 @@ bash docs/tests/documentation.test.sh              -> exit 0
 bash docs/tests/repository-layout.test.sh          -> exit 0
 git diff --check                                    -> 无输出（无空白错误）
 ```
+
+## R1 系统返回修正回归（2026-09-20）
+
+命令与 R0 相同（GRADLE_USER_HOME=/tmp/a10-gradle-home 与 -Pkotlin.compiler.execution.strategy=in-process）；全部实际运行：
+
+```
+./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest testReleaseUnitTest
+  -> testDebugUnitTest: 273 tests, 0 failures, 0 errors, 0 skipped
+  -> testReleaseUnitTest: 273 tests, 0 failures, 0 errors, 0 skipped
+./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process assembleDebug assembleRelease assembleDebugAndroidTest lintDebug
+  -> BUILD SUCCESSFUL
+  -> lint: 0 errors, 24 warnings（AndroidGradlePluginVersion 1、GradleDependency 10、IconDuplicates 2、IconLauncherShape 2、MonochromeLauncherIcon 2、NewerVersionAvailable 2、ObsoleteSdkInt 2、UseKtx 3；全部既有，R1 无新增）
+ANDROID_SERIAL=emulator-5554 ./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process connectedDebugAndroidTest
+  -> Running tests on devices: emulator-5554 - 17
+  -> BUILD SUCCESSFUL
+  -> connected: 189 tests, 0 failures, 0 errors, 0 skipped（R0 184 + R1 新增 5）
+     DataTransferSectionTest 15、ScheduleImportDeviceTest 5、ScheduleFileAccessDeviceTest 4
+python3 docs/tests/android-documentation.test.py  -> Ran 71 tests, OK
+bash docs/tests/documentation.test.sh              -> exit 0
+bash docs/tests/repository-layout.test.sh          -> exit 0
+git diff --check                                    -> 无输出（无空白错误）
+```
+
+R1 的真实系统返回运行记录与自动化断言见 r1-system-back-20260920.txt。
