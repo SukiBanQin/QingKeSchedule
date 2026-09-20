@@ -9,7 +9,7 @@
 准确状态是 P3-03-R2、P3-04 与 P3-05／A03 的用户视觉验收均已通过；P3-04 按“源课程位置＋打开时数据指纹”精确操作
 重复 ID 课程，业务 ID、导入协议和共享 schema 不变，iOS 同步未授权。A03／A04／A05 当前实现范围已经完成，
 A06 R6 已通过技术复审与用户视觉验收，P3-06-R7、R1、R2 已完成，已通过 Sol 技术复审与用户视觉验收；A07 原实现及 R1 已通过技术复审与用户验收，
-但 A01—A11 尚未全部验收，A02、A08—A11、整个 P3 和完整 App 仍未完成验收；P4／A10（含 R1）已实现、测试并通过 Sol 独立技术复审，**用户验收未进行**，A11 及其后续阶段仍未授权。
+但 A01—A11 尚未全部验收，A02、A08、A09、A11、整个 P3 和完整 App 仍未完成验收；P4／A10（含 R1）已实现、测试、通过 Sol 独立技术复审并获用户验收，A11 及其后续阶段仍未授权。
 
 用户已确认的目标：安卓拥有当前 iOS App 的全部已有功能，业务行为一致，页面信息、布局和视觉风格尽量一致；系统交互采用安卓方式。本文用于落实“照着 iOS 做”，不重新设计产品。新增需求及对现有行为的修正需明确记录。
 
@@ -43,7 +43,7 @@ iOS 当前源码参考提交：`fc3ddfb8ffa14b205a591ffdbed5632d5f975001`（`fix
 | A07 | 周末停课、指定日期停课、调课日按指定星期上课，午休设置 | [教学日历设置](../../ios/QingKeSchedule/Notifications/ReminderSettings.swift) | 停课与调课优先级、单双周组合、今日／周表／通知一致；原实现及 P3-07-R1 的顶部／间隙／底部显示、草稿／已存节次冲突确认、写入失败收口、警告框与文案均已通过 Sol 技术复审和用户验收；通知规划与平台基础设施属 A08 第一批、提醒设置界面属第二批、窗口兜底属第三批，均已通过 Sol 独立技术复审 |
 | A08 | 提醒开关、预设与自定义提前时间；修改课表后更新、删除后取消 | [通知规划与协调](../../ios/QingKeSchedule/Notifications/NotificationScheduling.swift)、[提醒界面](../../ios/QingKeSchedule/Features/ReminderSettingsSection.swift) | 拒绝权限仍可使用课表；测试时间、内容、取消和真机投递；第一、二、三批均已通过 Sol 独立技术复审，第二批设置页视觉／交互已获用户确认；第三批 14 天窗口兜底不显示通知、不计入活动数、不要求精确闹钟；真实通知观感与厂商真机后台投递仍未完成 |
 | A09 | 离线保存学期及课程，失败有反馈，失败替换保留旧数据 | [SwiftData 仓库](../../ios/QingKeSchedule/Persistence/SwiftDataScheduleRepository.swift) | 重启、离线增改删、模拟写入失败和替换失败 |
-| A10 | JSON 导入先校验、预览、确认后整体替换；导出课表备份 | [数据传输](../../ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift)、[文件界面](../../ios/QingKeSchedule/Features/DataTransferSection.swift) | D01 已确认继续使用版本 1，只迁移学期与课程且保留本机偏好；已覆盖有效／无效／未知版本／超大文件、取消、写入失败与失败保留原数据、双向文件往返及系统返回（[实施记录](p4-a10-json-transfer.md)、[设备证据](evidence/p4-a10-json-transfer/README.md)）；R1 `156b004` 已通过 [Sol 独立技术再复审](p4-a10-json-transfer-review.md)，**用户验收未进行** |
+| A10 | JSON 导入先校验、预览、确认后整体替换；导出课表备份 | [数据传输](../../ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift)、[文件界面](../../ios/QingKeSchedule/Features/DataTransferSection.swift) | D01 已确认继续使用版本 1，只迁移学期与课程且保留本机偏好；已覆盖有效／无效／未知版本／超大文件、取消、写入失败与失败保留原数据、双向文件往返及系统返回（[实施记录](p4-a10-json-transfer.md)、[设备证据](evidence/p4-a10-json-transfer/README.md)）；R1 `156b004` 已通过 [Sol 独立技术再复审](p4-a10-json-transfer-review.md)，用户验收通过 |
 | A11 | 跟随系统、浅色、深色；保持品牌、颜色、信息层级和终端风格 | [CourseStyle](../../ios/QingKeSchedule/Features/CourseStyle.swift)、[应用状态](../../ios/QingKeSchedule/State/ScheduleAppState.swift) | 同数据截图对照、小屏、大字体、触控范围和读屏检查 |
 
 ## 关键业务边界
