@@ -39,24 +39,44 @@
 | 页面 | `QingKeApp` 的 `ReminderSettingsSection`（终端样式：预设芯片、自定义步进器、能力行、显式操作按钮），只在正式设置页渲染，首次设置页不出现 |
 | 生命周期 | `repeatOnLifecycle(STARTED)` 时刷新提醒状态，从系统设置返回后即可看到最新权限／渠道／精确状态 |
 
+## R1 返修：能力恢复后重新协调
+
+Sol 对第二批（`4d979fe`／`123303c`）的独立复审未通过，阻断为：缺少通知权限时打开提醒，首次
+`reconcile` 可能在用户允许权限前完成并保持零闹钟，而权限结果回调与从系统通知／渠道设置返回都只执行只读的
+`refreshReminderStatus()`，页面会显示已授权但未来课程仍没有提醒。本轮逐条收口：
+
+| 复审要求 | 处理 | 代码／测试 |
+| --- | --- | --- |
+| 权限请求成功或从系统通知／渠道／精确闹钟设置返回且提醒仍开启时，幂等执行 `reconcile` 并用结果更新 UI | 新增能力恢复入口 `ScheduleViewModel.recoverReminderCapabilities()`：提醒开启且能力可用时用 `reconcile` 的结果更新页面；权限结果回调在授予时调用它、拒绝时只刷新 | `ScheduleViewModel`；`ScheduleViewModelReminderTest.capabilityRecoveryAfterThePermissionGrantReconcilesAndRefreshesTheActiveSet` |
+| 从系统设置返回的恢复路径，不能只更新文字 | 页面「系统通知设置」「精确闹钟设置」按钮先 `markSystemSettingsHandoff()`；`onForegroundResumed()` 在 handoff 后执行恢复、普通恢复仍只读 | `ScheduleViewModel`／`QingKeApp`；`returningFromSystemSettingsRecoversTheWindowInsteadOfOnlyRepaintingIt`（断言注册表 generation 增长、AlarmManager 与注册表一致、普通恢复不再重排） |
+| 权限仍被拒绝时只刷新状态，不得自动重复弹窗 | 恢复入口在权限仍缺失时只发布能力快照，不调用任何平台写操作；发起申请仍只有页面开关与「开启通知权限」两个显式入口 | `capabilityRecoveryWhileThePermissionIsStillMissingOnlyRefreshesTheStatus`；按钮路由由 `theSystemSettingsActionsMarkTheHandoffBeforeLeavingTheApp` 断言 |
+| 设备回归：从预撤销权限开始，授权后不重启、不再次修改设置即登记提醒 | `grantingThePermissionWithoutRestartingRegistersTheAlarms`：预撤销权限 → 打开偏好（注册表与 AlarmManager 均空）→ UiAutomation 授权 → 恢复入口 → 注册表非空且 AlarmManager 登记数与注册表一致；常规已授权运行走幂等分支 | 设备证据 `docs/Android/evidence/p3-08-a08-reminders-batch2/` 的 `settings-reminders-recovered-after-grant.png` 与运行记录 |
+
+说明：在设备上用 `appops set SCHEDULE_EXACT_ALARM` 撤销精确能力会让系统立刻杀死应用进程（logcat
+`lost permission to set exact alarms` → `Killing … schedule_exact_alarm revoked`），所以设备用例不翻转该 appop；
+精确能力的恢复路径由 JVM 用例与第一批 `ReminderPlatformTest` 覆盖。
+
 ## 测试
 
-- Debug／Release JVM 各 **231 tests、0 failures／errors／skipped**（第二批新增 11 条
+- Debug／Release JVM 各 **235 tests、0 failures／errors／skipped**（第二批 R0 新增 11 条，R1 再新增 4 条
   `ScheduleViewModelReminderTest`：偏好写盘后协调、关闭时 `cancelAll` 与部分失败呈现、预设与自定义提前量、
   非法分钟拒绝、草稿不触发而提交后触发、写入失败不回滚、日历写入触发、能力与文案分支、诊断与快照失败）。
-- API 37 ARM64 `connectedDebugAndroidTest` **159 tests、0 failures／errors／skipped**（第二批新增 11 条）：
-  - `ReminderSettingsTest`（8）：关闭时隐藏提前量、开启后的预设与 D03 说明、预设与自定义芯片的路由与选中态、
-    权限被拒时的显式操作、渠道关闭时的入口、状态文案（已安排／降级／为空／失败重试）。
-  - `ReminderSettingsFlowTest`（3）：真实 Room／DataStore／协调器／AlarmManager 下，设置页开关 → 登记窗口 →
-    关闭 → 全部取消；在页面上改提前量 → 注册表 `fireAt` 按 30 分钟重排、自定义 +1；能力行跟随真实平台状态
-    （常规运行走已授权分支，预撤销权限的专门运行走拒绝分支）。
+- API 37 ARM64 `connectedDebugAndroidTest` **162 tests、0 failures／errors／skipped**（第二批 R0 新增 11 条，R1 再新增 3 条）：
+  - `ReminderSettingsTest`（9）：关闭时隐藏提前量、开启后的预设与 D03 说明、预设与自定义芯片的路由与选中态、
+    权限被拒时的显式操作、渠道关闭时的入口、状态文案（已安排／降级／为空／失败重试），以及「系统通知设置」按钮在
+    离开应用前先记录 handoff（用不启动系统的 Context 包装断言路由）。
+  - `ReminderSettingsFlowTest`（5）：真实 Room／DataStore／协调器／AlarmManager 下，设置页开关 → 登记窗口 →
+    关闭 → 全部取消；在页面上改提前量 → 注册表 `fireAt` 按 30 分钟重排、自定义 +1；能力行跟随真实平台状态；
+    R1 新增「预撤销权限 → 授权 → 恢复登记」（不重启、不再改设置）与「从系统设置返回的恢复」（generation 增长、
+    闹钟仍在、普通恢复不重排）。
 - `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**
   （全部为既有依赖版本、图标与工具链提示）；文档测试 71 tests OK 与两个文档脚本、`git diff --check` 通过。
 
 ## 证据与限制
 
 `docs/Android/evidence/p3-08-a08-reminders-batch2/`：已授权权限的真实设置页截图、预先 `pm revoke` 后的真实
-设置页截图、专门运行记录（`OK (3 tests)`／`OK (1 test)`／`OK (1 test)`、appops 状态 `ignore`）与 README。
+设置页截图、R1 新增的「授权后恢复登记」真实截图（与已授权截图字节相同，证明恢复后的状态一致）、专门运行记录
+（`OK (3 tests)`／`OK (1 test)`／`OK (1 test)` 与 R1 的 `OK (1 test)`、appops 状态 `ignore`）与 README。
 
 **本环境无法验证，不得声称通过**：真实系统权限弹窗的人工观感（自动化只断言拒绝后的界面状态）；真实重启后的
 BOOT_COMPLETED 投递；系统投递的时间／时区／包替换／精确权限广播；Doze／休眠唤醒与精确／非精确真实投递时间；
@@ -68,9 +88,10 @@ BOOT_COMPLETED 投递；系统投递的时间／时区／包替换／精确权�
 
 ## 准确状态
 
-A08 第二批已实现并自测（JVM 231、设备 159、lint 0 errors／24 warnings、截图与专门运行记录齐备）；
-Sol 独立复审发现「通知权限／渠道恢复后只刷新状态、不重新安排提醒」的阻断，**第二批未通过技术复审，待 R1，
-用户验收未进行**。详情见 [第二批独立技术复审](p3-08-a08-reminders-batch2-review.md)。A08 第一批（含 R1／R2）
+A08 第二批已实现（`4d979fe`／`123303c`）并自测；Sol 独立复审发现「通知权限／渠道恢复后只刷新状态、
+不重新安排提醒」的阻断，R1 已补齐能力恢复入口（权限结果成功或从系统通知／渠道／精确闹钟设置返回时幂等
+`reconcile`）与设备回归并自测通过（JVM 235、设备 162、lint 0 errors／24 warnings、证据目录已更新）；
+**R1 待 Sol 再复审，用户验收未进行**。详情见 [第二批独立技术复审](p3-08-a08-reminders-batch2-review.md)。A08 第一批（含 R1／R2）
 已通过 Sol 独立技术复审；窗口兜底、A10／A11、
 整个 P3 与完整 App 仍未完成。P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与验收结论不变；
 **P3-07-R1 新增警告框与文案仍待用户验收**。

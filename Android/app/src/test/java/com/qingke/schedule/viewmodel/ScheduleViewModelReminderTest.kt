@@ -258,6 +258,97 @@ class ScheduleViewModelReminderTest {
         assertNull(model.state.value.error)
     }
 
+    @Test fun capabilityRecoveryAfterThePermissionGrantReconcilesAndRefreshesTheActiveSet() = runTest {
+        preferences.preferences = SchedulePreferences.defaults.copy(reminder = ReminderPreferences(remindersEnabled = true))
+        // The first reconciliation ran while the permission was still missing: nothing is active.
+        control.snapshotResult = ReminderStatusSnapshot(ReminderAvailability(false, false, false), emptyList())
+        val model = model()
+        advanceUntilIdle()
+
+        assertEquals(0, model.reminderUi.value.activeCount)
+        assertTrue(control.reconcileReasons.isEmpty())
+
+        // The user then grants the permission: the recovery entry must re-register the rolling window.
+        control.snapshotResult = ReminderStatusSnapshot(
+            ReminderAvailability(true, true, false),
+            listOf(reminderAlarm(0, exact = false), reminderAlarm(1, exact = false)),
+        )
+        control.reconcileResult = ReminderReconciliation(
+            reason = ReminderReconcileReason.MANUAL,
+            generation = 3,
+            remindersEnabled = true,
+            availability = ReminderAvailability(true, true, false),
+            activeAlarms = listOf(reminderAlarm(0, exact = false), reminderAlarm(1, exact = false)),
+        )
+        model.recoverReminderCapabilities()
+        advanceUntilIdle()
+
+        assertEquals(listOf(ReminderReconcileReason.MANUAL), control.reconcileReasons)
+        assertEquals(2, model.reminderUi.value.activeCount)
+        assertTrue(model.reminderUi.value.degraded)
+        assertTrue(model.reminderUi.value.statusMessage.contains("已安排最近 2 条课程提醒"))
+    }
+
+    @Test fun capabilityRecoveryWhileThePermissionIsStillMissingOnlyRefreshesTheStatus() = runTest {
+        preferences.preferences = SchedulePreferences.defaults.copy(reminder = ReminderPreferences(remindersEnabled = true))
+        control.snapshotResult = ReminderStatusSnapshot(ReminderAvailability(false, true, false), emptyList())
+        val model = model()
+        advanceUntilIdle()
+        val snapshotsBefore = control.snapshotCalls
+
+        repeat(2) {
+            model.recoverReminderCapabilities()
+            advanceUntilIdle()
+        }
+
+        assertTrue("a denial must never trigger another platform write", control.reconcileReasons.isEmpty())
+        assertTrue(control.cancelAllReasons.isEmpty())
+        assertTrue("the status is re-read instead", control.snapshotCalls > snapshotsBefore)
+        assertEquals(0, model.reminderUi.value.activeCount)
+        assertEquals("系统通知权限未开启，提醒不会投递", model.reminderUi.value.statusMessage)
+    }
+
+    @Test fun aSystemSettingsHandoffMakesTheNextResumeRecoverTheCapabilities() = runTest {
+        preferences.preferences = SchedulePreferences.defaults.copy(reminder = ReminderPreferences(remindersEnabled = true))
+        control.snapshotResult = ReminderStatusSnapshot(ReminderAvailability(true, true, true), listOf(reminderAlarm(0)))
+        control.reconcileResult = ReminderReconciliation(
+            reason = ReminderReconcileReason.MANUAL,
+            generation = 3,
+            remindersEnabled = true,
+            availability = ReminderAvailability(true, true, true),
+            activeAlarms = listOf(reminderAlarm(0), reminderAlarm(1)),
+        )
+        val model = model()
+        advanceUntilIdle()
+
+        model.onForegroundResumed()
+        advanceUntilIdle()
+        assertTrue("an ordinary resume must not re-plan the window", control.reconcileReasons.isEmpty())
+
+        model.markSystemSettingsHandoff()
+        model.onForegroundResumed()
+        advanceUntilIdle()
+        assertEquals(listOf(ReminderReconcileReason.MANUAL), control.reconcileReasons)
+        assertEquals(2, model.reminderUi.value.activeCount)
+
+        model.onForegroundResumed()
+        advanceUntilIdle()
+        assertEquals("the handoff is consumed once", 1, control.reconcileReasons.size)
+    }
+
+    @Test fun aCapabilityRecoveryWithRemindersOffStaysReadOnly() = runTest {
+        val model = model()
+        advanceUntilIdle()
+
+        model.markSystemSettingsHandoff()
+        model.onForegroundResumed()
+        advanceUntilIdle()
+
+        assertTrue(control.reconcileReasons.isEmpty())
+        assertTrue(control.cancelAllReasons.isEmpty())
+        assertEquals("提醒已关闭", model.reminderUi.value.statusMessage)
+    }
+
     private fun model(): ScheduleViewModel = ScheduleViewModel(
         appState = ScheduleAppState(repository, preferences),
         reminders = control,
@@ -316,10 +407,12 @@ private class RecordingReminderControl : ReminderControl {
     )
     var failSnapshot = false
     var failReconcile = false
+    var snapshotCalls = 0
     val reconcileReasons = mutableListOf<ReminderReconcileReason>()
     val cancelAllReasons = mutableListOf<ReminderReconcileReason>()
 
     override suspend fun snapshot(): ReminderStatusSnapshot {
+        snapshotCalls++
         if (failSnapshot) error("status unavailable")
         return snapshotResult
     }

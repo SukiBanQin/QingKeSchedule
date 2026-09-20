@@ -218,6 +218,8 @@ data class QingKeAppActions(
     val setRemindersEnabled: (Boolean) -> Unit = {},
     val setReminderLeadMinutes: (Int, Boolean) -> Unit = { _, _ -> },
     val refreshReminderStatus: () -> Unit = {},
+    val recoverReminderCapabilities: () -> Unit = {},
+    val markSystemSettingsHandoff: () -> Unit = {},
 )
 
 @Composable
@@ -236,8 +238,9 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.refreshCurrentTime()
-            // A08: re-read the notification permission and channel state after returning from system settings.
-            viewModel.refreshReminderStatus()
+            // A08 R1: a resume after a system settings handoff recovers the capabilities (idempotent reconcile),
+            // an ordinary resume only re-reads the notification permission and channel state.
+            viewModel.onForegroundResumed()
             while (isActive) {
                 delay(1_000)
                 viewModel.refreshCurrentTime()
@@ -277,6 +280,8 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             confirmLunchBreakConflict = viewModel::confirmLunchBreakDespiteConflicts, dismissLunchBreakConflict = viewModel::dismissLunchBreakConfirmation,
             setRemindersEnabled = viewModel::setRemindersEnabled, setReminderLeadMinutes = viewModel::setReminderLeadMinutes,
             refreshReminderStatus = viewModel::refreshReminderStatus,
+            recoverReminderCapabilities = viewModel::recoverReminderCapabilities,
+            markSystemSettingsHandoff = viewModel::markSystemSettingsHandoff,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
         semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict, semesterSave,
@@ -1872,8 +1877,10 @@ internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String
 ) {
     val context = LocalContext.current
     val section = prefix + "-reminders"
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        actions.refreshReminderStatus()
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        // A08 R1: a granted permission re-registers the rolling window; a denial only refreshes the status, and
+        // nothing here ever raises the prompt again.
+        if (granted) actions.recoverReminderCapabilities() else actions.refreshReminderStatus()
     }
     val needsChannelSettings = reminder.remindersEnabled && !reminder.channelReady && !reminder.asksForNotificationPermission
     TerminalFormSection(
@@ -1915,22 +1922,35 @@ internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String
             TerminalFormDivider(dark, section + "-divider")
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReminderActionButton("开启通知权限", section + "-request-permission", dark) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else openNotificationSettings(context)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        actions.markSystemSettingsHandoff()
+                        openNotificationSettings(context)
+                    }
                 }
-                ReminderActionButton("系统通知设置", section + "-open-notification-settings", dark) { openNotificationSettings(context) }
+                ReminderActionButton("系统通知设置", section + "-open-notification-settings", dark) {
+                    actions.markSystemSettingsHandoff()
+                    openNotificationSettings(context)
+                }
             }
         }
         if (needsChannelSettings) {
             TerminalFormDivider(dark, section + "-divider")
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                ReminderActionButton("系统通知设置", section + "-channel-settings", dark) { openNotificationSettings(context) }
+                ReminderActionButton("系统通知设置", section + "-channel-settings", dark) {
+                    actions.markSystemSettingsHandoff()
+                    openNotificationSettings(context)
+                }
             }
         }
         if (reminder.showsInexactNote) {
             TerminalFormDivider(dark, section + "-divider")
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                ReminderActionButton("精确闹钟设置", section + "-open-exact-alarm-settings", dark) { openExactAlarmSettings(context) }
+                ReminderActionButton("精确闹钟设置", section + "-open-exact-alarm-settings", dark) {
+                    actions.markSystemSettingsHandoff()
+                    openExactAlarmSettings(context)
+                }
             }
         }
     }

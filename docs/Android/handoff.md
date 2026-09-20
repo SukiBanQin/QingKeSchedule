@@ -1,6 +1,43 @@
 # 安卓项目当前交接状态
 
-## P3-08／A08 第二批独立复审未通过，待 R1（最新，2026-09-20）
+## P3-08／A08 第二批 R1 已实施并自测，待 Sol 再复审（最新，2026-09-20）
+
+Sol 对第二批（`4d979fe`／`123303c`）的独立复审未通过，唯一阻断是能力恢复：缺少通知权限时打开提醒，首次
+`reconcile` 可能先于授权完成并留下零闹钟，而权限回调与从系统设置返回只做只读刷新。本轮由同一 DeepSeek
+执行窗口完成 R1 修正、自测、提交与推送，未创建子 Agent。
+
+- 当前基准：分支 `Android`，开始基准 `8841ae1`（= `origin/Android`，其中应用实现为 `123303c`、审查文档为
+  `8841ae1`），开始时工作区干净。本轮只新增实现提交，未改写历史、未强推、未合并 `main`；未改 iOS／Web／
+  Room schema／DataStore 偏好键／共享 JSON schema 与版本 1；未推进窗口兜底、A10／A11。
+- 返修内容：
+  1. 新增能力恢复入口 `ScheduleViewModel.recoverReminderCapabilities()`：提醒开启且能力可用时幂等执行
+     `reconcile` 并用结果更新 `reminderUi`；权限结果回调在授予时调用它、拒绝时只刷新状态。
+  2. 页面「系统通知设置」「精确闹钟设置」按钮先 `markSystemSettingsHandoff()`；`onForegroundResumed()` 在 handoff
+     后执行恢复，普通前台恢复仍是只读刷新，因此从系统设置返回会真正重新登记而不是只改文字。
+  3. 权限仍缺失时恢复入口不触发任何平台写操作、也不发起申请；申请仍只有页面开关与「开启通知权限」两个显式入口。
+  4. 设备回归：预撤销 POST_NOTIFICATIONS → 打开偏好（注册表与 AlarmManager 均空）→ 授予权限（不重启、不再次
+     修改设置）→ 恢复入口 → 注册表非空且 AlarmManager 登记数与注册表一致；另覆盖从系统设置返回的恢复
+     （注册表 generation 增长、闹钟仍在、普通恢复不重排）。
+- 验证：Debug／Release JVM 各 **235 tests、0 failures／errors／skipped**（R1 新增 4 条）；API 37 ARM64
+  `connectedDebugAndroidTest` **162 tests、0 failures／errors／skipped**（R1 新增 3 条）；`assembleDebug`／`assembleRelease`／
+  `assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／24 warnings（全部为既有依赖版本、图标与工具链提示）；
+  文档测试 71 tests OK 与两个文档脚本、`git diff --check` 通过。
+- 证据：`docs/Android/evidence/p3-08-a08-reminders-batch2/` 新增 `settings-reminders-recovered-after-grant.png`
+  （授权后恢复登记的真实面板，与已授权截图字节相同）与运行记录第 3／4 节（R1 专门运行 `OK (1 test)`、appops `ignore`、
+  注册表 generation 断言）。设备上撤销 `SCHEDULE_EXACT_ALARM` 会立刻杀死应用进程，故精确能力的恢复路径由 JVM 用例
+  与第一批设备用例覆盖。设备环境沿用下节记录的可写 AVD（`emulator-5554`，1080x2400／420／动画关闭）。
+- **本环境无法验证，不得声称通过**：真实系统权限弹窗的人工观感（自动化只断言拒绝后的界面状态）；真实重启后的
+  BOOT_COMPLETED 投递；系统投递的受保护广播；Doze／休眠唤醒与精确／非精确真实投递时间；用户可见提醒通知的
+  观感验收。
+- 准确状态：**A08 第一批（含 R1／R2）已通过 Sol 独立技术复审；A08 第二批 R0 复审未通过，R1 已实施并自测，
+  待 Sol 再复审；用户验收未进行**。窗口兜底、A10／A11、整个 P3 与完整 App 仍未完成。
+- 保持不变的既有状态：P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和用户视觉／交互
+  验收；P3-07／A07 原实现已通过技术复审且视觉风格获用户确认，**P3-07-R1 新增警告框与文案仍待用户验收**。
+
+## P3-08／A08 第二批独立复审未通过，待 R1（历史，2026-09-20）
+
+> 后续状态：R1 已补齐能力恢复入口（权限结果与系统设置返回时幂等 reconcile）并通过设备回归，现待再
+> 复审；见本文档首节。
 
 Sol 已对第二批提交 `4d979fe` 与设备环境记录 `123303c` 完成增量独立复审，范围为
 `a05402f..123303c`。设置页、偏好与课表成功提交后协调、关闭取消和 D03 呈现的主要路径正确，但发现一项真实

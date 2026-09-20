@@ -1,8 +1,14 @@
 package com.qingke.schedule.ui
 
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -185,17 +191,45 @@ class ReminderSettingsTest {
         rule.onNodeWithTag("settings-reminders-retry").performScrollTo().assertTextEquals("2 条提醒未能安排，将在下次重建时重试。")
     }
 
+    @Test fun theSystemSettingsActionsMarkTheHandoffBeforeLeavingTheApp() {
+        val marks = mutableListOf<Unit>()
+        val state = stateOf(reminderState(remindersEnabled = true, notificationsPermitted = false, channelReady = true))
+        // The settings button opens a real system page; the wrapper keeps the automated run inside the app while
+        // still proving the handoff is recorded before the page is opened.
+        setContent(state, QingKeAppActions(markSystemSettingsHandoff = { marks += Unit }), wrapContext = true)
+
+        rule.onNodeWithTag("settings-reminders-open-notification-settings").performScrollTo().performClick()
+
+        assertEquals(1, marks.size)
+        rule.onNodeWithTag("settings-reminders-open-notification-settings").assertIsDisplayed()
+    }
+
+    private class NoLaunchContext(base: Context) : ContextWrapper(base) {
+        override fun startActivity(intent: Intent) = Unit
+    }
+
     private fun stateOf(initial: ReminderUiState): MutableState<ReminderUiState> = mutableStateOf(initial)
 
-    private fun setContent(state: MutableState<ReminderUiState>, actions: QingKeAppActions = QingKeAppActions()) {
+    private fun setContent(
+        state: MutableState<ReminderUiState>,
+        actions: QingKeAppActions = QingKeAppActions(),
+        wrapContext: Boolean = false,
+    ) {
         rule.setContent {
-            QingKeAppContent(
-                settingsState(),
-                existingForm(),
-                MainTab.SETTINGS,
-                actions,
-                reminder = state.value,
-            )
+            val content = @Composable {
+                QingKeAppContent(
+                    settingsState(),
+                    existingForm(),
+                    MainTab.SETTINGS,
+                    actions,
+                    reminder = state.value,
+                )
+            }
+            if (wrapContext) {
+                CompositionLocalProvider(LocalContext provides NoLaunchContext(rule.activity)) { content() }
+            } else {
+                content()
+            }
         }
     }
 

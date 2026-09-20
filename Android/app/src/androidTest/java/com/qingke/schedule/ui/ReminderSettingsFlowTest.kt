@@ -184,6 +184,84 @@ class ReminderSettingsFlowTest {
             .assertTextEquals(if (exactAvailable) "可用" else "不可用")
     }
 
+    @Test fun grantingThePermissionWithoutRestartingRegistersTheAlarms() {
+        val model = model()
+        rule.setContent { QingKeApp(model) }
+        rule.onNodeWithTag("settings-tab").performClick()
+
+        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            // Regular run: the switch registers immediately, and the recovery entry must stay idempotent.
+            rule.onNodeWithTag("settings-reminders-toggle").performScrollTo().performClick()
+            assertTrue(awaitUntil { platformAlarmCount() > 0 })
+            val planned = registryAlarms()
+            model.recoverReminderCapabilities()
+            assertTrue(awaitUntil { model.reminderUi.value.activeCount == planned.size })
+            assertEquals(planned.size, platformAlarmCount())
+        } else {
+            // Dedicated pre-revoked run: enable while nothing may be registered, then grant the permission and
+            // recover - without restarting the app and without touching the settings again.
+            model.setRemindersEnabled(true)
+            assertTrue(awaitUntil { storedPreferences().reminder.remindersEnabled })
+            assertTrue(awaitUntil { model.reminderUi.value.remindersEnabled })
+            assertEquals(0, platformAlarmCount())
+            assertTrue(registryAlarms().isEmpty())
+
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .grantRuntimePermission(context.packageName, "android.permission.POST_NOTIFICATIONS")
+            assertTrue(awaitUntil { NotificationManagerCompat.from(context).areNotificationsEnabled() })
+
+            model.recoverReminderCapabilities()
+
+            assertTrue("the registry must be filled after the grant", awaitUntil { registryAlarms().isNotEmpty() })
+            assertTrue(
+                "AlarmManager must hold the same alarms",
+                awaitUntil { platformAlarmCount() > 0 && platformAlarmCount() == registryAlarms().size },
+            )
+            assertTrue(awaitUntil { model.reminderUi.value.activeCount > 0 })
+            assertTrue(awaitUntil { model.reminderUi.value.statusMessage.contains("已安排最近") })
+            rule.waitForIdle()
+            rule.onNodeWithTag("settings-reminders-permission-value").performScrollTo().assertTextEquals("已授权")
+            rule.onNodeWithTag("settings-reminders-status").performScrollTo()
+                .assertTextContains("已安排最近", substring = true)
+            // The schedule itself stays usable and the recovery never raised the prompt again.
+            rule.onNodeWithTag("settings-semester-section").performScrollTo().assertIsDisplayed()
+            captureReminderSection("settings-reminders-recovered-after-grant")
+        }
+    }
+
+    @Test fun returningFromSystemSettingsRecoversTheWindowInsteadOfOnlyRepaintingIt() {
+        val model = model()
+        rule.setContent { QingKeApp(model) }
+        rule.onNodeWithTag("settings-tab").performClick()
+        rule.onNodeWithTag("settings-reminders-toggle").performScrollTo().performClick()
+        assertTrue(awaitUntil { platformAlarmCount() > 0 })
+        val generationBefore = registryGeneration()
+
+        // The user flipped a capability on a system notification or channel page and came back: the handoff must
+        // re-plan the window on the real platform instead of only re-reading the status.
+        model.markSystemSettingsHandoff()
+        model.onForegroundResumed()
+
+        assertTrue(
+            "the recovery must reconcile again, not only repaint the status",
+            awaitUntil { registryGeneration() > generationBefore },
+        )
+        assertTrue(platformAlarmCount() > 0)
+        assertEquals(registryAlarms().size, platformAlarmCount())
+        assertTrue(awaitUntil { model.reminderUi.value.activeCount == registryAlarms().size })
+        rule.waitForIdle()
+        rule.onNodeWithTag("settings-reminders-status").performScrollTo()
+            .assertTextContains("已安排最近", substring = true)
+
+        // An ordinary resume without a settings handoff must stay read-only.
+        val generationAfterRecovery = registryGeneration()
+        model.onForegroundResumed()
+        Thread.sleep(400)
+        assertEquals("an ordinary resume must not re-plan", generationAfterRecovery, registryGeneration())
+    }
+
+    private fun registryGeneration(): Long = runBlocking { dependencies.reminderRegistry.load().generation }
+
     private fun model() = ScheduleViewModel(
         appState = ScheduleAppState(dependencies.scheduleRepository, dependencies.preferencesRepository),
         now = { LocalDateTime.now(zone) },

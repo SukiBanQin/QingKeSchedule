@@ -157,6 +157,7 @@ class ScheduleViewModel(
     private var editorInFlight = false
     private var lunchBreakConfirmationInFlight = false
     private var loadJob: Job? = null
+    private var awaitingSystemSettings = false
 
     init { loadInitial() }
 
@@ -318,9 +319,9 @@ class ScheduleViewModel(
                 leadMinutes = state.value.preferences.reminder.reminderLeadMinutes,
                 usesCustomLeadTime = state.value.preferences.reminder.usesCustomLeadTime,
             )
-            mutableReminderUi.value = snapshot.fold(
+            snapshot.fold(
                 onSuccess = { status ->
-                    base.copy(
+                    mutableReminderUi.value = base.copy(
                         loaded = true,
                         notificationsPermitted = status.availability.notificationsPermitted,
                         channelReady = status.availability.channelReady,
@@ -330,7 +331,9 @@ class ScheduleViewModel(
                         diagnostic = null,
                     )
                 },
-                onFailure = { error -> base.copy(loaded = true, diagnostic = error.message ?: "提醒状态读取失败") },
+                onFailure = { error ->
+                    mutableReminderUi.value = base.copy(loaded = true, diagnostic = error.message ?: "提醒状态读取失败")
+                },
             )
         }
     }
@@ -387,6 +390,62 @@ class ScheduleViewModel(
     /** A08: a committed schedule or calendar write re-plans the window without ever rolling the write back. */
     private fun reconcileReminders(reason: ReminderReconcileReason) {
         viewModelScope.launch { runReminderOperation { control -> control.reconcile(reason) } }
+    }
+
+    /**
+     * A08 R1: the user left the app for a system notification, channel or exact-alarm page. Only that handoff
+     * makes the next foreground resume run a capability recovery; an ordinary resume stays a read-only refresh.
+     */
+    fun markSystemSettingsHandoff() {
+        awaitingSystemSettings = true
+    }
+
+    /**
+     * A08 R1: capability recovery. Idempotent while reminders are on and every capability is available, so a
+     * permission granted after the first reconciliation - or a channel or exact-alarm switch flipped in system
+     * settings - really re-registers the rolling window instead of only repainting the status. While reminders
+     * are off, or while the notification permission is still missing, it only refreshes the status: a denial
+     * never triggers another prompt.
+     */
+    fun recoverReminderCapabilities() {
+        val control = reminders
+        if (control == null || !state.value.preferences.reminder.remindersEnabled) {
+            refreshReminderStatus()
+            return
+        }
+        viewModelScope.launch {
+            val snapshot = runCatching { control.snapshot() }.getOrNull()
+            if (snapshot != null && !snapshot.availability.notificationsPermitted) {
+                publishReminderSnapshot(snapshot)
+                return@launch
+            }
+            runReminderOperation { it.reconcile(ReminderReconcileReason.MANUAL) }
+        }
+    }
+
+    /** Every foreground resume: recover the capabilities after a system settings handoff, otherwise just read. */
+    fun onForegroundResumed() {
+        if (awaitingSystemSettings) {
+            awaitingSystemSettings = false
+            recoverReminderCapabilities()
+        } else {
+            refreshReminderStatus()
+        }
+    }
+
+    private fun publishReminderSnapshot(snapshot: com.qingke.schedule.reminder.ReminderStatusSnapshot) {
+        mutableReminderUi.value = mutableReminderUi.value.copy(
+            loaded = true,
+            remindersEnabled = state.value.preferences.reminder.remindersEnabled,
+            leadMinutes = state.value.preferences.reminder.reminderLeadMinutes,
+            usesCustomLeadTime = state.value.preferences.reminder.usesCustomLeadTime,
+            notificationsPermitted = snapshot.availability.notificationsPermitted,
+            channelReady = snapshot.availability.channelReady,
+            exactAlarmsAvailable = snapshot.availability.exactAlarmsAvailable,
+            activeCount = snapshot.activeCount,
+            degraded = snapshot.degraded,
+            diagnostic = null,
+        )
     }
 
     private fun publishReminderPreferences() {
