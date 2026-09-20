@@ -122,13 +122,13 @@ D03 已确认：精确提醒优先；精确能力不可用时降级为非精确�
 
 ## 视觉与平台交互
 
-P3-09／A11 已实施并自测（[实施记录](p3-09-a11-appearance.md)、[设备证据](evidence/p3-09-a11-appearance/README.md)）：正式设置页只新增
+P3-09／A11 已实施、自测并通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)（[实施记录](p3-09-a11-appearance.md)、[设备证据](evidence/p3-09-a11-appearance/README.md)）：正式设置页只新增
 `06 外观／DISPLAY` 分区并放在 `05 数据备份` 之后、保存卡片之前，首次设置页不显示该入口但仍消费已保存／系统主题；
 `ScheduleViewModel.setAppearanceMode` 复用 `ScheduleAppState.updatePreferences` 与既有 `appearance_mode` 键，相同值不写、
 写入中忽略第二次选择、成功后才发布并即时重组主题、失败／取消保留最后成功模式与既有中文错误，且不触发提醒重算；
 “当前显示：浅色／深色”直接使用渲染该子树的同一个已解析主题值，普通宽度横排、320dp／130%／无障碍字号竖排且每项
 ≥48dp。验证同时暴露并修正了一处真实主题问题：品牌 Logo 原先经 `drawable-night-nodpi` 按**系统**夜间模式取图，
-强制浅色时不可读，现改为按应用外观解析（不改资源、不重做已验收页面）。**A11 已实施并自测，待 Sol 独立复审和用户验收。**
+强制浅色时不可读，现改为按应用外观解析（不改资源、不重做已验收页面）。**A11 技术复审已通过，待用户验收。**
 
 P3-09／A11 [只读分析](p3-09-a11-appearance-analysis.md)确认：既有 `AppearanceMode`、DataStore 和根 Compose
 主题继续复用，不新增偏好键或第二套主题状态。正式设置页应在 `05 数据备份` 后增加 `06 外观`，通过 ViewModel
