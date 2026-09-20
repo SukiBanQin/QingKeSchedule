@@ -1,6 +1,63 @@
 # 安卓项目当前交接状态
 
-## 切换新 Sol 窗口：P3-04-R8 验收关闭，下一项仅分析 P3-08／A08（最新，2026-09-19）
+## P3-08／A08 上课提醒第一批已实施并自测（最新，2026-09-20）
+
+用户确认 D03（精确提醒优先、精确不可用时降级为非精确并明确标记“可能延迟”、采用可由用户授予／撤销的
+SCHEDULE_EXACT_ALARM，不使用 USE_EXACT_ALARM），并授权实施 A08 第一批：纯 Kotlin 提醒规划器 +
+Android 平台基础设施。本轮由同一 DeepSeek 执行窗口实施、自测、提交与推送，未创建子 Agent。
+
+- 当前基准：分支 `Android`，开始基准 `9a6ed3e`（已推送 `origin/Android`），开始时工作区干净。
+  本轮只新增实现提交，未改写历史、未强推、未合并 `main`；未改 iOS／Web／Room schema／DataStore 用户偏好
+  结构／共享 JSON schema／版本 1／A10／A11。提交号见交付消息或 `git log`。
+- 实现范围（新增 `com.qingke.schedule.reminder` 包）：
+  - `CourseReminderPlanner`（纯 Kotlin）：输入已提交 `ScheduleData`、教学日历偏好、提前量与当前
+    `Instant`／`ZoneId`，对齐 iOS 规则（教学周、单双周、停课、周末、调课按指定星期且按实际日期所属
+    教学周筛选、0—180 分钟、标题为课程名、正文为 `HH:mm–HH:mm[ · 教室]`、按 fireAt＋身份稳定排序）；
+    午休不参与提醒。提醒身份包含课程／安排业务 ID、**occurrence 位置**、教学周、实际日期与调课来源标记，
+    因此版本 1 允许的重复 ID 也不会碰撞；身份 URI 同时作为 PendingIntent 的 data（显式 Receiver、
+    `FLAG_IMMUTABLE`、单一常量 requestCode），不依赖字符串哈希。
+  - 平台接口与实现：`AlarmScheduler`／`NotificationPresenter` 可替换；生产实现使用 `AlarmManager`
+    （可用精确能力时 `setExactAndAllowWhileIdle`，不可用时 `setAndAllowWhileIdle`，并在调度前再次校验
+    能力以免权限被撤销后抛错）与通知渠道 `course_reminders`／「上课提醒」。
+  - 独立内部闹钟注册表 `DataStoreReminderRegistry`：独立 DataStore 文件
+    `schedule_reminders.preferences_pb`，带 generation 与负载，绝不与整体重写的用户偏好文件混用。
+  - `CourseReminderCoordinator`：单一写入者（Mutex 串行）＋ generation 门禁（副作用前重读，被更新的一轮
+    以 superseded 收口）；新增／保留／替换／取消、关闭清空、单条失败不清空其余、取消失败保留待重试；
+    通知权限、渠道与精确能力分别建模，非精确计划标记 `degraded`；失败不回滚课表或偏好。
+  - Receiver：`CourseReminderReceiver`（触发时先按当前已提交数据与 payload 自身 fireAt 重新核对，旧课表
+    payload 被抑制，随后推进滚动窗口）与 `ReminderRebuildReceiver`（BOOT_COMPLETED、MY_PACKAGE_REPLACED、
+    TIME_SET、TIMEZONE_CHANGED、SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED）。
+  - Manifest 只加入 POST_NOTIFICATIONS、SCHEDULE_EXACT_ALARM、RECEIVE_BOOT_COMPLETED 与两个
+    `exported=false` 的 Receiver；未使用常驻服务、WorkManager 或 USE_EXACT_ALARM。
+  - 装配：`ScheduleAppDependencies` 暴露 `reminderRegistry` 与 `reminderCoordinator`，供后续
+    ViewModel／设置页调用。
+- 有界窗口选择依据：iOS 受限 60 条通知；Android 无同类硬限制，本批改为 **14 天滚动窗口、最多 120 条闹钟**，
+  使注册表、开机重建与耗电与近期课程成比例；窗口由每个已触发闹钟与各重建入口推进。
+  **限制**：若连续超过窗口长度既无闹钟触发也不打开应用，更远的提醒可能延迟到下一次入口——已记录，
+  属下一批候选（例如更长的窗口或周期性兜底）。
+- 本批**未**新增提醒设置 UI、未申请运行时权限、未接通课表编辑／保存后的自动重算；A08 仍**未完成**。
+- 验证：Debug／Release JVM 各 **209 tests、0 failures／errors／skipped**（新增 40 项：规划器 18、协调器 17、
+  投递策略 5）；API 37 ARM64 `connectedDebugAndroidTest` **143 tests、0 failures／errors／skipped**
+  （新增 10 项：平台 4、Receiver 5、证据 1）；`assembleDebug`／`assembleRelease`／
+  `assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／18 warnings；文档测试 71 tests OK 与两个脚本、
+  `git diff --check` 通过。
+- 证据：新建 `docs/Android/evidence/p3-08-a08-reminders/`：真实通知栏截图（标题「证据课程」、正文
+  「08:00–08:45 · A101 （可能延迟）」，位于提醒分区）＋设备记录（身份 URI、能力三项、渠道 id／name／
+  importance、reconcile 计数与 generation、无法验证项目清单）＋README。
+- **本环境无法验证，不得声称通过**：真实重启后的 BOOT_COMPLETED 投递、系统投递的时间／时区／包替换／
+  精确权限广播、Doze／休眠唤醒与精确／非精确真实投递时间、用户可见通知观感验收（截图与记录为程序化
+  采集）。
+- 准确状态：**A08 第一批已实现、已测试；Sol 独立复审与用户验收均未进行**（通知与复杂状态任务必须独立
+  复审）。A10／A11、A08 其余部分（设置 UI、运行时权限流程、编辑后重算）与整个 P3 仍未完成。
+- 保持不变的既有状态：P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和用户视觉／
+  交互验收；P3-07／A07 原实现已通过技术复审且视觉风格获用户确认，**P3-07-R1 新增警告框与文案仍待用户
+  验收**。
+
+## 切换新 Sol 窗口：P3-04-R8 验收关闭，下一项仅分析 P3-08／A08（历史，2026-09-19）
+
+> 后续状态：A08 分析后用户确认 D03 并授权实施第一批，已完成并自测（见本文档首节）；本节“仅分析、不授权
+> 实施”的表述只代表当时状态。
+
 
 用户已确认 P3-04-R8／R1／R2 的最终视觉与真实交互结果：课程保存阻断错误使用居中红色弹窗，遮罩能阻止
 面板外触摸命中底层控件，首次设置、正式设置与午休时间选择器的小时／分钟均可真实上下滑动，级联摘要也可
