@@ -44,7 +44,7 @@ iOS 当前源码参考提交：`fc3ddfb8ffa14b205a591ffdbed5632d5f975001`（`fix
 | A08 | 提醒开关、预设与自定义提前时间；修改课表后更新、删除后取消 | [通知规划与协调](../../ios/QingKeSchedule/Notifications/NotificationScheduling.swift)、[提醒界面](../../ios/QingKeSchedule/Features/ReminderSettingsSection.swift) | 拒绝权限仍可使用课表；测试时间、内容、取消和真机投递；第一、二、三批均已通过 Sol 独立技术复审，第二批设置页视觉／交互已获用户确认；第三批 14 天窗口兜底不显示通知、不计入活动数、不要求精确闹钟；真实通知观感与厂商真机后台投递仍未完成 |
 | A09 | 离线保存学期及课程，失败有反馈，失败替换保留旧数据 | [SwiftData 仓库](../../ios/QingKeSchedule/Persistence/SwiftDataScheduleRepository.swift) | 重启、离线增改删、模拟写入失败和替换失败 |
 | A10 | JSON 导入先校验、预览、确认后整体替换；导出课表备份 | [数据传输](../../ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift)、[文件界面](../../ios/QingKeSchedule/Features/DataTransferSection.swift) | D01 已确认继续使用版本 1，只迁移学期与课程且保留本机偏好；已覆盖有效／无效／未知版本／超大文件、取消、写入失败与失败保留原数据、双向文件往返及系统返回（[实施记录](p4-a10-json-transfer.md)、[设备证据](evidence/p4-a10-json-transfer/README.md)）；R1 `156b004` 已通过 [Sol 独立技术再复审](p4-a10-json-transfer-review.md)，用户验收通过 |
-| A11 | 跟随系统、浅色、深色；保持品牌、颜色、信息层级和终端风格 | [CourseStyle](../../ios/QingKeSchedule/Features/CourseStyle.swift)、[应用状态](../../ios/QingKeSchedule/State/ScheduleAppState.swift) | 同数据截图对照、小屏、大字体、触控范围和读屏检查 |
+| A11 | 跟随系统、浅色、深色；保持品牌、颜色、信息层级和终端风格 | [CourseStyle](../../ios/QingKeSchedule/Features/CourseStyle.swift)、[应用状态](../../ios/QingKeSchedule/State/ScheduleAppState.swift) | [只读分析](p3-09-a11-appearance-analysis.md)已确认 Android 现有三态持久化与主题消费，缺设置页 `06 外观`、写入动作和端到端验证；无产品决定阻断，尚未授权实施；验收须覆盖即时切换、SYSTEM 动态跟随、重启持久化、失败保留、小屏／大字体、触控与读屏 |
 
 ## 关键业务边界
 
