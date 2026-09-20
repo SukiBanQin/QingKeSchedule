@@ -91,7 +91,9 @@ BOOT_COMPLETED 投递；系统投递的时间／时区／包替换／精确权�
 A08 第二批已实现（`4d979fe`／`123303c`）并自测；Sol 独立复审发现「通知权限／渠道恢复后只刷新状态、
 不重新安排提醒」的阻断，R1 已补齐能力恢复入口（权限结果成功或从系统通知／渠道／精确闹钟设置返回时幂等
 `reconcile`）与设备回归并自测通过（JVM 235、设备 162、lint 0 errors／24 warnings、证据目录已更新）；
-**R1 待 Sol 再复审，用户验收未进行**。详情见 [第二批独立技术复审](p3-08-a08-reminders-batch2-review.md)。A08 第一批（含 R1／R2）
+**R1 已通过 Sol 独立技术复审，用户验收未进行**。Sol 独立复跑 ViewModel Reminder Debug／Release 各 15 项、
+API 37 ARM64 设置页 9 项与真实流程 5 项，均为 0 failures／errors／skipped。详情见
+[第二批 R0／R1 独立技术复审](p3-08-a08-reminders-batch2-review.md)。A08 第一批（含 R1／R2）
 已通过 Sol 独立技术复审；窗口兜底、A10／A11、
 整个 P3 与完整 App 仍未完成。P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与验收结论不变；
 **P3-07-R1 新增警告框与文案仍待用户验收**。
