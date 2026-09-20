@@ -1,6 +1,51 @@
 # 安卓项目当前交接状态
 
-## P3-08／A08 上课提醒第一批已实施并自测（最新，2026-09-20）
+## P3-08／A08 第一批 R1 已实施并自测，待 Sol 复审（最新，2026-09-20）
+
+Sol 对第一批实现提交 `c4cb5e7` 的独立复审提出七项意见，本轮由同一 DeepSeek 执行窗口在同一任务内
+逐条返修、自测、提交并推送，未创建子 Agent。
+
+- 当前基准：分支 `Android`，复审基准 `c4cb5e7`（R1 开始时的 HEAD 与 `origin/Android`），开始时工作区干净。
+  本轮只新增实现提交，未改写历史、未强推、未合并 `main`；未改 iOS／Web／Room schema／DataStore 用户
+  偏好结构／共享 JSON schema／版本 1，未推进 A10／A11。
+- 返修内容（七项意见逐条）：
+  1. 重建不以注册表或 PendingIntent 推断平台仍有闹钟：`reconcile` 每轮无条件重新提交全部应排闹钟（同一
+     PendingIntent 幂等），注册表只用于确定该取消哪些条目；新增「注册表非空但平台闹钟已被清空」的重建用例
+     （JVM 与真机各一），并移除 1 条把注册表当作平台闹钟凭据的旧 JVM 用例。
+  2. `deliver()` 在任何平台副作用前依次复核「payload 仍属于当前已提交课表」、`remindersEnabled`、通知权限与
+     `course_reminders` 渠道可用性，任一不满足即 `Suppressed`（不先通知后取消）；`notify()` 改为返回 Boolean，
+     `false` 记为 `Failed("notification was not published")`，不把静默未发布报告为 `Delivered`。
+  3. `channelReady` 把 `IMPORTANCE_NONE` 判为不可用；设备用例用私有探测渠道制造 NONE，因为平台会跨
+     应用侧删除／重建保留已关闭渠道的状态而不能恢复，不能拿共享提醒渠道做实验。
+  4. 通知身份改用完整提醒 URI 作为通知 tag（id 固定 0）；`Aa`／`BB` Java hash 碰撞用例验证两条提醒互不覆盖、
+     取消其一不影响另一条；PendingIntent 身份同样使用 URI 作为 `Intent.data`。
+  5. `degraded`／`activeCount` 改为由当前全部活动提醒（含 retained 的非精确提醒）计算。
+  6. 生产 `APP_START` 入口：`QingKeScheduleApplication.requestReminderSync(APP_START)` + `MainActivity.onCreate`
+     调用，不申请权限、不新增 UI；真机用例启动 `MainActivity` 后验证重新提交。
+  7. 清理状态文档矛盾：删除仍称「只授权只读分析」的过时表述，明确 D03 已确认、A08 第一批已实施、R1 待复审、
+     P3-07-R1 文案仍待用户验收、A08 与 P3 整体未完成。
+- 验证：Debug／Release JVM 各 **215 tests、0 failures／errors／skipped**；API 37 ARM64
+  `connectedDebugAndroidTest` **148 tests、0 failures／errors／skipped**；`assembleDebug`／`assembleRelease`／
+  `assembleDebugAndroidTest` 成功；`lintDebug` 0 errors／24 warnings（全部为既有依赖版本、图标与工具链提示）；
+  文档测试 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
+- 证据：`docs/Android/evidence/p3-08-a08-reminders/` 更新为 R1 记录——重新采集的通知栏截图、设备记录
+  （新增 submitted／unchanged／cancelled／active／generation）与新增 `permission-denied-20260920.txt`（预先撤销
+  POST_NOTIFICATIONS 的专门 `am instrument` 运行：appops 状态 `ignore`、`OK (1 test)`，验证投递前抑制、
+  不先通知后取消、不把静默未发布报告为 Delivered）。
+- **本环境无法验证，不得声称通过**：真实重启后的 BOOT_COMPLETED 投递；系统投递的 TIME_SET／
+  TIMEZONE_CHANGED／MY_PACKAGE_REPLACED／SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED（受保护广播）；
+  Doze／休眠唤醒与精确／非精确真实投递时间；用户可见通知观感验收。另有流程限制：POST_NOTIFICATIONS 的
+  「已撤销」分支无法在整套 connected 运行内构造（撤销已授予的运行时权限会立刻杀死被测进程，appops 也拒绝
+  对运行时 op `android:post_notification` 直接写入），只由上述专门运行取证，整套运行中该用例走「已授权」分支。
+- 准确状态：**A08 第一批已实现（`c4cb5e7`），R1 已实施并自测，待 Sol 复审；用户验收未进行**。A08 其余部分
+  （提醒设置 UI、运行时权限流程、编辑后自动重算）、A10／A11、整个 P3 与完整 App 仍未完成、未授权。
+- 保持不变的既有状态：P3-06-R7（含 R1／R2）与 P3-04-R8（含 R1／R2）已通过 Sol 技术复审和用户视觉／交互
+  验收；P3-07／A07 原实现已通过技术复审且视觉风格获用户确认，**P3-07-R1 新增警告框与文案仍待用户验收**。
+
+## P3-08／A08 上课提醒第一批已实施并自测（历史，2026-09-20）
+
+> 后续状态：Sol 已对第一批提交 `c4cb5e7` 完成独立复审并提出七项意见，R1 返修已实施并自测，
+> 现待 Sol 复审（见本文档首节）；本节记录的「尚未复审」已被其取代。
 
 用户确认 D03（精确提醒优先、精确不可用时降级为非精确并明确标记“可能延迟”、采用可由用户授予／撤销的
 SCHEDULE_EXACT_ALARM，不使用 USE_EXACT_ALARM），并授权实施 A08 第一批：纯 Kotlin 提醒规划器 +

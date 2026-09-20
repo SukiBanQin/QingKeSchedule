@@ -17,6 +17,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -25,17 +26,27 @@ import org.junit.runner.RunWith
 class ReminderPlatformTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    @Before
+    fun grantNotifications() {
+        // publishReminder only reports Delivered when the reminder is really postable.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .grantRuntimePermission(context.packageName, "android.permission.POST_NOTIFICATIONS")
+        }
+    }
+
     private fun alarm(
         courseIndex: Int = 0,
         scheduleIndex: Int = 0,
         date: String = "2026-03-02",
         fireAt: Instant = Instant.parse("2026-03-02T00:50:00Z"),
         exact: Boolean = true,
+        courseId: String = "same",
     ) = ReminderAlarm(
         identity = CourseReminderIdentity(
             courseIndex = courseIndex,
             scheduleIndex = scheduleIndex,
-            courseId = "same",
+            courseId = courseId,
             scheduleId = "shared",
             week = 1,
             date = LocalDate.parse(date),
@@ -50,15 +61,17 @@ class ReminderPlatformTest {
 
     @Test fun notificationChannelIsCreatedWithTheReminderIdentity() {
         val presenter = AndroidNotificationPresenter(context)
-        assertTrue(presenter.ensureChannel())
+        val manager = context.getSystemService(NotificationManager::class.java)
+        assertTrue(
+            "the reminder channel must be usable: " + manager.getNotificationChannel(ReminderNotifications.CHANNEL_ID),
+            presenter.ensureChannel(),
+        )
 
-        val channel = context.getSystemService(NotificationManager::class.java)
-            .getNotificationChannel(ReminderNotifications.CHANNEL_ID)
+        val channel = manager.getNotificationChannel(ReminderNotifications.CHANNEL_ID)
         assertNotNull(channel)
         assertEquals(ReminderNotifications.CHANNEL_NAME, channel!!.name.toString())
         assertEquals(ReminderNotifications.CHANNEL_DESCRIPTION, channel.description)
     }
-
     @Test fun alarmIdentityUsesTheReminderUriSoDuplicateIdsCannotCollide() {
         val scheduler = AndroidAlarmScheduler(context)
         val first = alarm(courseIndex = 0, date = "2026-03-02")
@@ -133,6 +146,70 @@ class ReminderPlatformTest {
                 file.delete()
             }
         }
+    }
+
+
+    @Test fun notificationIdentityUsesTheUriTagSoHashCollisionsCannotOverrideEachOther() {
+        val presenter = AndroidNotificationPresenter(context)
+        assertTrue(presenter.ensureChannel())
+        // "Aa" and "BB" share a deterministic Java hashCode, so a hashCode-based identity would collide.
+        val first = alarm(courseId = "Aa")
+        val second = alarm(courseId = "BB")
+        assertEquals(first.uri.hashCode(), second.uri.hashCode())
+
+        try {
+            context.getSystemService(NotificationManager::class.java).cancelAll()
+            assertTrue(presenter.notify(first))
+            assertTrue(presenter.notify(second))
+
+            // Posting is asynchronous on the platform side, so wait for the expected counts.
+            assertEquals(2, awaitActiveNotifications(2))
+
+            val titles = context.getSystemService(NotificationManager::class.java).activeNotifications
+                .filter { it.notification.extras.getCharSequence("android.text") != null }
+                .map { it.notification.extras.getCharSequence("android.text").toString() }
+            assertEquals(2, titles.size)
+
+            presenter.cancelNotification(first.uri)
+            assertEquals(1, awaitActiveNotifications(1))
+        } finally {
+            context.getSystemService(NotificationManager::class.java).cancelAll()
+        }
+    }
+    @Test fun aChannelTheUserTurnedOffIsReportedAsUnusable() {
+        // The platform preserves a switched-off channel's importance across an app-side delete/recreate, so this
+        // test drives a private probe channel instead of pushing the shared reminder channel to IMPORTANCE_NONE.
+        val probeId = "course_reminders_probe_" + java.util.UUID.randomUUID()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val presenter = AndroidNotificationPresenter(context, probeId)
+
+        try {
+            assertTrue("a fresh channel is usable", presenter.ensureChannel())
+
+            manager.deleteNotificationChannel(probeId)
+            manager.createNotificationChannel(
+                android.app.NotificationChannel(
+                    probeId,
+                    ReminderNotifications.CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_NONE,
+                ),
+            )
+            Thread.sleep(250)
+            assertEquals(NotificationManager.IMPORTANCE_NONE, manager.getNotificationChannel(probeId)!!.importance)
+
+            assertFalse("IMPORTANCE_NONE must count as unusable", presenter.ensureChannel())
+        } finally {
+            manager.deleteNotificationChannel(probeId)
+        }
+    }
+
+    private fun awaitActiveNotifications(expected: Int): Int {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        repeat(40) {
+            if (manager.activeNotifications.size == expected) return expected
+            Thread.sleep(50)
+        }
+        return manager.activeNotifications.size
     }
 
     private fun setExactAlarmAppop(mode: String) {

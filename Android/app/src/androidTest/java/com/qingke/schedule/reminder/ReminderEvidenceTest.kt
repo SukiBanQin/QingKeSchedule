@@ -47,7 +47,7 @@ class ReminderEvidenceTest {
         val data = ScheduleData(1, semester, listOf(course), "1970-01-01T00:00:00Z")
 
         val record = StringBuilder()
-        record.appendLine("P3-08/A08 batch 1 device evidence (API 37 ARM64, ${Build.VERSION.SDK_INT})")
+        record.appendLine("P3-08/A08 batch 1 R1 device evidence (API 37 ARM64, ${Build.VERSION.SDK_INT})")
         runBlocking {
             application.dependencies.scheduleRepository.replace(data)
             application.dependencies.preferencesRepository.update { preferences ->
@@ -71,7 +71,7 @@ class ReminderEvidenceTest {
             record.appendLine("planned fireAt=${payload.fireAt} startAt=${payload.startAt} title=${payload.title} body=${payload.body} exact=${payload.exact}")
 
             val reconciliation = application.dependencies.reminderCoordinator.reconcile(ReminderReconcileReason.APP_START)
-            record.appendLine("reconcile: scheduled=${reconciliation.scheduled.size} cancelled=${reconciliation.cancelled.size} generation=${reconciliation.generation}")
+            record.appendLine("reconcile: submitted=${reconciliation.submitted.size} unchanged=${reconciliation.unchanged.size} cancelled=${reconciliation.cancelled.size} active=${reconciliation.activeCount} generation=${reconciliation.generation}")
             record.appendLine("availability: notificationsPermitted=${reconciliation.availability.notificationsPermitted} channelReady=${reconciliation.availability.channelReady} exactAvailable=${reconciliation.availability.exactAlarmsAvailable} degraded=${reconciliation.degraded}")
 
             context.sendBroadcast(
@@ -83,13 +83,15 @@ class ReminderEvidenceTest {
 
         var active: android.app.Notification? = null
         repeat(50) {
-            active = notifications.activeNotifications.firstOrNull { it.id != 0 }?.notification
+            active = notifications.activeNotifications
+                .firstOrNull { it.notification.extras.getCharSequence("android.title") != null }?.notification
             if (active == null) Thread.sleep(100)
         }
         val channel = notifications.getNotificationChannel(ReminderNotifications.CHANNEL_ID)
         record.appendLine("channel: id=${channel?.id} name=${channel?.name} importance=${channel?.importance}")
         record.appendLine("active notification: title=${active?.extras?.getCharSequence("android.title")} text=${active?.extras?.getCharSequence("android.text")}")
         record.appendLine("active count=${notifications.activeNotifications.size}")
+        record.appendLine("permission denied branch: recorded separately by ReminderPermissionRevocationTest, see permission-denied-20260920.txt")
         record.appendLine("unverified in this environment: real reboot, doze wake-up, system-delivered BOOT_COMPLETED/TIME_SET/TIMEZONE_CHANGED/MY_PACKAGE_REPLACED/exact-permission broadcasts, exact-vs-inexact delivery timing")
 
         val directory = File(

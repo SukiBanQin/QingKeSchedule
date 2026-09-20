@@ -187,6 +187,38 @@ class ReminderReceiverTest {
         assertEquals(null, Intent(context, CourseReminderReceiver::class.java).toReminderAlarm())
     }
 
+
+    @Test fun rebuildResubmitsWhenThePlatformLostItsAlarms() {
+        val coordinator = application.dependencies.reminderCoordinator
+        val scheduled = runBlocking { coordinator.reconcile(ReminderReconcileReason.APP_START) }
+        assertTrue(scheduled.submitted.isNotEmpty())
+        assertEquals(scheduled.submitted.size, awaitRegisteredAlarms())
+
+        // A reboot drops the platform alarms while the persisted registry still lists them.
+        val scheduler = AndroidAlarmScheduler(context)
+        runBlocking { application.dependencies.reminderRegistry.load().alarms }
+            .forEach { alarm -> scheduler.cancel(alarm.uri) }
+        assertEquals(0, awaitRegisteredAlarms())
+        assertTrue(runBlocking { application.dependencies.reminderRegistry.load().alarms.isNotEmpty() })
+
+        val rebuilt = runBlocking { performReminderRebuild(coordinator, Intent.ACTION_BOOT_COMPLETED) }
+
+        assertNotNull(rebuilt)
+        assertEquals(rebuilt!!.submitted.size, awaitRegisteredAlarms())
+        assertTrue("the rebuild must re-submit the expected alarms", awaitRegisteredAlarms() >= 1)
+    }
+
+    private fun awaitRegisteredAlarms(): Int {
+        val scheduler = AndroidAlarmScheduler(context)
+        repeat(30) {
+            val alarms = runBlocking { application.dependencies.reminderRegistry.load().alarms }
+            val registered = alarms.count { scheduler.isRegistered(it.uri) }
+            if (registered > 0 || alarms.isEmpty()) return registered
+            Thread.sleep(100)
+        }
+        return 0
+    }
+
     private fun enabled(preferences: SchedulePreferences) = preferences.copy(
         reminder = preferences.reminder.copy(remindersEnabled = true, reminderLeadMinutes = ReminderPreferences.DEFAULT_LEAD_MINUTES),
     )

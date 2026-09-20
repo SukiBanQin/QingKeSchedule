@@ -16,7 +16,8 @@ import com.qingke.schedule.R
 /**
  * A08: AlarmManager backend. Every alarm is an explicit [CourseReminderReceiver] PendingIntent whose identity is
  * the reminder URI (alarm data), never a string-hash request code, and it is immutable. Exactness comes from
- * [ReminderAlarm.exact], which the coordinator derived from the SCHEDULE_EXACT_ALARM capability (D03).
+ * [ReminderAlarm.exact], which the coordinator derived from the SCHEDULE_EXACT_ALARM capability (D03), and is
+ * re-checked here because the capability can be revoked at any time.
  */
 internal class AndroidAlarmScheduler(private val context: Context) : AlarmScheduler {
     private val alarmManager: AlarmManager = context.getSystemService(AlarmManager::class.java)
@@ -26,8 +27,6 @@ internal class AndroidAlarmScheduler(private val context: Context) : AlarmSchedu
 
     override fun schedule(alarm: ReminderAlarm) {
         val pending = pendingIntent(alarm, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        // D03: the capability is re-checked here as well, because it can be revoked between planning and
-        // scheduling; a revoked capability must degrade to an inexact reminder instead of throwing.
         if (alarm.exact && canScheduleExactAlarms()) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alarm.fireAt.toEpochMilli(), pending)
         } else {
@@ -59,29 +58,56 @@ internal class AndroidAlarmScheduler(private val context: Context) : AlarmSchedu
     }
 }
 
-/** A08: NotificationManager backend: one "上课提醒" channel plus plain notification posting. */
-internal class AndroidNotificationPresenter(private val context: Context) : NotificationPresenter {
+/**
+ * A08: NotificationManager backend. Notifications are addressed by their full reminder URI as the notification
+ * tag (id 0), so two different reminders can never overwrite or cancel each other through a hashCode collision.
+ *
+ * The channel id defaults to the shared "上课提醒" channel; device tests inject a private probe id because the
+ * platform preserves a switched-off channel across an app-side delete/recreate, so pushing the shared channel to
+ * IMPORTANCE_NONE would break every later reminder in the same run.
+ */
+internal class AndroidNotificationPresenter(
+    private val context: Context,
+    private val channelId: String = ReminderNotifications.CHANNEL_ID,
+) : NotificationPresenter {
     private val manager: NotificationManager = context.getSystemService(NotificationManager::class.java)
 
     override fun ensureChannel(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
-        if (manager.getNotificationChannel(ReminderNotifications.CHANNEL_ID) == null) {
+        if (manager.getNotificationChannel(channelId) == null) {
             manager.createNotificationChannel(
                 NotificationChannel(
-                    ReminderNotifications.CHANNEL_ID,
+                    channelId,
                     ReminderNotifications.CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply { description = ReminderNotifications.CHANNEL_DESCRIPTION },
             )
         }
-        return manager.getNotificationChannel(ReminderNotifications.CHANNEL_ID) != null
+        val channel = manager.getNotificationChannel(channelId) ?: return false
+        // A channel the user switched off reports IMPORTANCE_NONE and can never deliver a reminder.
+        return channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
-    override fun areNotificationsPermitted(): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    /** The runtime POST_NOTIFICATIONS permission plus the app level notification switch. */
+    override fun areNotificationsPermitted(): Boolean =
+        notificationPermissionGranted() && NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    override fun notify(alarm: ReminderAlarm) {
-        ensureChannel()
-        val notification = NotificationCompat.Builder(context, ReminderNotifications.CHANNEL_ID)
+    private fun notificationPermissionGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    override fun notify(alarm: ReminderAlarm): Boolean {
+        if (!ensureChannel()) return false
+        // The permission is re-checked here (not only through the helper) so the platform call is guarded.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(alarm.title)
             .setContentText(alarm.body)
@@ -89,13 +115,12 @@ internal class AndroidNotificationPresenter(private val context: Context) : Noti
             .setAutoCancel(true)
             .setContentIntent(launchIntent())
             .build()
-        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            NotificationManagerCompat.from(context).notify(notificationId(alarm.uri), notification)
-        }
+        NotificationManagerCompat.from(context).notify(alarm.uri, NOTIFICATION_ID, notification)
+        return true
     }
 
     override fun cancelNotification(uri: String) {
-        NotificationManagerCompat.from(context).cancel(notificationId(uri))
+        NotificationManagerCompat.from(context).cancel(uri, NOTIFICATION_ID)
     }
 
     private fun launchIntent(): PendingIntent = PendingIntent.getActivity(
@@ -105,5 +130,8 @@ internal class AndroidNotificationPresenter(private val context: Context) : Noti
         PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun notificationId(uri: String): Int = uri.hashCode() and 0x7FFFFFFF
+    companion object {
+        /** One id for every reminder: the URI tag distinguishes them. */
+        const val NOTIFICATION_ID = 0
+    }
 }

@@ -70,7 +70,7 @@ class CourseReminderCoordinatorTest {
         assertTrue(first.availability.canDeliver)
         assertEquals(
             listOf("qingke://reminder/0/c1/0/s1/1/2026-03-02", "qingke://reminder/0/c1/0/s1/2/2026-03-09"),
-            first.scheduled.sorted(),
+            first.submitted.sorted(),
         )
         assertEquals(listOf(weekOne, weekTwo), scheduler.registered.values.map { it.fireAt })
         assertEquals(2, scheduler.registered.size)
@@ -79,9 +79,9 @@ class CourseReminderCoordinatorTest {
 
         val second = model.reconcile(ReminderReconcileReason.ALARM_FIRED)
 
-        assertTrue(second.scheduled.isEmpty())
+        assertEquals(2, second.submitted.size)
         assertEquals(0, second.cancelled.size)
-        assertEquals(2, second.retained.size)
+        assertEquals(2, second.unchanged.size)
         assertEquals(2, scheduler.registered.size)
         assertEquals(first.generation + 1, second.generation)
     }
@@ -95,7 +95,7 @@ class CourseReminderCoordinatorTest {
             .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
 
         assertEquals(2, off.cancelled.size)
-        assertTrue(off.scheduled.isEmpty())
+        assertTrue(off.submitted.isEmpty())
         assertTrue(scheduler.registered.isEmpty())
         assertTrue(registry.state.alarms.isEmpty())
     }
@@ -110,7 +110,7 @@ class CourseReminderCoordinatorTest {
             .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
 
         assertFalse(denied.availability.canDeliver)
-        assertTrue(denied.scheduled.isEmpty())
+        assertTrue(denied.submitted.isEmpty())
         assertFalse(denied.notificationsPermittedOrChannelMissing())
         assertEquals(2, denied.cancelled.size)
         assertTrue(scheduler.registered.isEmpty())
@@ -126,7 +126,7 @@ class CourseReminderCoordinatorTest {
 
         assertFalse(result.availability.exactAlarmsAvailable)
         assertTrue(result.degraded)
-        assertEquals(2, result.scheduled.size)
+        assertEquals(2, result.submitted.size)
         assertTrue(scheduler.registered.values.all { !it.exact })
         assertTrue(scheduler.registered.values.all { it.body.endsWith(ReminderNotifications.INEXACT_MARKER) })
     }
@@ -142,7 +142,8 @@ class CourseReminderCoordinatorTest {
             .reconcile(ReminderReconcileReason.EXACT_ALARM_PERMISSION_CHANGED)
 
         assertEquals(2, upgraded.cancelled.size)
-        assertEquals(2, upgraded.scheduled.size)
+        assertEquals(2, upgraded.submitted.size)
+        assertFalse(upgraded.degraded)
         assertTrue(scheduler.registered.values.all { it.exact })
         assertTrue(scheduler.registered.values.none { it.body.endsWith(ReminderNotifications.INEXACT_MARKER) })
     }
@@ -156,7 +157,7 @@ class CourseReminderCoordinatorTest {
             .reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
 
         assertEquals(2, replaced.cancelled.size)
-        assertEquals(2, replaced.scheduled.size)
+        assertEquals(2, replaced.submitted.size)
         assertTrue(scheduler.registered.keys.all { it.contains("/1/") || it.contains("/2/") })
         assertTrue(scheduler.registered.values.all { it.fireAt == it.startAt })
     }
@@ -169,14 +170,14 @@ class CourseReminderCoordinatorTest {
 
         val result = model.reconcile(ReminderReconcileReason.APP_START)
 
-        assertEquals(1, result.scheduled.size)
+        assertEquals(1, result.submitted.size)
         assertEquals(listOf(failing), result.failed)
         assertEquals(1, registry.state.alarms.size)
         assertFalse(registry.state.alarms.any { it.uri == failing })
 
         scheduler.failUris.clear()
         val retry = model.reconcile(ReminderReconcileReason.MANUAL)
-        assertEquals(1, retry.scheduled.size)
+        assertEquals(2, retry.submitted.size)
         assertEquals(2, scheduler.registered.size)
         assertEquals(2, registry.state.alarms.size)
     }
@@ -210,7 +211,7 @@ class CourseReminderCoordinatorTest {
         val result = model.reconcile(ReminderReconcileReason.APP_START)
 
         assertTrue(result.superseded)
-        assertTrue(result.scheduled.isEmpty())
+        assertTrue(result.submitted.isEmpty())
         assertTrue(result.cancelled.isEmpty())
         assertTrue(scheduler.registered.isEmpty())
         assertEquals(7L, registry.state.generation)
@@ -228,22 +229,61 @@ class CourseReminderCoordinatorTest {
 
         assertEquals(2, scheduler.registered.size)
         assertEquals(2, registry.state.alarms.size)
-        assertEquals(1, results.count { it.scheduled.size == 2 })
-        assertEquals(1, results.count { it.retained.size == 2 })
+        assertEquals(listOf(2, 2), results.map { it.submitted.size })
+        assertEquals(listOf(0, 2), results.map { it.unchanged.size }.sorted())
         assertEquals(2L, registry.state.generation)
     }
 
-    @Test fun registryRestartRecoveryRetainsTheAlarms() = runTest {
+    @Test fun rebuildResubmitsEveryExpectedAlarmAfterThePlatformLostThem() = runTest {
         val scheduler = FakeAlarmScheduler()
         val registry = FakeReminderRegistry()
         coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.APP_START)
-
-        // A new coordinator instance ("process restart") sharing the persisted registry must not re-add.
-        val restarted = coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.BOOT_COMPLETED)
-
-        assertTrue(restarted.scheduled.isEmpty())
-        assertEquals(2, restarted.retained.size)
         assertEquals(2, scheduler.registered.size)
+
+        // A reboot drops the platform alarms while the persisted registry still lists them.
+        scheduler.registered.clear()
+
+        val rebuilt = coordinator(scheduler = scheduler, registry = registry).reconcile(ReminderReconcileReason.BOOT_COMPLETED)
+
+        assertEquals(2, rebuilt.submitted.size)
+        assertEquals(2, scheduler.registered.size)
+        assertEquals(2, registry.state.alarms.size)
+    }
+
+    @Test fun everyRebuildReasonResubmitsTheExpectedAlarmsIdempotently() = runTest {
+        val scheduler = FakeAlarmScheduler()
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+
+        listOf(
+            ReminderReconcileReason.APP_START,
+            ReminderReconcileReason.BOOT_COMPLETED,
+            ReminderReconcileReason.PACKAGE_REPLACED,
+            ReminderReconcileReason.TIME_CHANGED,
+            ReminderReconcileReason.EXACT_ALARM_PERMISSION_CHANGED,
+        ).forEach { reason ->
+            scheduler.registered.clear()
+            val reconciliation = model.reconcile(reason)
+            assertEquals(reason.toString(), 2, reconciliation.submitted.size)
+            assertEquals(reason.toString(), 2, scheduler.registered.size)
+            assertEquals(2, registry.state.alarms.size)
+        }
+    }
+
+    @Test fun degradedReflectsActiveInexactAlarmsAcrossRuns() = runTest {
+        val scheduler = FakeAlarmScheduler(exactAvailable = false)
+        val registry = FakeReminderRegistry()
+        val model = coordinator(scheduler = scheduler, registry = registry)
+
+        assertTrue(model.reconcile(ReminderReconcileReason.APP_START).degraded)
+
+        // Nothing actually changes between the two runs, so this is the retained-inexact case.
+        val second = model.reconcile(ReminderReconcileReason.ALARM_FIRED)
+
+        assertEquals(2, second.unchanged.size)
+        assertTrue("degraded must consider every active reminder", second.degraded)
+        assertTrue(second.activeAlarms.isNotEmpty())
+        assertTrue(second.activeAlarms.all { !it.exact })
     }
 
     @Test fun unreadableDataLeavesThePlatformAndRegistryUntouched() = runTest {
@@ -321,7 +361,48 @@ class CourseReminderCoordinatorTest {
         assertTrue(outcome is ReminderDelivery.Failed)
     }
 
+    @Test fun deliverSuppressesWhenRemindersAreDisabled() = runTest {
+        val presenter = FakeNotificationPresenter()
+        val model = coordinator(presenter = presenter, preferences = preferences(enabled = false))
+
+        val outcome = model.deliver(payloadFor(weekOne), weekOne)
+
+        assertEquals("reminders disabled", (outcome as ReminderDelivery.Suppressed).reason)
+        assertTrue(presenter.posted.isEmpty())
+    }
+
+    @Test fun deliverSuppressesWhenNotificationsAreDenied() = runTest {
+        val presenter = FakeNotificationPresenter(permitted = false)
+        val model = coordinator(presenter = presenter)
+
+        val outcome = model.deliver(payloadFor(weekOne), weekOne)
+
+        assertEquals("notifications not permitted", (outcome as ReminderDelivery.Suppressed).reason)
+        assertTrue(presenter.posted.isEmpty())
+    }
+
+    @Test fun deliverSuppressesWhenTheReminderChannelIsUnusable() = runTest {
+        val presenter = FakeNotificationPresenter(channelReady = false)
+        val model = coordinator(presenter = presenter)
+
+        val outcome = model.deliver(payloadFor(weekOne), weekOne)
+
+        assertEquals("reminder channel unusable", (outcome as ReminderDelivery.Suppressed).reason)
+        assertTrue(presenter.posted.isEmpty())
+    }
+
+    @Test fun aSilentNonPostIsReportedAsFailedNotDelivered() = runTest {
+        val presenter = FakeNotificationPresenter().apply { published = false }
+        val model = coordinator(presenter = presenter)
+
+        val outcome = model.deliver(payloadFor(weekOne), weekOne)
+
+        assertTrue(outcome is ReminderDelivery.Failed)
+        assertTrue(presenter.posted.isEmpty())
+    }
+
     private fun payloadFor(fireAt: Instant) = ReminderAlarm(
+
         identity = CourseReminderIdentity(0, 0, "c1", "s1", 1, java.time.LocalDate.parse("2026-03-02"), false),
         fireAt = fireAt,
         startAt = Instant.parse("2026-03-02T00:00:00Z"),
@@ -362,6 +443,7 @@ private class FakeNotificationPresenter(
 ) : NotificationPresenter {
     var channelEnsures = 0
     var failNextPost = false
+    var published = true
     val posted = mutableListOf<ReminderAlarm>()
 
     override fun ensureChannel(): Boolean {
@@ -371,9 +453,11 @@ private class FakeNotificationPresenter(
 
     override fun areNotificationsPermitted(): Boolean = permitted
 
-    override fun notify(alarm: ReminderAlarm) {
+    override fun notify(alarm: ReminderAlarm): Boolean {
         if (failNextPost) error("notification post failed")
+        if (!published) return false
         posted += alarm
+        return true
     }
 
     override fun cancelNotification(uri: String) = Unit

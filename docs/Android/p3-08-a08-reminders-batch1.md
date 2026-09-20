@@ -28,10 +28,10 @@
 | --- | --- |
 | 精确／非精确 | `AndroidAlarmScheduler` 按 `ReminderAlarm.exact` 选择 `setExactAndAllowWhileIdle` 或 `setAndAllowWhileIdle`（RTC_WAKEUP），并在调度前再次检查能力，避免权限被撤销后抛错；`exact=false` 的提醒正文带「（可能延迟）」 |
 | PendingIntent 身份 | 显式 `CourseReminderReceiver`、身份 URI 作为 `Intent.data`、`FLAG_IMMUTABLE`、单一常量 requestCode（不依赖字符串哈希） |
-| 通知渠道 | `course_reminders`／「上课提醒」（IMPORTANCE_HIGH），`ensureChannel` 返回渠道是否可用 |
+| 通知渠道 | `course_reminders`／「上课提醒」（IMPORTANCE_HIGH），`ensureChannel` 返回渠道是否可用，`IMPORTANCE_NONE`（用户关闭）一律判为不可用 |
 | 能力建模 | `ReminderAvailability(notificationsPermitted, channelReady, exactAlarmsAvailable)`；`canDeliver` 才排程；非精确计划 `degraded=true` |
 | 注册表 | `DataStoreReminderRegistry` 使用独立文件 `schedule_reminders.preferences_pb`（与用户偏好文件分离），内容为 generation + 闹钟负载；损坏时退化为空并在下次协调修复 |
-| 协调 | `CourseReminderCoordinator`：Mutex 串行；副作用前重读 generation，若被更新则以 `superseded` 收口、不触碰平台与注册表；新增／保留／替换／取消；单条失败继续并记入 `failed`；取消失败条目保留以便下次重试；从不写课表或偏好 |
+| 协调 | `CourseReminderCoordinator`：Mutex 串行；副作用前重读 generation，若被更新则以 `superseded` 收口、不触碰平台与注册表；R1 起每轮无条件重新提交全部应排闹钟（同一 PendingIntent 幂等），注册表只用于确定该取消哪些条目，不作为平台仍有闹钟的证明；单条失败继续并记入 `failed`；取消失败条目保留以便下次重试；从不写课表或偏好 |
 | 触发 | `CourseReminderReceiver` 先以 payload 自身 fireAt 为基准重算当前已提交数据的计划，再用 `CourseReminderDelivery` 判定（身份一致且 fireAt 未变、或位置变化但同一 occurrence；已开始超过 10 分钟或不再存在则抑制），随后推进窗口 |
 | 重建入口 | `ReminderRebuildReceiver`：BOOT_COMPLETED、MY_PACKAGE_REPLACED、TIME_SET、TIMEZONE_CHANGED、SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED；动作映射与重建处理函数抽到包内可直接测试 |
 | 装配 | `ScheduleAppDependencies` 暴露 `reminderRegistry`／`reminderCoordinator`（Application 懒加载不变），供后续 ViewModel／设置页调用 |
@@ -44,9 +44,23 @@ iOS 受系统限制只能保留 60 条通知；Android 的 AlarmManager 没有�
 **限制**：若连续超过窗口长度既无闹钟触发也不打开应用，更远提醒会延迟到下一次入口；这正是下一批的候选
 改进（更长窗口或周期性兜底），已如实记录。
 
+## R1 返修：对照 Sol 复审意见
+
+Sol 对第一批提交 `c4cb5e7` 的独立复审提出七项意见，本轮逐条收口：
+
+| 复审意见 | 处理 | 代码／测试 |
+| --- | --- | --- |
+| 1. 重建不能把持久化注册表当成系统闹钟仍存在的证明 | `reconcile` 每轮无条件重新提交全部应排闹钟（同一 PendingIntent 幂等），不再用「注册表非空」或「PendingIntent 存在」推断平台仍有闹钟；取消只针对注册表里已不该存在的条目；取消失败保留待下次重试 | `CourseReminderCoordinator.reconcile`；`CourseReminderCoordinatorTest.rebuildResubmitsEveryExpectedAlarmAfterThePlatformLostThem`（先清空平台闹钟再重建）、`everyRebuildReasonResubmitsTheExpectedAlarmsIdempotently`；真机 `ReminderReceiverTest.rebuildResubmitsWhenThePlatformLostItsAlarms`（先 `AlarmManager.cancel` 再以 `BOOT_COMPLETED` 重建） |
+| 2. 触发前复核课表／`remindersEnabled`／通知权限／渠道，任一不可投递即抑制，不得先通知后取消，也不得把静默未发布报告为 Delivered | `deliver()` 在任何平台副作用前依次判定 payload 是否仍属于当前已提交课表、`remindersEnabled`、`notificationsPermitted`、`channelReady`；任一不满足返回 `Suppressed`；`notify()` 改为返回 Boolean，`false` 记为 `Failed("notification was not published")` | `CourseReminderCoordinator.deliver`／`AndroidNotificationPresenter.notify`；`CourseReminderCoordinatorTest` 的 `deliverSuppressesWhenRemindersAreDisabled`／`deliverSuppressesWhenNotificationsAreDenied`／`deliverSuppressesWhenTheReminderChannelIsUnusable`／`aSilentNonPostIsReportedAsFailedNotDelivered`／`deliverReportsAFailedPostWithoutThrowing`；设备端权限撤销证据见 [证据目录](evidence/p3-08-a08-reminders/README.md) |
+| 3. `channelReady` 必须把 `IMPORTANCE_NONE` 判为不可用 | `ensureChannel()` 以「渠道 importance != IMPORTANCE_NONE」判定可用，用户关闭的渠道直接报不可用 | `AndroidNotificationPresenter.ensureChannel()`；`ReminderPlatformTest.aChannelTheUserTurnedOffIsReportedAsUnusable` |
+| 4. 通知身份不得只用 `uri.hashCode()` | 通知以完整提醒 URI 作为 tag、id 固定 0，投递与取消都按 tag 定位；PendingIntent 身份同样使用 URI 作为 `Intent.data` | `AndroidNotificationPresenter.notify`／`cancelNotification`；`ReminderPlatformTest.notificationIdentityUsesTheUriTagSoHashCollisionsCannotOverrideEachOther`（`Aa`／`BB` hash 碰撞不互相覆盖、取消其一不影响另一条） |
+| 5. `degraded` 必须反映当前全部活动提醒 | `degraded`／`activeCount` 改为由当前全部活动提醒（含 retained 的非精确提醒）计算，不再只看本轮提交 | `CourseReminderCoordinator`；`CourseReminderCoordinatorTest.degradedReflectsActiveInexactAlarmsAcrossRuns` |
+| 6. 补齐生产 `APP_START` 恢复入口，不申请权限、不新增 UI | `QingKeScheduleApplication.requestReminderSync(reason = APP_START)`，由 `MainActivity.onCreate` 调用；不申请权限、不加界面 | `QingKeScheduleApplication`／`MainActivity`；真机 `ReminderStartupEntryTest` |
+| 7. 清理状态文档矛盾 | D03 已确认；A08 第一批已实施、R1 待复审；删除仍称「只授权只读分析」的过时状态；保留 P3-07-R1 文案待用户验收、A08 与 P3 整体未完成 | 本文件、[交接状态](handoff.md)、[实施计划](implementation-plan.md)、[产品基准](product-baseline.md) |
+
 ## 测试
 
-- Debug／Release JVM 各 **209 tests、0 failures／errors／skipped**（本批新增 40）：
+- Debug／Release JVM 各 **215 tests、0 failures／errors／skipped**（本批新增 40；R1 新增 7 条协调器用例并移除 1 条把注册表当作平台闹钟凭据的旧用例）：
   - `CourseReminderPlannerTest`（18）：每周／单双周、首末周与越界收敛、停课日、周末关闭、调课跟随星期
     ＋按自身教学周筛选（含奇偶）、0／180 分钟与跨日、过去与窗口外跳过、限流、同刻排序、教室正文格式、
     重复 ID 身份不碰撞、URI 转义、午休无关、时区差异、夏令时保持墙钟时间、无学期／无课程／未知节次。
@@ -56,27 +70,38 @@ iOS 受系统限制只能保留 60 条通知；Android 的 AlarmManager 没有�
     投递判定（有效／旧课表／fireAt 变化／位置变化／过晚）。
   - `CourseReminderDeliveryTest`（5）：身份一致投递、fireAt 变化抑制、occurrence 不再存在抑制、位置变化
     仍投递、过晚抑制与非精确宽限。
-- API 37 ARM64 `connectedDebugAndroidTest` **143 tests、0 failures／errors／skipped**（本批新增 10）：
-  - `ReminderPlatformTest`（4）：通知渠道 id／名称／描述；重复 ID 的三条闹钟身份互不相同、取消其一不影响
+- API 37 ARM64 `connectedDebugAndroidTest` **148 tests、0 failures／errors／skipped**（本批新增 10；R1 在提醒相关测试类新增 5 条）：
+  - `ReminderPlatformTest`（6）：通知渠道 id／名称／描述；重复 ID 的三条闹钟身份互不相同、取消其一不影响
     其余；`appops set SCHEDULE_EXACT_ALARM deny/allow` 后精确能力随之变化且两种模式都能注册；
-    注册表在自己文件中往返、损坏数据退化为空、文件名与偏好文件不同。
-  - `ReminderReceiverTest`（5）：真实 alarm broadcast 后通知按计划标题／正文出现并注册后续窗口；旧课表
+    注册表在自己文件中往返、损坏数据退化为空、文件名与偏好文件不同；R1 新增 `Aa`／`BB` hash 碰撞下
+    两条通知互不覆盖与误取消，以及用户关闭的渠道（`IMPORTANCE_NONE`）被判为不可用。
+  - `ReminderReceiverTest`（6）：真实 alarm broadcast 后通知按计划标题／正文出现并注册后续窗口；旧课表
     payload 被抑制、不产生通知；Manifest 声明两个 `exported=false` Receiver、四个权限且无 USE_EXACT_ALARM、
-    受保护动作都能解析到重建 Receiver；五个重建入口分别排入闹钟；payload 在 Intent extras 中往返一致。
+    受保护动作都能解析到重建 Receiver；五个重建入口分别排入闹钟；payload 在 Intent extras 中往返一致；
+    R1 新增「平台闹钟被清空后重建仍按预期重新提交」。
+  - `ReminderPermissionRevocationTest`（1）：R1 新增。整套运行中通知权限已被其他用例授予，本用例断言
+    权限没有被用来抑制可投递提醒；「权限已撤销」分支由预先撤销权限的专门 `am instrument` 运行覆盖，
+    记录见 `docs/Android/evidence/p3-08-a08-reminders/permission-denied-20260920.txt`（`OK (1 test)`）。
+  - `ReminderStartupEntryTest`（1）：R1 新增。真机启动 `MainActivity`，不弹权限、不加界面，验证
+    生产 `APP_START` 入口按预期重新提交闹钟。
   - `ReminderEvidenceTest`（1）：产出 `docs/Android/evidence/p3-08-a08-reminders/` 的设备记录。
-- `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／18 warnings**；
-  文档测试 71 tests OK、`documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
+- `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**
+  （warning 全部为既有依赖版本、图标与工具链提示，提醒相关代码无新增）；文档测试 71 tests OK、
+  `documentation.test.sh`、`repository-layout.test.sh`、`git diff --check` 通过。
 
 ## 证据与限制
 
-`docs/Android/evidence/p3-08-a08-reminders/`：真实通知栏截图（「证据课程」／「08:00–08:45 · A101
-（可能延迟）」，提醒分区）＋设备记录（身份 URI、能力三项、渠道与通知内容、reconcile 计数与 generation、
-未验证清单）＋README。截图用 `adb install` + `am instrument` 采集，因为 Gradle connected 任务结束会卸载
-应用并清除通知。
+`docs/Android/evidence/p3-08-a08-reminders/`：真实通知栏截图（R1 重新采集，「证据课程」／「08:00–08:45 ·
+A101 （可能延迟）」，提醒分区）＋设备记录（身份 URI、能力三项、渠道与通知内容、reconcile 的
+submitted／unchanged／cancelled／active／generation、未验证清单）＋`permission-denied-20260920.txt`
+（预先撤销 POST_NOTIFICATIONS 的专门运行，appops 状态 `ignore`、`OK (1 test)`）＋README。截图与权限记录用
+`adb install` + `am instrument` 采集，因为 Gradle connected 任务结束会卸载应用并清除通知。
 
 **本环境无法验证，不得声称通过**：真实重启后的 BOOT_COMPLETED 投递；系统投递的时间／时区／包替换／精确
 权限广播（受保护广播，应用无法发送）；Doze／休眠唤醒与精确／非精确真实投递时间；用户可见通知的观感
-验收。
+验收。另外：POST_NOTIFICATIONS 的「已撤销」分支无法在整套 connected 运行内构造——撤销已授予的运行时权限
+会立刻杀死被测进程，而 appops 拒绝对运行时 op `android:post_notification` 直接写入——只由上面那次专门
+运行取证，整套运行中该用例走「已授权」分支。
 
 ## 未纳入本批（A08 仍未完成）
 
@@ -84,6 +109,8 @@ iOS 受系统限制只能保留 60 条通知；Android 的 AlarmManager 没有�
 
 ## 准确状态
 
-A08 第一批已实现并自测（JVM 209、设备 143、lint 0 errors、截图与设备记录齐备）；**Sol 独立复审与用户验收
-均未进行**。A08 其余部分、A10／A11、整个 P3 与完整 App 仍未完成、未授权。P3-06-R7 与 P3-04-R8（含各自
-R1／R2）的既有复审与用户验收结论不变；P3-07-R1 新增警告框与文案仍待用户验收。
+A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 复审七项意见完成返修并自测（JVM 215、设备 148、lint
+0 errors／24 warnings、截图与两份设备记录齐备）；**R1 待 Sol 独立复审，用户验收仍未进行**。A08 其余部分
+（提醒设置 UI、运行时权限流程、编辑后自动重算）、A10／A11、整个 P3 与完整 App 仍未完成、未授权。
+P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与用户验收结论不变；P3-07-R1 新增警告框与文案仍待用户
+验收。

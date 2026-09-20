@@ -14,6 +14,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A08: entering the app re-submits the expected reminder alarms (no permission prompt, no new UI).
+        (application as? QingKeScheduleApplication)?.requestReminderSync()
         setContent { QingKeApp(viewModel) }
     }
 }

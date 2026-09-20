@@ -1,0 +1,28 @@
+P3-08／A08 第一批 R1：通知权限被撤销时的抑制证据（API 37 ARM64，emulator-5554）
+
+背景：POST_NOTIFICATIONS 的运行时权限无法在被测进程内部撤销——撤销已授予的运行时权限会立刻杀死应用进程
+（连同 instrumentation），而 appops 拒绝对运行时 op android:post_notification 直接写入
+（"appop state for runtime op android:post_notification should not be set directly"）。因此该分支用一次
+预先撤销权限的专门运行取证。
+
+命令与结果：
+
+1. adb install -r app-debug.apk
+   adb install -r app-debug-androidTest.apk
+2. adb shell pm revoke com.qingke.schedule android.permission.POST_NOTIFICATIONS
+3. adb shell appops get com.qingke.schedule POST_NOTIFICATION
+   -> Uid mode: POST_NOTIFICATION: ignore
+4. adb shell am instrument -w -e class com.qingke.schedule.reminder.ReminderPermissionRevocationTest \
+     com.qingke.schedule.test/androidx.test.runner.AndroidJUnitRunner
+   -> OK (1 test)
+
+用例断言（ReminderPermissionRevocationTest.aReminderIsSuppressedWhenNotificationsAreNotPermitted）：
+
+- 前置事实：NotificationManagerCompat.areNotificationsEnabled() == false，即权限确实处于已撤销状态。
+- CourseReminderCoordinator.deliver(payload, now) 返回 ReminderDelivery.Suppressed，原因为
+  "notifications not permitted"：投递前抑制，既没有先通知后取消，也没有把静默未发布报告为 Delivered。
+- 500 ms 后通知栏中不存在该提醒标题的通知（activeNotifications 中查不到）。
+
+限制：常规 connectedDebugAndroidTest 运行中该权限已被其他用例授予，因此这条用例在整套运行里走「已授权」
+分支（断言权限没有被用来抑制可投递提醒）；「已撤销」分支只由上面这次专门运行覆盖。Doze／休眠唤醒、真实系统
+广播与精确／非精确真实投递时间仍未验证。

@@ -1,9 +1,10 @@
-P3-08/A08 batch 1 device evidence (API 37 ARM64, 37)
+P3-08/A08 batch 1 R1 device evidence (API 37 ARM64, 37)
 planned reminder: uri=qingke://reminder/0/evidence/0/slot/1/2026-09-21
 planned fireAt=2026-09-20T23:50:00Z startAt=2026-09-21T00:00:00Z title=证据课程 body=08:00–08:45 · A101 exact=false
-reconcile: scheduled=2 cancelled=0 generation=2
+reconcile: submitted=2 unchanged=0 cancelled=0 active=2 generation=4
 availability: notificationsPermitted=true channelReady=true exactAvailable=false degraded=true
 channel: id=course_reminders name=上课提醒 importance=4
 active notification: title=证据课程 text=08:00–08:45 · A101 （可能延迟）
 active count=1
+permission denied branch: recorded separately by ReminderPermissionRevocationTest, see permission-denied-20260920.txt
 unverified in this environment: real reboot, doze wake-up, system-delivered BOOT_COMPLETED/TIME_SET/TIMEZONE_CHANGED/MY_PACKAGE_REPLACED/exact-permission broadcasts, exact-vs-inexact delivery timing
