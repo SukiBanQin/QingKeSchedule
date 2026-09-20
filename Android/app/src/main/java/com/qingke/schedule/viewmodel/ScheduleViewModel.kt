@@ -26,6 +26,10 @@ import com.qingke.schedule.draft.CourseScheduleDraft
 import com.qingke.schedule.draft.SemesterDraft
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.LunchBreakSettings
+import com.qingke.schedule.preferences.ReminderPreferences
+import com.qingke.schedule.reminder.ReminderControl
+import com.qingke.schedule.reminder.ReminderReconcileReason
+import com.qingke.schedule.reminder.ReminderReconciliation
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.state.ScheduleState
 import java.time.LocalDate
@@ -125,6 +129,7 @@ class ScheduleViewModel(
     private val appState: ScheduleAppState,
     private val now: () -> LocalDateTime = LocalDateTime::now,
     private val idFactory: () -> String = { java.util.UUID.randomUUID().toString() },
+    private val reminders: ReminderControl? = null,
 ) : ViewModel() {
     val state: StateFlow<ScheduleState> = appState.state
     private val mutableForm = MutableStateFlow<SemesterFormState?>(null)
@@ -144,6 +149,8 @@ class ScheduleViewModel(
     val semesterSave: StateFlow<SemesterSaveState> = mutableSemesterSave.asStateFlow()
     private val mutableLunchBreakConflict = MutableStateFlow<LunchBreakConflict?>(null)
     val lunchBreakConflict: StateFlow<LunchBreakConflict?> = mutableLunchBreakConflict.asStateFlow()
+    private val mutableReminderUi = MutableStateFlow(ReminderUiState())
+    val reminderUi: StateFlow<ReminderUiState> = mutableReminderUi.asStateFlow()
     private var courseDraft: CourseDraft? = null
     private var editorSourceIndex: Int? = null
     private var editorFingerprint: Course? = null
@@ -164,6 +171,7 @@ class ScheduleViewModel(
 
     private suspend fun loadAndPrepare() {
         appState.load()
+        refreshReminderStatus()
         if (draft != null) return
         val semester = state.value.data.semester
         draft = when {
@@ -284,6 +292,7 @@ class ScheduleViewModel(
                     current.markPersisted(persistedNumbers)
                     if (!onboarding) mutableSemesterSuccess.value = "SYSTEM // 学期与节次设置已保存"
                     mutableSemesterSave.value = SemesterSaveState.Idle
+                    reconcileReminders(ReminderReconcileReason.DATA_SAVED)
                 } else {
                     mutableSemesterSave.value = plan?.let { SemesterSaveState.AwaitingCascade(it) } ?: SemesterSaveState.Idle
                 }
@@ -295,6 +304,138 @@ class ScheduleViewModel(
     }
 
     fun dismissError() = appState.clearError()
+
+    /* A08 second batch: reminder settings. Preferences are written first and the platform is only touched after
+       a successful write, so a failed reminder update can never roll back the schedule or the preferences. */
+
+    /** Reads the current capabilities and the persisted alarms; it never creates the channel or writes. */
+    fun refreshReminderStatus() {
+        val control = reminders ?: return
+        viewModelScope.launch {
+            val snapshot = runCatching { control.snapshot() }
+            val base = mutableReminderUi.value.copy(
+                remindersEnabled = state.value.preferences.reminder.remindersEnabled,
+                leadMinutes = state.value.preferences.reminder.reminderLeadMinutes,
+                usesCustomLeadTime = state.value.preferences.reminder.usesCustomLeadTime,
+            )
+            mutableReminderUi.value = snapshot.fold(
+                onSuccess = { status ->
+                    base.copy(
+                        loaded = true,
+                        notificationsPermitted = status.availability.notificationsPermitted,
+                        channelReady = status.availability.channelReady,
+                        exactAlarmsAvailable = status.availability.exactAlarmsAvailable,
+                        activeCount = status.activeCount,
+                        degraded = status.degraded,
+                        diagnostic = null,
+                    )
+                },
+                onFailure = { error -> base.copy(loaded = true, diagnostic = error.message ?: "提醒状态读取失败") },
+            )
+        }
+    }
+
+    /**
+     * iOS `setRemindersEnabled`: the preference is persisted first; enabling re-plans the rolling window while
+     * switching off cancels every registered alarm. Requesting the system permission stays an explicit UI action.
+     */
+    fun setRemindersEnabled(enabled: Boolean) {
+        if (state.value.preferences.reminder.remindersEnabled == enabled) return
+        viewModelScope.launch {
+            val saved = appState.updatePreferences { preferences ->
+                preferences.copy(reminder = preferences.reminder.copy(remindersEnabled = enabled))
+            }
+            if (!saved) {
+                refreshReminderStatus()
+                return@launch
+            }
+            publishReminderPreferences()
+            runReminderOperation { control ->
+                if (enabled) control.reconcile(ReminderReconcileReason.PREFERENCES_CHANGED)
+                else control.cancelAll(ReminderReconcileReason.PREFERENCES_CHANGED)
+            }
+        }
+    }
+
+    /** iOS `setReminderLeadMinutes`: 0–180 minutes only, and the stored selection follows the caller's choice. */
+    fun setReminderLeadMinutes(minutes: Int, usesCustomSelection: Boolean? = null) {
+        if (minutes !in ReminderPreferences.VALID_LEAD_MINUTES) return
+        val custom = usesCustomSelection ?: (minutes !in ReminderPreferences.PRESET_LEAD_MINUTES)
+        if (state.value.preferences.reminder.reminderLeadMinutes == minutes &&
+            state.value.preferences.reminder.usesCustomLeadTime == custom
+        ) {
+            return
+        }
+        viewModelScope.launch {
+            val saved = appState.updatePreferences { preferences ->
+                preferences.copy(
+                    reminder = preferences.reminder.copy(
+                        reminderLeadMinutes = minutes,
+                        usesCustomLeadTime = custom,
+                    ),
+                )
+            }
+            if (!saved) {
+                refreshReminderStatus()
+                return@launch
+            }
+            publishReminderPreferences()
+            runReminderOperation { control -> control.reconcile(ReminderReconcileReason.PREFERENCES_CHANGED) }
+        }
+    }
+
+    /** A08: a committed schedule or calendar write re-plans the window without ever rolling the write back. */
+    private fun reconcileReminders(reason: ReminderReconcileReason) {
+        viewModelScope.launch { runReminderOperation { control -> control.reconcile(reason) } }
+    }
+
+    private fun publishReminderPreferences() {
+        val reminder = state.value.preferences.reminder
+        mutableReminderUi.value = mutableReminderUi.value.copy(
+            remindersEnabled = reminder.remindersEnabled,
+            leadMinutes = reminder.reminderLeadMinutes,
+            usesCustomLeadTime = reminder.usesCustomLeadTime,
+        )
+    }
+
+    /**
+     * One reminder operation: its result feeds the settings status, and a thrown platform error is reported as a
+     * diagnostic instead of propagating, because a reminder failure must never look like a schedule failure.
+     */
+    private suspend fun runReminderOperation(
+        block: suspend (ReminderControl) -> ReminderReconciliation,
+    ) {
+        val control = reminders ?: return
+        runCatching { block(control) }.fold(
+            onSuccess = { reconciliation ->
+                mutableReminderUi.value = mutableReminderUi.value.copy(
+                    loaded = true,
+                    remindersEnabled = reconciliation.remindersEnabled,
+                    notificationsPermitted = reconciliation.availability.notificationsPermitted,
+                    channelReady = reconciliation.availability.channelReady,
+                    exactAlarmsAvailable = reconciliation.availability.exactAlarmsAvailable,
+                    activeCount = reconciliation.activeCount,
+                    degraded = reconciliation.degraded,
+                    lastFailureCount = reconciliation.failed.size,
+                    diagnostic = null,
+                )
+            },
+            onFailure = { error ->
+                val status = runCatching { control.snapshot() }.getOrNull()
+                val failed = mutableReminderUi.value.copy(
+                    loaded = true,
+                    diagnostic = error.message ?: "提醒更新失败",
+                )
+                mutableReminderUi.value = if (status == null) failed else failed.copy(
+                    notificationsPermitted = status.availability.notificationsPermitted,
+                    channelReady = status.availability.channelReady,
+                    exactAlarmsAvailable = status.availability.exactAlarmsAvailable,
+                    activeCount = status.activeCount,
+                    degraded = status.degraded,
+                )
+            },
+        )
+    }
 
     /* A07 academic calendar: every write transforms the latest stored preferences inside the repository
        update, so consecutive edits cannot overwrite each other with a stale snapshot. */
@@ -363,7 +504,10 @@ class ScheduleViewModel(
                             .withLunchBreakTimes(conflict.startTime, conflict.endTime) ?: preferences.academicCalendar,
                     )
                 }
-                if (written && mutableLunchBreakConflict.value == conflict) mutableLunchBreakConflict.value = null
+                if (written && mutableLunchBreakConflict.value == conflict) {
+                    mutableLunchBreakConflict.value = null
+                    reconcileReminders(ReminderReconcileReason.PREFERENCES_CHANGED)
+                }
             } finally {
                 lunchBreakConfirmationInFlight = false
             }
@@ -378,7 +522,10 @@ class ScheduleViewModel(
 
     private fun updateCalendar(transform: (AcademicCalendarPreferences) -> AcademicCalendarPreferences) {
         viewModelScope.launch {
-            appState.updatePreferences { preferences -> preferences.copy(academicCalendar = transform(preferences.academicCalendar)) }
+            val saved = appState.updatePreferences { preferences ->
+                preferences.copy(academicCalendar = transform(preferences.academicCalendar))
+            }
+            if (saved) reconcileReminders(ReminderReconcileReason.PREFERENCES_CHANGED)
         }
     }
 
@@ -489,6 +636,7 @@ class ScheduleViewModel(
                 val success = if (source == null) appState.saveCourse(candidate) else appState.saveCourseAt(source, requireNotNull(fingerprint), candidate)
                 if (success) {
                     mutableCourseSuccess.value = if (mode == CourseEditorMode.APPEND) "SYSTEM // 添加上课安排成功" else if (source == null) "SYSTEM // 课程添加成功" else "SYSTEM // 课程修改已保存"
+                    reconcileReminders(ReminderReconcileReason.DATA_SAVED)
                     closeEditor()
                 } else updateEditor { it.copy(isInFlight = false) }
             } catch (error: CancellationException) { throw error
@@ -503,7 +651,11 @@ class ScheduleViewModel(
         updateEditor { it.copy(isInFlight = true, confirmation = null) }
         viewModelScope.launch {
             try {
-                if (appState.deleteCourseAt(source, fingerprint)) { mutableCourseSuccess.value = "SYSTEM // 课程删除成功"; closeEditor() }
+                if (appState.deleteCourseAt(source, fingerprint)) {
+                    mutableCourseSuccess.value = "SYSTEM // 课程删除成功"
+                    reconcileReminders(ReminderReconcileReason.DATA_SAVED)
+                    closeEditor()
+                }
                 else updateEditor { it.copy(isInFlight = false) }
             } catch (error: CancellationException) { throw error
             } finally { editorInFlight = false; mutableEditor.value?.let { if (it.isInFlight) mutableEditor.value = it.copy(isInFlight = false) } }
@@ -550,9 +702,10 @@ class ScheduleViewModel(
         private val idFactory: () -> String = { java.util.UUID.randomUUID().toString() },
     ) : ViewModelProvider.Factory {
         private val state = ScheduleAppState(dependencies.scheduleRepository, dependencies.preferencesRepository)
+        private val reminderControl = dependencies.reminderCoordinator
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ScheduleViewModel(state, now, idFactory) as T
+            ScheduleViewModel(state, now, idFactory, reminderControl) as T
     }
 }
 

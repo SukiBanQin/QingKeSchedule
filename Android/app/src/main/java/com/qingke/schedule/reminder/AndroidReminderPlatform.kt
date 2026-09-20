@@ -88,6 +88,9 @@ internal class AndroidNotificationPresenter(
         return channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
+    override fun isChannelReady(): Boolean =
+        manager.getNotificationChannel(channelId)?.importance?.let { it != NotificationManager.IMPORTANCE_NONE } ?: false
+
     /** The runtime POST_NOTIFICATIONS permission plus the app level notification switch. */
     override fun areNotificationsPermitted(): Boolean =
         notificationPermissionGranted() && NotificationManagerCompat.from(context).areNotificationsEnabled()

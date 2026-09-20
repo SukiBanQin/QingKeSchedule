@@ -42,6 +42,12 @@ interface NotificationPresenter {
      */
     fun ensureChannel(): Boolean
 
+    /**
+     * Reads the current channel state without creating anything, so the settings page can show it before the
+     * user asks for reminders; creating the channel is part of enabling them ([ensureChannel]).
+     */
+    fun isChannelReady(): Boolean
+
     fun areNotificationsPermitted(): Boolean
 
     /** Posts [alarm] and returns whether a notification was actually published. */

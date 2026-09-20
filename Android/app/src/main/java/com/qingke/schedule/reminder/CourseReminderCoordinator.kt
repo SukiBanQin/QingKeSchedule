@@ -53,6 +53,31 @@ data class ReminderReconciliation(
     val activeCount: Int get() = activeAlarms.size
 }
 
+/**
+ * A08 second batch: the read-only status the settings page renders. [activeAlarms] is exactly the persisted
+ * registry content, so the reported count and degradation match what a later cancel would work with.
+ */
+data class ReminderStatusSnapshot(
+    val availability: ReminderAvailability,
+    val activeAlarms: List<ReminderAlarm>,
+) {
+    val activeCount: Int get() = activeAlarms.size
+
+    val degraded: Boolean get() = activeAlarms.any { !it.exact }
+}
+
+/**
+ * A08 second batch: the reminder operations the settings UI needs. [CourseReminderCoordinator] is the production
+ * implementation; the ViewModel depends on this seam so its state can be tested without a platform.
+ */
+interface ReminderControl {
+    suspend fun snapshot(): ReminderStatusSnapshot
+
+    suspend fun reconcile(reason: ReminderReconcileReason): ReminderReconciliation
+
+    suspend fun cancelAll(reason: ReminderReconcileReason): ReminderReconciliation
+}
+
 /** A08: outcome of delivering one fired payload. */
 sealed interface ReminderDelivery {
     data class Delivered(val alarm: ReminderAlarm) : ReminderDelivery
@@ -78,8 +103,23 @@ class CourseReminderCoordinator(
     private val zone: () -> ZoneId = ZoneId::systemDefault,
     private val window: Duration = CourseReminderPlanner.DEFAULT_WINDOW,
     private val limit: Int = CourseReminderPlanner.DEFAULT_LIMIT,
-) {
+) : ReminderControl {
     private val mutex = Mutex()
+
+    /**
+     * Reads the current capabilities and the persisted registry content without creating the channel and
+     * without writing anything, so the settings page can render the real state before reminders are enabled.
+     */
+    override suspend fun snapshot(): ReminderStatusSnapshot = mutex.withLock {
+        ReminderStatusSnapshot(
+            availability = ReminderAvailability(
+                notificationsPermitted = runCatching { presenter.areNotificationsPermitted() }.getOrDefault(false),
+                channelReady = runCatching { presenter.isChannelReady() }.getOrDefault(false),
+                exactAlarmsAvailable = runCatching { scheduler.canScheduleExactAlarms() }.getOrDefault(false),
+            ),
+            activeAlarms = registry.load().alarms,
+        )
+    }
 
     suspend fun availability(): ReminderAvailability {
         val channelReady = runCatching { presenter.ensureChannel() }.getOrDefault(false)
@@ -89,7 +129,7 @@ class CourseReminderCoordinator(
     }
 
     /** Plans the rolling window (or clears everything when reminders are off or cannot be delivered). */
-    suspend fun reconcile(reason: ReminderReconcileReason): ReminderReconciliation = mutex.withLock {
+    override suspend fun reconcile(reason: ReminderReconcileReason): ReminderReconciliation = mutex.withLock {
         val availability = availability()
         val preferences = preferencesSource()
         val data = dataSource()
@@ -174,7 +214,7 @@ class CourseReminderCoordinator(
     }
 
     /** Cancels every registered alarm and clears the registry, e.g. when the user turns reminders off. */
-    suspend fun cancelAll(reason: ReminderReconcileReason): ReminderReconciliation = mutex.withLock {
+    override suspend fun cancelAll(reason: ReminderReconcileReason): ReminderReconciliation = mutex.withLock {
         val availability = availability()
         val startState = registry.load()
         if (registry.load().generation != startState.generation) {

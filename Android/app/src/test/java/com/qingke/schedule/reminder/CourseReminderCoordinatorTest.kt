@@ -569,6 +569,8 @@ private class FakeNotificationPresenter(
         return channelReady
     }
 
+    override fun isChannelReady(): Boolean = channelReady
+
     override fun areNotificationsPermitted(): Boolean = permitted
 
     override fun notify(alarm: ReminderAlarm): Boolean {

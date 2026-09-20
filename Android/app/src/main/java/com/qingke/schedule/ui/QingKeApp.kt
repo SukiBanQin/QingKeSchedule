@@ -1,10 +1,15 @@
 package com.qingke.schedule.ui
 
+import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.BasicTextField
@@ -72,6 +77,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
@@ -120,6 +126,7 @@ import com.qingke.schedule.viewmodel.CourseEditorState
 import com.qingke.schedule.viewmodel.CourseEditorMode
 import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import com.qingke.schedule.viewmodel.LunchBreakConflict
+import com.qingke.schedule.viewmodel.ReminderUiState
 import com.qingke.schedule.viewmodel.SemesterSaveState
 import com.qingke.schedule.R
 import java.time.LocalDate
@@ -208,6 +215,9 @@ data class QingKeAppActions(
     val requestLunchBreakTimes: (LocalTime, LocalTime) -> Unit = { _, _ -> },
     val confirmLunchBreakConflict: () -> Unit = {},
     val dismissLunchBreakConflict: () -> Unit = {},
+    val setRemindersEnabled: (Boolean) -> Unit = {},
+    val setReminderLeadMinutes: (Int, Boolean) -> Unit = { _, _ -> },
+    val refreshReminderStatus: () -> Unit = {},
 )
 
 @Composable
@@ -221,10 +231,13 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val semesterSuccess by viewModel.semesterSuccess.collectAsStateWithLifecycle()
     val lunchBreakConflict by viewModel.lunchBreakConflict.collectAsStateWithLifecycle()
     val semesterSave by viewModel.semesterSave.collectAsStateWithLifecycle()
+    val reminderUi by viewModel.reminderUi.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.refreshCurrentTime()
+            // A08: re-read the notification permission and channel state after returning from system settings.
+            viewModel.refreshReminderStatus()
             while (isActive) {
                 delay(1_000)
                 viewModel.refreshCurrentTime()
@@ -262,9 +275,12 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             addMakeupTeachingDay = viewModel::addMakeupTeachingDay, removeMakeupTeachingDay = viewModel::removeMakeupTeachingDay,
             setLunchBreakEnabled = viewModel::setLunchBreakEnabled, requestLunchBreakTimes = viewModel::requestLunchBreakTimes,
             confirmLunchBreakConflict = viewModel::confirmLunchBreakDespiteConflicts, dismissLunchBreakConflict = viewModel::dismissLunchBreakConfirmation,
+            setRemindersEnabled = viewModel::setRemindersEnabled, setReminderLeadMinutes = viewModel::setReminderLeadMinutes,
+            refreshReminderStatus = viewModel::refreshReminderStatus,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
         semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict, semesterSave,
+        reminder = reminderUi,
     )
 }
 
@@ -282,6 +298,7 @@ fun QingKeAppContent(
     consumeSemesterSuccess: () -> Unit = {},
     lunchBreakConflict: LunchBreakConflict? = null,
     semesterSave: SemesterSaveState = SemesterSaveState.Idle,
+    reminder: ReminderUiState = ReminderUiState(),
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -303,7 +320,7 @@ fun QingKeAppContent(
                 state, selectedTab, currentTime, actions, form = form,
                 courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess,
                 semesterSuccess = semesterSuccess, consumeSemesterSuccess = consumeSemesterSuccess,
-                lunchBreakConflict = lunchBreakConflict,
+                lunchBreakConflict = lunchBreakConflict, reminder = reminder,
             )
         }
         editor?.let { CourseEditorOverlay(it, state.data.semester, state.data.courses, dark, actions) }
@@ -572,6 +589,7 @@ fun QingKeAppContent(
     semesterSuccess: String? = null,
     consumeSemesterSuccess: () -> Unit = {},
     lunchBreakConflict: LunchBreakConflict? = null,
+    reminder: ReminderUiState = ReminderUiState(),
 ) {
     val dark = state.preferences.appearanceMode == AppearanceMode.DARK ||
         (state.preferences.appearanceMode == AppearanceMode.SYSTEM && isSystemInDarkTheme())
@@ -582,7 +600,7 @@ fun QingKeAppContent(
             MainTab.SCHEDULE -> WeekScheduleScreen(state, currentTime, actions, dark, Modifier.fillMaxSize().padding(bottom = 82.dp))
             MainTab.SETTINGS -> SemesterSettingsScreen(
                 form, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark,
-                lunchBreakConflict, Modifier.fillMaxSize().padding(bottom = 82.dp),
+                lunchBreakConflict, Modifier.fillMaxSize().padding(bottom = 82.dp), reminder,
             )
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
@@ -677,6 +695,7 @@ fun QingKeAppContent(
     dark: Boolean,
     lunchBreakConflict: LunchBreakConflict? = null,
     modifier: Modifier = Modifier,
+    reminder: ReminderUiState = ReminderUiState(),
 ) {
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -704,7 +723,11 @@ fun QingKeAppContent(
                         Text("正在准备学期设置…", color = terminalSecondary(dark), modifier = Modifier.padding(top = 12.dp).testTag("settings-pending"))
                         Spacer(Modifier.height(100.dp).testTag("settings-bottom-spacer"))
                     } else if (calendarUi != null) {
-                        TerminalSemesterForm("settings", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving, "保存学期设置", "COMMIT CHANGES")
+                        TerminalSemesterForm(
+                            "settings", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving,
+                            "保存学期设置", "COMMIT CHANGES",
+                            reminderSection = { ReminderSettingsSection(reminder, "settings", dark, actions) },
+                        )
                     }
                 }
             }
@@ -959,6 +982,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     saving: Boolean,
     commitTitle: String,
     commitSubtitle: String,
+    reminderSection: (@Composable () -> Unit)? = null,
 ) {
     TerminalFormSection("01", "学期信息", "TERM", dark, prefix + "-semester-section", prefix + "-semester-panel") {
         TerminalNameField(form.name, actions.updateName, dark)
@@ -989,6 +1013,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
         }
     }
     AcademicCalendarSection(calendar, calendarUi, savedPeriods, prefix, dark, actions)
+    reminderSection?.invoke()
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
 }
@@ -1836,3 +1861,191 @@ internal fun hsvHex(hue: Int, saturation: Int, value: Int): String {
 
 /** HSV saturation/value plane: left/right map to 0/100 saturation, top/bottom to 100/0 value. */
 internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String = hsvHex(hue, (xFraction.coerceIn(0f, 1f) * 100).toInt(), ((1f - yFraction.coerceIn(0f, 1f)) * 100).toInt())
+
+/* A08 second batch: "04 上课提醒" - the iOS reminder section rendered with the Android terminal widgets. */
+
+@Composable private fun ReminderSettingsSection(
+    reminder: ReminderUiState,
+    prefix: String,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) {
+    val context = LocalContext.current
+    val section = prefix + "-reminders"
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        actions.refreshReminderStatus()
+    }
+    val needsChannelSettings = reminder.remindersEnabled && !reminder.channelReady && !reminder.asksForNotificationPermission
+    TerminalFormSection(
+        "04", "上课提醒", "NOTIFY", dark, section + "-section", section + "-panel",
+        footer = "提醒保存在这台设备上，按课程开始时间维护最近 14 天的闹钟；关闭提醒会取消已登记的全部提醒。",
+        footerTag = section + "-footer",
+    ) {
+        TerminalToggleRow("上课提醒", reminder.remindersEnabled, section + "-toggle", dark) { enabled ->
+            actions.setRemindersEnabled(enabled)
+            // Only this explicit switch raises the system prompt, and only while the permission is missing.
+            if (enabled && !reminder.notificationsPermitted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (reminder.remindersEnabled) {
+            TerminalFormDivider(dark, section + "-divider")
+            ReminderLeadTimeControl(reminder, section, dark, actions)
+        }
+        TerminalFormDivider(dark, section + "-divider")
+        ReminderCapabilityRow("通知权限", if (reminder.notificationsPermitted) "已授权" else "未开启", reminder.notificationsPermitted, section + "-permission", dark)
+        TerminalFormDivider(dark, section + "-divider")
+        ReminderCapabilityRow("提醒渠道", reminderChannelLabel(reminder), reminder.channelReady, section + "-channel", dark)
+        TerminalFormDivider(dark, section + "-divider")
+        ReminderCapabilityRow("精确闹钟", if (reminder.exactAlarmsAvailable) "可用" else "不可用", reminder.exactAlarmsAvailable, section + "-exact", dark)
+        if (reminder.showsInexactNote) {
+            ReminderNote("精确闹钟不可用，提醒将按非精确方式安排并在通知里标注「（可能延迟）」。", section + "-inexact-note", SignalYellow)
+        }
+        TerminalFormDivider(dark, section + "-divider")
+        Text(
+            reminder.statusMessage,
+            color = if (reminder.diagnostic != null || (reminder.remindersEnabled && (!reminder.notificationsPermitted || !reminder.channelReady))) Danger else terminalText(dark),
+            fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(section + "-status"),
+        )
+        if (reminder.retriesLater) {
+            ReminderNote(reminder.lastFailureCount.toString() + " 条提醒未能安排，将在下次重建时重试。", section + "-retry", Danger)
+        }
+        if (reminder.asksForNotificationPermission) {
+            TerminalFormDivider(dark, section + "-divider")
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReminderActionButton("开启通知权限", section + "-request-permission", dark) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else openNotificationSettings(context)
+                }
+                ReminderActionButton("系统通知设置", section + "-open-notification-settings", dark) { openNotificationSettings(context) }
+            }
+        }
+        if (needsChannelSettings) {
+            TerminalFormDivider(dark, section + "-divider")
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                ReminderActionButton("系统通知设置", section + "-channel-settings", dark) { openNotificationSettings(context) }
+            }
+        }
+        if (reminder.showsInexactNote) {
+            TerminalFormDivider(dark, section + "-divider")
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                ReminderActionButton("精确闹钟设置", section + "-open-exact-alarm-settings", dark) { openExactAlarmSettings(context) }
+            }
+        }
+    }
+}
+
+/** iOS exposes "自定义…" plus a 1...180 stepper; presets stay 0/5/10/15/30 like the stored preference. */
+@Composable private fun ReminderLeadTimeControl(
+    reminder: ReminderUiState,
+    section: String,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("提醒时间", color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 14.dp))
+        listOf(0, 5, 10, 15, 30).chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { minutes ->
+                    ReminderLeadChip(
+                        label = if (minutes == 0) "准时" else "提前 " + minutes + " 分",
+                        selected = !reminder.usesCustomLeadTime && reminder.leadMinutes == minutes,
+                        tag = section + "-lead-" + minutes,
+                        dark = dark,
+                    ) { actions.setReminderLeadMinutes(minutes, false) }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            ReminderLeadChip("自定义…", reminder.usesCustomLeadTime, section + "-lead-custom", dark) {
+                actions.setReminderLeadMinutes(reminder.leadMinutes.coerceIn(1, 180), true)
+            }
+        }
+        if (reminder.usesCustomLeadTime) {
+            val minutes = reminder.leadMinutes.coerceIn(1, 180)
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(section + "-lead-custom-stepper"), verticalAlignment = Alignment.CenterVertically) {
+                Text("提前 " + minutes + " 分钟", Modifier.weight(1f), color = terminalText(dark))
+                ReminderStepperGlyph("−", section + "-lead-custom-minus", minutes > 1, dark) { actions.setReminderLeadMinutes((minutes - 1).coerceAtLeast(1), true) }
+                ReminderStepperGlyph("+", section + "-lead-custom-plus", minutes < 180, dark) { actions.setReminderLeadMinutes((minutes + 1).coerceAtMost(180), true) }
+            }
+            Text(
+                "可自定义 1–180 分钟；0 分钟请选择「准时」。",
+                color = terminalSecondary(dark), fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 10.dp).testTag(section + "-lead-custom-note"),
+            )
+        } else {
+            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
+
+@Composable private fun ReminderStepperGlyph(symbol: String, tag: String, enabled: Boolean, dark: Boolean, change: () -> Unit) = Text(
+    symbol, color = if (enabled) QingKeCyan else terminalSecondary(dark), fontSize = 20.sp, fontWeight = FontWeight.Black,
+    modifier = Modifier.size(48.dp).clickable(enabled = enabled, onClick = change).testTag(tag).wrapContentSize(Alignment.Center),
+)
+
+@Composable private fun androidx.compose.foundation.layout.RowScope.ReminderLeadChip(
+    label: String,
+    selected: Boolean,
+    tag: String,
+    dark: Boolean,
+    select: () -> Unit,
+) = Box(
+    Modifier.weight(1f).heightIn(min = 48.dp)
+        .background(if (selected) InverseSurface else Color.Transparent, TerminalShape)
+        .border(1.dp, if (selected) SignalYellow else terminalBorder(dark), TerminalShape)
+        .selectable(selected = selected, role = Role.RadioButton, onClick = select)
+        .testTag(tag)
+        .semantics { contentDescription = label },
+    contentAlignment = Alignment.Center,
+) { Text(label, color = if (selected) SignalYellow else terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+
+@Composable private fun ReminderCapabilityRow(label: String, value: String, ok: Boolean, tag: String, dark: Boolean) = Row(
+    Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag(tag).semantics { contentDescription = label + "：" + value },
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Box(Modifier.size(9.dp).background(if (ok) QingKeCyan else SignalYellow))
+    Spacer(Modifier.width(10.dp))
+    Text(label, color = terminalText(dark), fontSize = 14.sp, modifier = Modifier.weight(1f))
+    Text(value, color = if (ok) QingKeCyan else SignalYellow, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.testTag(tag + "-value"))
+}
+
+@Composable private fun ReminderNote(message: String, tag: String, color: Color) = Text(
+    message, color = color, fontSize = 11.sp,
+    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag(tag),
+)
+
+@Composable private fun androidx.compose.foundation.layout.RowScope.ReminderActionButton(
+    label: String,
+    tag: String,
+    dark: Boolean,
+    action: () -> Unit,
+) = Box(
+    Modifier.weight(1f).heightIn(min = 48.dp).border(1.dp, QingKeCyan, TerminalShape).clickable(onClick = action).testTag(tag),
+    contentAlignment = Alignment.Center,
+) { Text(label, color = QingKeCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+
+private fun reminderChannelLabel(reminder: ReminderUiState): String = when {
+    !reminder.remindersEnabled -> "未启用"
+    reminder.channelReady -> "可用"
+    else -> "已关闭"
+}
+
+/** The platform's own notification settings; the app never raises a prompt from here. */
+private fun openNotificationSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+}
+
+/** D03: the user grants the exact-alarm capability in system settings; USE_EXACT_ALARM is never requested. */
+private fun openExactAlarmSettings(context: android.content.Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+        .setData(android.net.Uri.fromParts("package", context.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+}
