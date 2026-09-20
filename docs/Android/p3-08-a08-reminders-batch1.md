@@ -126,8 +126,9 @@ submitted／unchanged／cancelled／active／generation、未验证清单）＋`
 A08 第一批已实现（`c4cb5e7`），R1 对照 Sol 首轮七项意见完成返修（`f4be82f`），Sol 再复审发现部分失败时
 注册表活动集合丢失、`cancelAll` 活动集合失真，以及权限撤销设备用例按错误字段检查标题，因此 R1 独立
 复审未通过；R2 已修正上述问题并自测通过（JVM 220、设备 148、lint 0 errors／24 warnings、证据目录已更新），
-**R2 待 Sol 再复审，用户验收仍未进行**。详情见
-[P3-08-R1 独立技术复审](p3-08-r1-review.md)。A08 其余部分
+**R2 已通过 Sol 独立技术复审，用户验收仍未进行**。Sol 独立复跑提醒包 Debug／Release JVM 各 51 项、
+API 37 ARM64 提醒包设备测试 15 项，均为 0 failures／errors／skipped。详情见
+[P3-08-R1／R2 独立技术复审](p3-08-r1-review.md)。A08 其余部分
 （提醒设置 UI、运行时权限流程、编辑后自动重算）、A10／A11、整个 P3 与完整 App 仍未完成、未授权。
 P3-06-R7 与 P3-04-R8（含各自 R1／R2）的既有复审与用户验收结论不变；P3-07-R1 新增警告框与文案仍待用户
 验收。
