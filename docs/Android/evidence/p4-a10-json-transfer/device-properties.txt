@@ -1,0 +1,9 @@
+== device ==
+37
+17
+arm64-v8a
+sdk_gphone64_arm64
+Physical size: 1080x1920
+Override size: 1080x2400
+Physical density: 420
+0

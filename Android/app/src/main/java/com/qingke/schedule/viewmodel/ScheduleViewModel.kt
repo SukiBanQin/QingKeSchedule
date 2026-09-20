@@ -32,6 +32,11 @@ import com.qingke.schedule.reminder.ReminderReconcileReason
 import com.qingke.schedule.reminder.ReminderReconciliation
 import com.qingke.schedule.state.ScheduleAppState
 import com.qingke.schedule.state.ScheduleState
+import com.qingke.schedule.transfer.ScheduleDataDecoder
+import com.qingke.schedule.transfer.ScheduleDataException
+import com.qingke.schedule.transfer.ScheduleDataTransfer
+import com.qingke.schedule.transfer.ScheduleFileException
+import com.qingke.schedule.transfer.ScheduleImportPreview
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -151,6 +156,8 @@ class ScheduleViewModel(
     val lunchBreakConflict: StateFlow<LunchBreakConflict?> = mutableLunchBreakConflict.asStateFlow()
     private val mutableReminderUi = MutableStateFlow(ReminderUiState())
     val reminderUi: StateFlow<ReminderUiState> = mutableReminderUi.asStateFlow()
+    private val mutableTransfer = MutableStateFlow(TransferUiState())
+    val transfer: StateFlow<TransferUiState> = mutableTransfer.asStateFlow()
     private var courseDraft: CourseDraft? = null
     private var editorSourceIndex: Int? = null
     private var editorFingerprint: Course? = null
@@ -158,6 +165,8 @@ class ScheduleViewModel(
     private var lunchBreakConfirmationInFlight = false
     private var loadJob: Job? = null
     private var awaitingSystemSettings = false
+    private var importInFlight = false
+    private var exportInFlight = false
 
     init { loadInitial() }
 
@@ -305,6 +314,139 @@ class ScheduleViewModel(
     }
 
     fun dismissError() = appState.clearError()
+
+    /* P4／A10: JSON import and export over Android's system document pickers. The state machine below only ever
+       decodes into a preview; the committed schedule, the local preferences and the reminder registry change once,
+       after an explicit confirmation and a successful replace. */
+
+    /** Name suggested to the system CreateDocument panel; the clock is the ViewModel's injectable one. */
+    fun suggestedExportFileName(): String =
+        ScheduleDataTransfer.exportFileName(mutableCurrentTime.value.toLocalDate())
+
+    /**
+     * One system OpenDocument result. A null argument is the system cancel: it must stay silent and leave the
+     * preview, the committed schedule, the preferences and the reminder registry untouched.
+     */
+    fun importSelected(read: (suspend () -> ByteArray)?) {
+        if (read == null) return
+        if (importInFlight) return
+        importInFlight = true
+        mutableTransfer.value = TransferUiState()
+        viewModelScope.launch {
+            try {
+                val preview = ScheduleImportPreview.of(ScheduleDataDecoder.decode(read()))
+                mutableTransfer.value = TransferUiState(preview = preview)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                mutableTransfer.value = TransferUiState(importFailure = importErrorMessage(error))
+            } finally {
+                importInFlight = false
+            }
+        }
+    }
+
+    /**
+     * The destructive step. It publishes only the repository snapshot returned by the committed transaction, so a
+     * failure or a cancellation keeps the preview retryable and can never report a replace that did not commit.
+     */
+    fun confirmImport() {
+        val current = mutableTransfer.value
+        val preview = current.preview ?: return
+        if (importInFlight) return
+        importInFlight = true
+        mutableTransfer.value = current.copy(isWriting = true, writeFailure = null, importFailure = null)
+        viewModelScope.launch {
+            try {
+                if (appState.replace(preview.data)) {
+                    rebuildSemesterDraft()
+                    mutableTransfer.value = TransferUiState(
+                        statusMessage = ScheduleDataTransfer.importSuccessMessage(preview.courseCount),
+                    )
+                    reconcileReminders(ReminderReconcileReason.DATA_SAVED)
+                } else {
+                    val message = appState.state.value.error ?: "导入失败，请重试"
+                    appState.clearError()
+                    mutableTransfer.value = current.copy(isWriting = false, writeFailure = message)
+                }
+            } catch (error: CancellationException) {
+                mutableTransfer.value = current.copy(isWriting = false)
+                throw error
+            } catch (error: Throwable) {
+                mutableTransfer.value = current.copy(isWriting = false, writeFailure = importErrorMessage(error))
+            } finally {
+                importInFlight = false
+            }
+        }
+    }
+
+    /** Cancels the preview or closes a failure dialog without touching any committed data. */
+    fun dismissTransferPrompt() {
+        mutableTransfer.value = mutableTransfer.value.copy(
+            preview = null,
+            importFailure = null,
+            writeFailure = null,
+            exportFailure = null,
+            isWriting = false,
+        )
+    }
+
+    /**
+     * One system CreateDocument result. A null argument is the system cancel and stays silent; the bytes are the
+     * validated version-1 encoding of the currently committed schedule only.
+     */
+    fun exportSelected(write: (suspend (ByteArray) -> Unit)?) {
+        if (write == null) return
+        if (exportInFlight) return
+        val data = state.value.data
+        if (data.semester == null) {
+            mutableTransfer.value = TransferUiState(exportFailure = ScheduleDataTransfer.IMPORT_BLOCKED_NO_SEMESTER)
+            return
+        }
+        exportInFlight = true
+        viewModelScope.launch {
+            try {
+                write(ScheduleDataDecoder.encode(data))
+                mutableTransfer.value = TransferUiState(statusMessage = ScheduleDataTransfer.EXPORT_SUCCESS_MESSAGE)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                mutableTransfer.value = mutableTransfer.value.copy(
+                    exportFailure = exportErrorMessage(error),
+                    statusMessage = null,
+                )
+            } finally {
+                exportInFlight = false
+            }
+        }
+    }
+
+    /**
+     * A10: the settings form must never keep editing the replaced draft. The new draft comes from the committed
+     * snapshot only, and an imported empty semester lands on the first-boot screen with a fresh create draft.
+     */
+    private fun rebuildSemesterDraft() {
+        val semester = state.value.data.semester
+        val rebuilt = when {
+            semester != null -> SemesterDraft.edit(semester, idFactory)
+            state.value.needsOnboarding -> SemesterDraft.create(mutableCurrentTime.value.toLocalDate(), idFactory)
+            else -> null
+        }
+        draft = rebuilt
+        if (rebuilt != null) publishInitialForm(rebuilt) else mutableForm.value = null
+    }
+
+    private fun importErrorMessage(error: Throwable): String = when (error) {
+        is ScheduleDataException -> error.message ?: "课表文件无效"
+        is ScheduleFileException -> error.message ?: "文件操作失败"
+        else -> "导入失败：" + (error.message ?: "未知错误")
+    }
+
+    private fun exportErrorMessage(error: Throwable): String = when (error) {
+        is ScheduleDataException -> error.message ?: "课表数据无效"
+        is ScheduleFileException -> error.message ?: "文件操作失败"
+        else -> "导出失败：" + (error.message ?: "未知错误")
+    }
 
     /* A08 second batch: reminder settings. Preferences are written first and the platform is only touched after
        a successful write, so a failed reminder update can never roll back the schedule or the preferences. */

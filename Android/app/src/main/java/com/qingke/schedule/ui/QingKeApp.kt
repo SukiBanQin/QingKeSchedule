@@ -118,6 +118,8 @@ import com.qingke.schedule.preferences.AcademicCalendarPreferences
 import com.qingke.schedule.preferences.AppearanceMode
 import com.qingke.schedule.state.LoadStatus
 import com.qingke.schedule.state.ScheduleState
+import com.qingke.schedule.transfer.ScheduleDataTransfer
+import com.qingke.schedule.transfer.ScheduleFileAccess
 import com.qingke.schedule.viewmodel.MainTab
 import com.qingke.schedule.viewmodel.PeriodFormState
 import com.qingke.schedule.viewmodel.ScheduleViewModel
@@ -128,6 +130,7 @@ import com.qingke.schedule.viewmodel.CourseEditorConfirmation
 import com.qingke.schedule.viewmodel.LunchBreakConflict
 import com.qingke.schedule.viewmodel.ReminderUiState
 import com.qingke.schedule.viewmodel.SemesterSaveState
+import com.qingke.schedule.viewmodel.TransferUiState
 import com.qingke.schedule.R
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -220,6 +223,10 @@ data class QingKeAppActions(
     val refreshReminderStatus: () -> Unit = {},
     val recoverReminderCapabilities: () -> Unit = {},
     val markSystemSettingsHandoff: () -> Unit = {},
+    val requestImport: () -> Unit = {},
+    val requestExport: () -> Unit = {},
+    val confirmImport: () -> Unit = {},
+    val dismissTransferPrompt: () -> Unit = {},
 )
 
 @Composable
@@ -234,6 +241,19 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
     val lunchBreakConflict by viewModel.lunchBreakConflict.collectAsStateWithLifecycle()
     val semesterSave by viewModel.semesterSave.collectAsStateWithLifecycle()
     val reminderUi by viewModel.reminderUi.collectAsStateWithLifecycle()
+    val transfer by viewModel.transfer.collectAsStateWithLifecycle()
+    // P4／A10: the system document panels are the Android equivalent of the iOS file importer and share sheet.
+    // A null result is the system cancel and is handed to the ViewModel as such, so it stays silent.
+    val context = LocalContext.current
+    val fileAccess = remember(context) { ScheduleFileAccess(context.contentResolver) }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) viewModel.importSelected(null) else viewModel.importSelected({ fileAccess.read(uri) })
+    }
+    val exportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(ScheduleDataTransfer.JSON_MIME_TYPE),
+    ) { uri ->
+        if (uri != null) viewModel.exportSelected({ bytes -> fileAccess.write(uri, bytes) })
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -282,10 +302,15 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             refreshReminderStatus = viewModel::refreshReminderStatus,
             recoverReminderCapabilities = viewModel::recoverReminderCapabilities,
             markSystemSettingsHandoff = viewModel::markSystemSettingsHandoff,
+            requestImport = { importPicker.launch(arrayOf(ScheduleDataTransfer.JSON_MIME_TYPE)) },
+            requestExport = { exportPicker.launch(viewModel.suggestedExportFileName()) },
+            confirmImport = viewModel::confirmImport,
+            dismissTransferPrompt = viewModel::dismissTransferPrompt,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
         semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict, semesterSave,
         reminder = reminderUi,
+        transfer = transfer,
     )
 }
 
@@ -304,6 +329,7 @@ fun QingKeAppContent(
     lunchBreakConflict: LunchBreakConflict? = null,
     semesterSave: SemesterSaveState = SemesterSaveState.Idle,
     reminder: ReminderUiState = ReminderUiState(),
+    transfer: TransferUiState = TransferUiState(),
 ) {
     val dark = when (state.preferences.appearanceMode) {
         AppearanceMode.DARK -> true
@@ -320,17 +346,64 @@ fun QingKeAppContent(
         when (state.loadStatus) {
             LoadStatus.NOT_LOADED, LoadStatus.LOADING -> LoadingScreen()
             LoadStatus.FAILED -> LoadErrorScreen(state.error.orEmpty(), actions.retryLoad)
-            LoadStatus.READY -> if (state.needsOnboarding) form?.let { OnboardingScreen(it, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark, lunchBreakConflict) } ?: LoadingScreen()
+            LoadStatus.READY -> if (state.needsOnboarding) form?.let {
+                OnboardingScreen(
+                    it, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(),
+                    state.isSaving, actions, dark, lunchBreakConflict, transfer,
+                )
+            } ?: LoadingScreen()
             else MainShell(
                 state, selectedTab, currentTime, actions, form = form,
                 courseSuccess = if (editor == null) courseSuccess else null, consumeCourseSuccess = consumeCourseSuccess,
                 semesterSuccess = semesterSuccess, consumeSemesterSuccess = consumeSemesterSuccess,
-                lunchBreakConflict = lunchBreakConflict, reminder = reminder,
+                lunchBreakConflict = lunchBreakConflict, reminder = reminder, transfer = transfer,
             )
         }
         editor?.let { CourseEditorOverlay(it, state.data.semester, state.data.courses, dark, actions) }
         SemesterSaveDialogHost(semesterSave, dark, actions)
+        TransferDialogHost(transfer, dark, actions)
         state.error?.let { message -> if (state.loadStatus == LoadStatus.READY) ErrorDialog(message, actions.dismissError) }
+    }
+}
+
+/**
+ * P4／A10: the import preview and its failures reuse the terminal dialog. The preview shows the semester, the
+ * course count, `updatedAt` and the destructive scope, and the replace runs only from the confirm action.
+ */
+@Composable private fun TransferDialogHost(transfer: TransferUiState, dark: Boolean, actions: QingKeAppActions) {
+    when {
+        transfer.showsWriteRetry -> TerminalDialog(
+            code = "DANGER / IMPORT", status = "WRITE FAILED", title = "导入失败",
+            message = transfer.writeFailure.orEmpty() + "\n\n原课表与设置保持不变，可以重试。",
+            confirm = "重试", dismiss = "取消",
+            onConfirm = actions.confirmImport, onDismiss = actions.dismissTransferPrompt,
+            tag = "transfer-import-retry", dismissTag = "transfer-import-retry-dismiss",
+            confirmTag = "transfer-import-retry-confirm", danger = true, dark = dark,
+        )
+        transfer.showsPreview -> transfer.preview?.let { preview ->
+            TerminalDialog(
+                code = "IMPORT / VERIFY", status = "REPLACE DATA", title = "替换当前课表？",
+                message = ScheduleDataTransfer.previewMessage(preview),
+                confirm = if (transfer.isWriting) "正在导入…" else "替换当前课表", dismiss = "取消",
+                onConfirm = actions.confirmImport, onDismiss = actions.dismissTransferPrompt,
+                tag = "transfer-import-preview", dismissTag = "transfer-import-preview-dismiss",
+                confirmTag = "transfer-import-preview-confirm", enabled = !transfer.isWriting, dark = dark,
+            )
+        }
+        transfer.showsImportFailure -> TerminalDialog(
+            code = "IMPORT / ERROR", status = "INVALID FILE", title = "无法导入课表",
+            message = transfer.importFailure.orEmpty(), confirm = "好",
+            onConfirm = actions.dismissTransferPrompt, onDismiss = actions.dismissTransferPrompt,
+            tag = "transfer-import-error", dismissTag = null, confirmTag = "transfer-import-error-confirm",
+            danger = true, dark = dark,
+        )
+        transfer.showsExportFailure -> TerminalDialog(
+            code = "TRANSFER / ERROR", status = "EXPORT FAILED", title = "无法导出备份",
+            message = transfer.exportFailure.orEmpty(), confirm = "知道了",
+            onConfirm = actions.dismissTransferPrompt, onDismiss = actions.dismissTransferPrompt,
+            tag = "transfer-export-error", dismissTag = null, confirmTag = "transfer-export-error-confirm",
+            danger = true, dark = dark,
+        )
     }
 }
 
@@ -432,6 +505,7 @@ fun QingKeAppContent(
     actions: QingKeAppActions,
     dark: Boolean,
     lunchBreakConflict: LunchBreakConflict? = null,
+    transfer: TransferUiState = TransferUiState(),
 ) {
     val timePicker = remember { TerminalTimePickerState() }
     val calendarUi = rememberAcademicCalendarUiState(calendar.lunchBreak, form.startDate)
@@ -443,7 +517,11 @@ fun QingKeAppContent(
                 BrandHeader(dark, code = "SETUP / 00", tag = "onboarding-brand-header")
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 14.dp)) {
                     TerminalIntro(dark, onboarding = true)
-                    TerminalSemesterForm("onboarding", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving, "创建课表", "INITIALIZE TERMINAL")
+                    TerminalSemesterForm(
+                        "onboarding", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving,
+                        "创建课表", "INITIALIZE TERMINAL",
+                        transferSection = { DataTransferSection(transfer, exportEnabled = false, "onboarding", dark, actions) },
+                    )
                 }
             }
             TerminalTimePickerHost(form, dark, actions, timePicker)
@@ -595,6 +673,7 @@ fun QingKeAppContent(
     consumeSemesterSuccess: () -> Unit = {},
     lunchBreakConflict: LunchBreakConflict? = null,
     reminder: ReminderUiState = ReminderUiState(),
+    transfer: TransferUiState = TransferUiState(),
 ) {
     val dark = state.preferences.appearanceMode == AppearanceMode.DARK ||
         (state.preferences.appearanceMode == AppearanceMode.SYSTEM && isSystemInDarkTheme())
@@ -606,6 +685,7 @@ fun QingKeAppContent(
             MainTab.SETTINGS -> SemesterSettingsScreen(
                 form, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark,
                 lunchBreakConflict, Modifier.fillMaxSize().padding(bottom = 82.dp), reminder,
+                exportEnabled = state.data.semester != null, transfer = transfer,
             )
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
@@ -701,6 +781,8 @@ fun QingKeAppContent(
     lunchBreakConflict: LunchBreakConflict? = null,
     modifier: Modifier = Modifier,
     reminder: ReminderUiState = ReminderUiState(),
+    exportEnabled: Boolean = false,
+    transfer: TransferUiState = TransferUiState(),
 ) {
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -732,6 +814,7 @@ fun QingKeAppContent(
                             "settings", form, calendar, calendarUi, savedPeriods, dark, actions, timePicker, saving,
                             "保存学期设置", "COMMIT CHANGES",
                             reminderSection = { ReminderSettingsSection(reminder, "settings", dark, actions) },
+                            transferSection = { DataTransferSection(transfer, exportEnabled, "settings", dark, actions) },
                         )
                     }
                 }
@@ -988,6 +1071,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     commitTitle: String,
     commitSubtitle: String,
     reminderSection: (@Composable () -> Unit)? = null,
+    transferSection: (@Composable () -> Unit)? = null,
 ) {
     TerminalFormSection("01", "学期信息", "TERM", dark, prefix + "-semester-section", prefix + "-semester-panel") {
         TerminalNameField(form.name, actions.updateName, dark)
@@ -1019,6 +1103,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     }
     AcademicCalendarSection(calendar, calendarUi, savedPeriods, prefix, dark, actions)
     reminderSection?.invoke()
+    transferSection?.invoke()
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
 }
@@ -1866,6 +1951,91 @@ internal fun hsvHex(hue: Int, saturation: Int, value: Int): String {
 
 /** HSV saturation/value plane: left/right map to 0/100 saturation, top/bottom to 100/0 value. */
 internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String = hsvHex(hue, (xFraction.coerceIn(0f, 1f) * 100).toInt(), ((1f - yFraction.coerceIn(0f, 1f)) * 100).toInt())
+
+/* P4／A10: "05 数据备份 / TRANSFER" - the iOS DataTransferSection rendered with the Android terminal widgets. */
+
+/**
+ * Both the first-boot form and the settings form render this one section. The destructive import is gated by the
+ * preview dialog, and the export entry only exists once a semester is set, exactly like the iOS baseline.
+ */
+@Composable private fun DataTransferSection(
+    transfer: TransferUiState,
+    exportEnabled: Boolean,
+    prefix: String,
+    dark: Boolean,
+    actions: QingKeAppActions,
+) {
+    val section = prefix + "-transfer"
+    TerminalFormSection(
+        "05", "数据备份", "TRANSFER", dark, section + "-section", section + "-panel",
+        footer = "JSON 导入会先校验并要求确认；确认后将替换当前课表。卸载 App 可能清除本地数据，请定期导出备份。",
+        footerTag = section + "-footer",
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag(section + "-format")
+                .semantics { contentDescription = "仅支持青课 JSON 备份文件。请选择扩展名为 .json 的青课课表备份；暂不支持 Excel（.xlsx / .xls）文件。" },
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TransferGlyph(QingKeCyan, section + "-format-icon")
+                Spacer(Modifier.width(9.dp))
+                Text("仅支持青课 JSON 备份文件", color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+            Text("请选择扩展名为 .json 的青课课表备份；暂不支持 Excel（.xlsx / .xls）文件。", color = terminalSecondary(dark), fontSize = 12.sp)
+        }
+        TerminalFormDivider(dark, section + "-divider")
+        TerminalTransferButton("从 JSON 文件导入课表", section + "-import", dark, actions.requestImport)
+        TerminalFormDivider(dark, section + "-divider")
+        if (exportEnabled) {
+            TerminalTransferButton("导出课表备份", section + "-export", dark, actions.requestExport, accent = SignalYellow)
+        } else {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag(section + "-export-disabled")
+                    .semantics { contentDescription = ScheduleDataTransfer.NO_SEMESTER_EXPORT_HINT },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TransferGlyph(terminalSecondary(dark), section + "-export-disabled-icon")
+                Spacer(Modifier.width(9.dp))
+                Text(ScheduleDataTransfer.NO_SEMESTER_EXPORT_HINT, color = terminalSecondary(dark), fontSize = 13.sp)
+            }
+        }
+        transfer.statusMessage?.let { message ->
+            TerminalFormDivider(dark, section + "-divider")
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag(section + "-success")
+                    .semantics { contentDescription = message },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TransferGlyph(SignalYellow, section + "-success-icon")
+                Spacer(Modifier.width(9.dp))
+                Text(message, color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.testTag(section + "-success-message"))
+                Spacer(Modifier.weight(1f))
+                Text("COMPLETE", color = QingKeCyan, fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp)
+            }
+        }
+    }
+}
+
+/** iOS `terminalControl()` is a full-width 48dp row with leading content; this keeps that same 52dp target. */
+@Composable private fun TerminalTransferButton(
+    label: String,
+    tag: String,
+    dark: Boolean,
+    action: () -> Unit,
+    accent: Color = QingKeCyan,
+) = Row(
+    Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Button, onClick = action).testTag(tag)
+        .semantics { contentDescription = label },
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    TransferGlyph(accent, "$tag-icon")
+    Spacer(Modifier.width(9.dp))
+    Text(label, color = terminalText(dark), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    Spacer(Modifier.weight(1f))
+    Text("JSON", color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontSize = 9.sp, letterSpacing = 1.sp)
+}
+
+@Composable private fun TransferGlyph(color: Color, tag: String) = Box(Modifier.size(9.dp).background(color).testTag(tag))
 
 /* A08 second batch: "04 上课提醒" - the iOS reminder section rendered with the Android terminal widgets. */
 

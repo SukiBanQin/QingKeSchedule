@@ -1,6 +1,38 @@
 # 安卓项目当前交接状态
 
-## P4／A10 阶段已授权，D01 已确认（最新，2026-09-20）
+## P4／A10 JSON 导入导出已实施并自测，待 Sol 独立复审和用户验收（最新，2026-09-20）
+
+用户已授权实施 P4／A10。本轮由 DeepSeek V4.1 FLASH 执行窗口完成实施、自测、设备证据、文档、提交与推送，
+未创建子 Agent；实际模型标识／服务／思考参数以用户客户端为准，本窗口无法读取，未核实。
+
+- 当前基准：分支 `Android`，开始基准 `c730c62f5f655057df661124dccf8cd814a1d160`（= `origin/Android`），开始时
+  工作区干净。本轮只新增本任务实现与文档，未改写历史、未强推、未合并 `main`。
+- 范围：只实现 A10（系统 JSON 导入与导出）。未新增 version 2，未改 `ios/**`／`web/**`／`ios/Shared/**`／共享
+  schema／fixtures／Room schema／DataStore 键／既有协议语义；未申请存储权限；未实施 A11、发布或 `main` 合并。
+- 实现要点：有界读取（恰好 5 MiB 接受、第 5 MiB+1 字节即拒绝、不信任何文件元数据）；复用
+  `ScheduleDataDecoder`／`ScheduleValidator` 严格解码与业务校验；预览后由用户确认才调用既有
+  `ScheduleAppState`／Room 整体事务替换；失败或取消保留原数据并保持预览可重试；成功后只发布仓库快照、
+  重建学期草稿（空学期进入首次设置）并以 `DATA_SAVED` 协调一次提醒；导出只生成严格 UTF-8 version 1 JSON。
+- D01：教学日历、午休、提醒开关／提前量／自定义标记、外观与系统通知授权全部保持设备本地，导入前后逐字段不变；
+  未把 Room 与 DataStore 宣称为跨存储事务。
+- 验证：Debug／Release JVM 各 **273 tests、0 failures／0 errors／0 skipped**（A10 新增 32）；
+  API 37 ARM64 `connectedDebugAndroidTest` **184 tests、0 failures／0 errors／0 skipped**（A10 新增 19）；
+  `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**
+  （全部既有类别）；文档测试与 `git diff --check` 通过。详细命令与结果见
+  [验证证据](evidence/p4-a10-json-transfer/device-verification-20260920.txt)。
+- 真实设备：`emulator-5554`（API 37 ARM64，1080x2400／420）上用真实 `ACTION_OPEN_DOCUMENT` 导入未修改 iOS
+  实现导出的 version 1 文件（预览→确认→「已导入 6 门课程」），用真实 `ACTION_CREATE_DOCUMENT` 导出
+  `qingke-schedule-2026-09-20.json` 并 `adb pull` 取回；两向文件解析后与共享 fixture 树完全一致，
+  `updatedAt`、课程与安排顺序、重复 ID 均保留，无本地偏好键；系统取消（导入与导出）静默返回；未知版本与
+  5 MiB+1 真实文件给出明确中文错误。证据见 `docs/Android/evidence/p4-a10-json-transfer/`。
+- 未验证限制：iOS App 真实 UI（文件 App／ShareLink）往返未执行——本会话沙箱无法编译 SwiftUI 宏
+  （`swift-plugin-server ... malformed response`），已用未修改 iOS 源码的主机编译实现替代；真实重启、Doze、
+  厂商真机后台投递与通知观感仍是 A08 遗留未验证项。
+- 准确状态：**A10 已实现、已测试（JVM／设备／真实系统面板与双向文件往返），待 Sol 独立复审和用户验收；
+  用户验收未进行。** 本轮不宣称 A11、整个 P4、整个 P3 或完整 App 完成；下一项仍需用户单独授权。
+- 实现记录、协议差异与未验证项详见 [P4／A10 实施记录](p4-a10-json-transfer.md)。
+
+## P4／A10 阶段已授权，D01 已确认（历史，2026-09-20）
 
 用户确认采用推荐的 D01 方案并切换到新的 Sol 分析／审查窗口与新的 DeepSeek V4.1 FLASH 执行窗口。
 

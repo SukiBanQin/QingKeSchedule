@@ -4,7 +4,6 @@ import com.qingke.schedule.domain.MAX_IMPORT_BYTES
 import com.qingke.schedule.domain.SUPPORTED_SCHEMA_VERSION
 import com.qingke.schedule.domain.ScheduleData
 import com.qingke.schedule.domain.ScheduleValidator
-import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.math.BigDecimal
 import java.nio.ByteBuffer
@@ -37,7 +36,7 @@ object ScheduleDataDecoder {
         coerceInputValues = false
     }
 
-    fun decode(input: InputStream): ScheduleData = decode(readBounded(input))
+    fun decode(input: InputStream): ScheduleData = decode(ScheduleDataReader.readBounded(input))
 
     fun decode(bytes: ByteArray): ScheduleData {
         if (bytes.size > MAX_IMPORT_BYTES) throw ScheduleDataException.FileTooLarge
@@ -173,19 +172,4 @@ object ScheduleDataDecoder {
     private val INT_MAX = BigDecimal(Int.MAX_VALUE)
     private val JSON_NUMBER = Regex("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
-    private fun readBounded(input: InputStream): ByteArray {
-        input.use { stream ->
-            val output = ByteArrayOutputStream()
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var total = 0
-            while (true) {
-                val count = stream.read(buffer)
-                if (count < 0) break
-                total += count
-                if (total > MAX_IMPORT_BYTES) throw ScheduleDataException.FileTooLarge
-                output.write(buffer, 0, count)
-            }
-            return output.toByteArray()
-        }
-    }
 }

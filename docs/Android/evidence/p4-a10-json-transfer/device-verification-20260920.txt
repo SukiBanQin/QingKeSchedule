@@ -1,0 +1,103 @@
+# P4／A10 设备与真实文件往返证据（2026-09-20）
+
+执行窗口：DeepSeek V4.1 FLASH（执行、自测、设备证据、文档、提交、推送）。
+实际模型标识、服务与思考参数以用户客户端为准，本窗口无法读取，未核实。
+
+## 1. 设备环境
+
+- 设备：`emulator-5554`（AVD `qingke-api37-r3-arm`），API 37（Android 17），`arm64-v8a`，
+  `sdk_gphone64_arm64`，`1080x2400`（physical 1080x1920），density 420，窗口动画缩放 0。
+- 应用：`app-debug.apk`（本次构建，包名 `com.qingke.schedule`），`pm clear` 后从未配置状态开始。
+
+## 2. 自动化测试计数（本次实际运行）
+
+| 命令 | 结果 |
+| --- | --- |
+| `./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest testReleaseUnitTest` | Debug **273 tests、0 failures／0 errors／0 skipped**；Release 同（新增 A10：`ScheduleDataReaderTest` 3、`ScheduleTransferContractTest` 15、`ScheduleViewModelTransferTest` 14） |
+| `./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process assembleDebug assembleRelease assembleDebugAndroidTest lintDebug` | BUILD SUCCESSFUL；lintDebug **0 errors／24 warnings**（全部既有：AGP／依赖版本、图标、ObsoleteSdkInt、UseKtx），无新增 lint 问题 |
+| `ANDROID_SERIAL=emulator-5554 ./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process connectedDebugAndroidTest` | **184 tests、0 failures／0 errors／0 skipped**（A10 新增：`ScheduleImportDeviceTest` 5、`ScheduleFileAccessDeviceTest` 4、`DataTransferSectionTest` 10） |
+
+## 3. 真实系统文件面板操作（adb + uiautomator + 截图）
+
+所有点击坐标来自 `adb shell uiautomator dump` 的真实控件边界；每次操作后重新 dump 并截图。
+
+| 步骤 | 命令 | 真实结果 |
+| --- | --- | --- |
+| 启动未配置状态 | `am start -n com.qingke.schedule/.MainActivity` | 首次设置页；`05 数据备份／TRANSFER` 区显示「仅支持青课 JSON 备份文件」「从 JSON 文件导入课表」，无学期时显示「设置学期后可导出备份」而不是导出入口（`01-onboarding-transfer-section-api37.png`） |
+| 打开导入 | `input tap 540 1505`（导入行） | `topResumedActivity=com.google.android.documentsui/com.android.documentsui.picker.PickActivity`（真实 ACTION_OPEN_DOCUMENT，MIME `application/json`），`02-opendocument-picker-api37.png` |
+| 选择文件 | 抽屉 → Downloads → `input tap 296 900` | Downloads 中显示 `qingke-ios-export.json`（iOS 未修改实现导出的真实文件，3348 B）→ 预览对话框：`IMPORT / VERIFY`、`REPLACE DATA`、`替换当前课表？`、`学期：2026 秋季学期\n课程：6 门\n更新时间：2026-09-02T12:00:00.000Z\n\n将整体替换当前课表`、按钮「取消／替换当前课表」（`03-opendocument-downloads-api37.png`、`04-import-preview-api37.png`） |
+| 确认替换 | `input tap 762 1522` | 写入后离开首次设置进入主壳；设置页 `05 区` 显示「已导入 6 门课程／COMPLETE」并出现「导出课表备份」（`05-import-success-api37.png`、`06-settings-transfer-success-api37.png`） |
+| 系统取消导入 | 再次打开面板后 `input keyevent KEYCODE_BACK` | 回到应用，**无任何弹窗、无成功或错误提示**，上一次成功状态保持不变；取消前后截图 md5 相同（`06`／`07` 都是 a2a47497eeefeb91211ccde8de9d26e2），即取消没有改变任何界面状态（`07-opendocument-cancel-silent-api37.png`） |
+| 未知版本文件 | 导入 `qingke-unknown-version.json`（105 B） | `IMPORT / ERROR`、`INVALID FILE`、`无法导入课表`、`不支持的课表数据版本：2`（`08-import-unknown-version-error-api37.png`） |
+| 超过 5 MiB 文件 | 导入 `qingke-too-large.json`（5,242,881 B = 5 MiB + 1，真实文件） | `无法导入课表`、`课表文件超过 5 MiB 输入上限`；未先信任 Downloads 的 `5.24 MB` 元数据，而是从 ContentResolver 流读取第 5 MiB 之后的探测字节后拒绝（`09-import-too-large-error-api37.png`） |
+| 导出 | `input tap 540 1490`（导出行） | `ACTION_CREATE_DOCUMENT` 打开，底部建议文件名 **`qingke-schedule-2026-09-20.json`**（`10-createdocument-picker-api37.png`） |
+| 保存文档 | `input tap 927 2274`（SAVE） | 设备写入 `/sdcard/Download/qingke-schedule-2026-09-20.json`（1866 B），应用显示「已导出备份文件／COMPLETE」（`11-export-success-api37.png`） |
+| 系统取消导出 | 再次打开面板后 `input keyevent KEYCODE_BACK` | 回到应用，无成功提示、无弹窗，已存在文件未被改动；取消前后截图 md5 相同（`11`／`12` 都是 a994ed7524b3cb52ef8016824c48d796）（`12-createdocument-cancel-silent-api37.png`） |
+
+`adb pull` 取回导出的 JSON：`android-export-qingke-schedule-2026-09-20.json`。
+
+## 4. 双向真实文件往返
+
+方向 A（iOS → Android）：未修改 iOS 实现（`ScheduleDataTransfer.exportDocument`，`exportedAt=2026-08-29`）
+导出的 `ios-export-complete-schedule.json`（3348 B）经 `adb push` 到设备 Downloads，再由真实
+OpenDocument 面板导入。设备预览与最终导出结果都等于该文件内容。
+
+方向 B（Android → iOS）：Android CreateDocument 导出的 `android-export-qingke-schedule-2026-09-20.json`
+由同一份未修改 iOS 实现 `previewImport` 读取，输出：
+
+```
+semesterName=2026 秋季学期
+courseCount=6
+updatedAt=2026-09-02T12:00:00.000Z
+courseIds=course-every,course-odd,course-even,course-multiple,course-alpha,course-beta
+scheduleIds=schedule-every,schedule-odd,schedule-even,schedule-wednesday+schedule-friday,schedule-alpha,schedule-beta
+periodNumbers=1,2,3,4
+validationIssues=0
+summary<<学期：2026 秋季学期 | 课程：6 门 | 更新时间：2026-09-02T12:00:00.000Z>>
+iosReExportEqualsImported=true
+```
+
+严格比对（`python3`，解析后逐字段／逐顺序比较）：
+
+```
+android tree == ios tree:                True
+android tree == shared fixture tree:     True
+updatedAt: 2026-09-02T12:00:00.000Z      （两端都未重新生成）
+courses 顺序：course-every, course-odd, course-even, course-multiple, course-alpha, course-beta
+schedules 顺序：schedule-every / schedule-odd / schedule-even / schedule-wednesday+friday / alpha / beta
+两端文件顶层键都只有 schemaVersion, semester, courses, updatedAt
+本地偏好键（remindersEnabled／reminderLeadMinutes／appearanceMode／academicCalendar／lunchBreak…）出现次数：0
+android 1866 B（紧凑编码，sha256 dacc7a38dfb7f2852eb31e60238ab235572e27a48b31a737d624b94a8ae6cae7）
+ios     3348 B（prettyPrinted+sortedKeys，sha256 f532a46b22da2f564f98e200d4802213996d920fbcbc66632083d38a23502082）
+```
+
+重复 ID／反序节次的真实持久化由 `ScheduleImportDeviceTest` 覆盖（真实 Room + 真实 DataStore：提交后
+关闭重开、注入失败与取消后原数据完整、空学期导入后可重开）。
+
+## 5. 本轮未能完成的验证（不得声称通过）
+
+1. **iOS App 真实 UI 往返未执行。** 尝试在沙箱内构建并运行未修改的 `origin/IOS`
+   UI 测试 `QingKeScheduleUITests/testValidImportPreviewCancelConfirmAndExportEntry`
+   （`xcodebuild test -project QingKeSchedule.xcodeproj -scheme QingKeSchedule
+   -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' -derivedDataPath /tmp/ios-a10-derived
+   -only-testing:...`，并把 `TMPDIR`／`SWIFT_MODULE_CACHE_PATH`／`CLANG_MODULE_CACHE_PATH` 指到可写目录）：
+   编译在此环境失败 1068 处，全部为
+   `external macro implementation type 'SwiftUIMacros.StateMacro' could not be found for macro 'State()'; '.../swift-plugin-server' produced malformed response`
+   （`ObservationMacros.ObservableMacro` 同类）。属于本会话沙箱对 Swift 宏插件进程的限制，不是 iOS 代码缺陷。
+   因此 iOS 侧往返使用**未修改源码的主机编译实现**（见 `ios-source-integrity.txt`），
+   iOS 文件 App／ShareLink 的真实 UI 交互仍待在有完整 Xcode 环境的机器上验证。
+2. 真实重启、Doze、厂商真机后台行为与通知观感属于 A08 遗留未验证项，本轮不涉及也不改变其状态。
+3. 非标准文档 provider（如 MediaStore Downloads）不实现 `rwt` 截断：对**同一** MediaStore 文档写入更短
+   内容时会保留旧尾部；标准 `ACTION_CREATE_DOCUMENT` 的 SAF provider 用
+   `ParcelFileDescriptor.parseMode("rwt")`（含 `MODE_TRUNCATE`）截断，导出路径实际使用该方式。
+   `ScheduleFileAccessDeviceTest.rewritingTheSameDocumentReplacesTheBackupThroughTheRealProviderStream`
+   因此只断言真实 provider 能保证的等长／增长重写逐字节替换。
+
+## 6. 环境限制记录（构建命令）
+
+本会话沙箱禁止写 `~/.gradle`，且 Kotlin 守护进程会把含中文的工程路径转义成
+`u8BFEu8868u8F6Fu4EF6` 导致 `source file or directory not found`。因此：
+
+- `GRADLE_USER_HOME=/tmp/a10-gradle-home`（`cp -Rc ~/.gradle` 的克隆）。
+- 追加 `-Pkotlin.compiler.execution.strategy=in-process` 让编译在 Gradle 进程内完成，避免该守护进程问题。
+- 其余命令、源码、变体、设备与测试内容均与仓库常规一致。
