@@ -25,6 +25,7 @@ import com.qingke.schedule.draft.CourseSaveEvaluation
 import com.qingke.schedule.draft.CourseScheduleDraft
 import com.qingke.schedule.draft.SemesterDraft
 import com.qingke.schedule.preferences.AcademicCalendarPreferences
+import com.qingke.schedule.preferences.AppearanceMode
 import com.qingke.schedule.preferences.LunchBreakSettings
 import com.qingke.schedule.preferences.ReminderPreferences
 import com.qingke.schedule.reminder.ReminderControl
@@ -167,6 +168,7 @@ class ScheduleViewModel(
     private var awaitingSystemSettings = false
     private var importInFlight = false
     private var exportInFlight = false
+    private var appearanceInFlight = false
 
     init { loadInitial() }
 
@@ -526,6 +528,28 @@ class ScheduleViewModel(
             }
             publishReminderPreferences()
             runReminderOperation { control -> control.reconcile(ReminderReconcileReason.PREFERENCES_CHANGED) }
+        }
+    }
+
+    /**
+     * P3-09／A11: the single appearance write path. It reuses the joint preference write and the existing
+     * `appearance_mode` key, so the new mode is published only after the store accepted it: selecting the current
+     * value writes nothing, a second selection while one write is in flight is ignored, and a failure or a
+     * cancellation keeps the last committed mode together with the existing global error feedback. Appearance is
+     * device-local and never reconciles reminders or touches the schedule.
+     */
+    fun setAppearanceMode(mode: AppearanceMode) {
+        if (state.value.preferences.appearanceMode == mode) return
+        if (appearanceInFlight) return
+        appearanceInFlight = true
+        viewModelScope.launch {
+            try {
+                appState.updatePreferences { preferences -> preferences.copy(appearanceMode = mode) }
+            } catch (error: CancellationException) {
+                throw error
+            } finally {
+                appearanceInFlight = false
+            }
         }
     }
 

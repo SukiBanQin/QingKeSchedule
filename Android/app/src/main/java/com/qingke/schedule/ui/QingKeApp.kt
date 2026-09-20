@@ -2,6 +2,7 @@ package com.qingke.schedule.ui
 
 import android.Manifest
 import android.app.Activity
+import android.content.res.Configuration
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
@@ -20,6 +21,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,13 +75,15 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
@@ -90,6 +94,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -227,6 +232,7 @@ data class QingKeAppActions(
     val requestExport: () -> Unit = {},
     val confirmImport: () -> Unit = {},
     val dismissTransferPrompt: () -> Unit = {},
+    val setAppearanceMode: (AppearanceMode) -> Unit = {},
 )
 
 @Composable
@@ -306,6 +312,7 @@ fun QingKeApp(viewModel: ScheduleViewModel) {
             requestExport = { exportPicker.launch(viewModel.suggestedExportFileName()) },
             confirmImport = viewModel::confirmImport,
             dismissTransferPrompt = viewModel::dismissTransferPrompt,
+            setAppearanceMode = viewModel::setAppearanceMode,
         ),
         currentTime, editor, courseSuccess, viewModel::consumeCourseSuccess,
         semesterSuccess, viewModel::consumeSemesterSuccess, lunchBreakConflict, semesterSave,
@@ -699,6 +706,7 @@ fun QingKeAppContent(
                 form, state.preferences.academicCalendar, state.data.semester?.periods.orEmpty(), state.isSaving, actions, dark,
                 lunchBreakConflict, Modifier.fillMaxSize().padding(bottom = 82.dp), reminder,
                 exportEnabled = state.data.semester != null, transfer = transfer,
+                appearanceMode = state.preferences.appearanceMode,
             )
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
@@ -796,6 +804,7 @@ fun QingKeAppContent(
     reminder: ReminderUiState = ReminderUiState(),
     exportEnabled: Boolean = false,
     transfer: TransferUiState = TransferUiState(),
+    appearanceMode: AppearanceMode = AppearanceMode.SYSTEM,
 ) {
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -828,6 +837,7 @@ fun QingKeAppContent(
                             "保存学期设置", "COMMIT CHANGES",
                             reminderSection = { ReminderSettingsSection(reminder, "settings", dark, actions) },
                             transferSection = { DataTransferSection(transfer, exportEnabled, "settings", dark, actions) },
+                            appearanceSection = { AppearanceSettingsSection(appearanceMode, dark, saving, "settings", actions) },
                         )
                     }
                 }
@@ -1085,6 +1095,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     commitSubtitle: String,
     reminderSection: (@Composable () -> Unit)? = null,
     transferSection: (@Composable () -> Unit)? = null,
+    appearanceSection: (@Composable () -> Unit)? = null,
 ) {
     TerminalFormSection("01", "学期信息", "TERM", dark, prefix + "-semester-section", prefix + "-semester-panel") {
         TerminalNameField(form.name, actions.updateName, dark)
@@ -1117,6 +1128,7 @@ internal class CalendarTimePickerState : TerminalTimeSelection {
     AcademicCalendarSection(calendar, calendarUi, savedPeriods, prefix, dark, actions)
     reminderSection?.invoke()
     transferSection?.invoke()
+    appearanceSection?.invoke()
     TerminalCommitCard(saving, commitTitle, commitSubtitle, actions.saveSemester)
     Spacer(Modifier.height(100.dp).testTag(prefix + "-bottom-spacer"))
 }
@@ -1528,11 +1540,27 @@ private fun lunchBreakConflictMessage(conflict: LunchBreakConflict): String {
     drawLine(color, Offset(center.x, inset), Offset(center.x, size.height - inset), stroke, StrokeCap.Round)
 }
 
+/**
+ * P3-09／A11: the brand logo is chosen by the app appearance mode, never by the system night qualifier. The
+ * light-theme asset is resolved with a night-off configuration, so a forced light theme stays readable while the
+ * system itself is dark instead of silently swapping in the bright night variant.
+ */
+@Composable private fun brandLogo(dark: Boolean): ImageBitmap {
+    if (dark) return ImageBitmap.imageResource(R.drawable.qingke_logo_dark)
+    val context = LocalContext.current
+    return remember(context) {
+        val dayConfiguration = Configuration(context.resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_NO
+        }
+        ImageBitmap.imageResource(context.createConfigurationContext(dayConfiguration).resources, R.drawable.qingke_logo)
+    }
+}
+
 @Composable internal fun BrandHeader(dark: Boolean, code: String = "LOCAL / 01", tag: String = "today-brand-header") = Row(
     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 12.dp).border(width = 0.dp, color = Color.Transparent)
         .drawBehind { drawLine(if (dark) Color.White.copy(alpha = .20f) else Color.Black.copy(alpha = .18f), androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), 1.dp.toPx()) }.testTag(tag), verticalAlignment = Alignment.CenterVertically,
 ) {
-    androidx.compose.foundation.Image(painterResource(if (dark) R.drawable.qingke_logo_dark else R.drawable.qingke_logo), "青课 QINGKE ACADEMIC TERMINAL", Modifier.width(154.dp).heightIn(min = 54.dp).testTag("today-brand-logo"), contentScale = ContentScale.Fit)
+    androidx.compose.foundation.Image(brandLogo(dark), "青课 QINGKE ACADEMIC TERMINAL", Modifier.width(154.dp).heightIn(min = 54.dp).testTag("today-brand-logo"), contentScale = ContentScale.Fit)
     Spacer(Modifier.weight(1f)); Text(code, color = terminalSecondary(dark), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
 }
 
@@ -2049,6 +2077,128 @@ internal fun spectrumHexAt(xFraction: Float, yFraction: Float, hue: Int): String
 }
 
 @Composable private fun TransferGlyph(color: Color, tag: String) = Box(Modifier.size(9.dp).background(color).testTag(tag))
+
+/* P3-09／A11: "06 外观 / DISPLAY" - the settings page only, after 05 数据备份 and before the save card. */
+
+internal data class AppearanceOption(val mode: AppearanceMode, val code: String, val title: String)
+
+/** iOS order and copy: AUTO／跟随系统, LIGHT／浅色, DARK／深色. */
+internal val appearanceOptions = listOf(
+    AppearanceOption(AppearanceMode.SYSTEM, "AUTO", "跟随系统"),
+    AppearanceOption(AppearanceMode.LIGHT, "LIGHT", "浅色"),
+    AppearanceOption(AppearanceMode.DARK, "DARK", "深色"),
+)
+
+internal const val APPEARANCE_STACKED_WIDTH_DP = 300f
+internal const val APPEARANCE_STACKED_FONT_SCALE = 1.3f
+
+/**
+ * iOS switches the three options from a row to a column at accessibility text sizes. On Android the same row also
+ * has to survive a 320dp screen, so the layout stacks whenever the measured width or the font scale leaves too
+ * little room for three labels, instead of clipping or overlapping them.
+ */
+internal fun shouldStackAppearanceOptions(availableWidthDp: Float, fontScale: Float): Boolean =
+    availableWidthDp < APPEARANCE_STACKED_WIDTH_DP || fontScale >= APPEARANCE_STACKED_FONT_SCALE
+
+/**
+ * The section owns the selection and the effective result. The "当前显示" line reuses the very same resolved
+ * `dark` value that renders this subtree, so it can never drift from the real theme, and SYSTEM keeps following the
+ * live system configuration.
+ */
+@Composable private fun AppearanceSettingsSection(
+    appearanceMode: AppearanceMode,
+    dark: Boolean,
+    saving: Boolean,
+    prefix: String,
+    actions: QingKeAppActions,
+) {
+    val section = prefix + "-appearance"
+    TerminalFormSection(
+        "06", "外观", "DISPLAY", dark, section + "-section", section + "-panel",
+        footer = "外观只保存在这台设备上，不进入 JSON 备份；导入课表也不会改变它。",
+        footerTag = section + "-footer",
+    ) {
+        AppearanceModeSelector(appearanceMode, dark, saving, section, actions)
+        TerminalFormDivider(dark, section + "-divider")
+        val effective = if (dark) "深色" else "浅色"
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag(section + "-effective")
+                .semantics { contentDescription = "当前显示：$effective" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(9.dp).background(if (dark) QingKeCyan else InverseSurface))
+            Spacer(Modifier.width(9.dp))
+            Text(
+                "当前显示：$effective", color = terminalSecondary(dark), fontSize = 13.sp,
+                modifier = Modifier.testTag(section + "-effective-value"),
+            )
+        }
+    }
+}
+
+@Composable private fun AppearanceModeSelector(
+    appearanceMode: AppearanceMode,
+    dark: Boolean,
+    saving: Boolean,
+    section: String,
+    actions: QingKeAppActions,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        val stacked = shouldStackAppearanceOptions(maxWidth.value, LocalDensity.current.fontScale)
+        if (stacked) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                appearanceOptions.forEach { option ->
+                    AppearanceModeOption(option, appearanceMode, dark, saving, section, Modifier.fillMaxWidth(), actions)
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                appearanceOptions.forEach { option ->
+                    AppearanceModeOption(option, appearanceMode, dark, saving, section, Modifier.weight(1f), actions)
+                }
+            }
+        }
+    }
+}
+
+/** iOS selection visual: inverse background, 3dp signal underline, and a "已选择" radio state for screen readers. */
+@Composable private fun AppearanceModeOption(
+    option: AppearanceOption,
+    appearanceMode: AppearanceMode,
+    dark: Boolean,
+    saving: Boolean,
+    section: String,
+    modifier: Modifier,
+    actions: QingKeAppActions,
+) {
+    val selected = appearanceMode == option.mode
+    val tag = section + "-" + option.mode.storageValue
+    val foreground = if (selected) Color(0xFFF1F5F4) else terminalText(dark)
+    Column(
+        modifier
+            .heightIn(min = 64.dp)
+            .background(if (selected) InverseSurface else Color.Transparent, TerminalShape)
+            .drawBehind {
+                if (selected) drawRect(SignalYellow, topLeft = Offset(0f, size.height - 3.dp.toPx()), size = Size(size.width, 3.dp.toPx()))
+            }
+            .border(1.dp, terminalBorder(dark), TerminalShape)
+            .selectable(selected = selected, enabled = !saving, role = Role.RadioButton, onClick = { actions.setAppearanceMode(option.mode) })
+            .testTag(tag)
+            .semantics {
+                contentDescription = option.code + " " + option.title
+                stateDescription = if (selected) "已选择" else "未选择"
+            }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Text(
+            option.code, color = foreground, fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.sp,
+            modifier = Modifier.testTag(tag + "-code"),
+        )
+        Text(option.title, color = foreground, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.testTag(tag + "-title"))
+    }
+}
 
 /* A08 second batch: "04 上课提醒" - the iOS reminder section rendered with the Android terminal widgets. */
 

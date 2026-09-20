@@ -1,0 +1,81 @@
+# P3-09／A11 外观模式设备证据（2026-09-20）
+
+执行窗口：DeepSeek V4.1 FLASH（实施、自测、设备证据、文档、提交、推送），复用同一窗口，未创建子 Agent。
+实际模型标识／服务／思考参数以用户客户端为准，本窗口无法读取，未核实。
+
+## 1. 环境
+
+- 设备：`emulator-5554`（AVD `qingke-api37-r3-arm`），API 37（Android 17），`arm64-v8a`，
+  `sdk_gphone64_arm64`，`1080x2400`（physical 1080x1920），density 420，窗口动画缩放 0，font_scale 1.0。
+- 应用：本次构建的 `app-debug.apk`（`assembleDebug`）。仓库只有个人 debug 安装约定（D04），
+  `app-release-unsigned.apk` 无签名配置，因此设备运行使用 debug APK，不是商店签名产物，也没有改发布配置。
+- 固定数据：通过真实 `ACTION_OPEN_DOCUMENT` 导入共享 fixture `ios/Shared/fixtures/valid/complete-schedule.json`
+  （学期“2026 秋季学期”，6 门课程），各页面使用同一份数据。
+
+## 2. 命令与实际结果
+
+系统明暗、三态选择与“当前显示”均由 `uiautomator dump` 的真实控件文本复核，页面状态用 `dumpsys activity` 复核。
+
+| 步骤 | 命令 | 实际结果 |
+| --- | --- | --- |
+| 系统浅色 + 跟随系统 | `cmd uimode night no` → 设置页滚动到 06 | `当前显示：浅色`；三个选项 AUTO／跟随系统、LIGHT／浅色、DARK／深色 均在 05 数据备份之后、保存卡片之前（截图 01） |
+| 系统深色 + 跟随系统 | `cmd uimode night yes` | 不重装、不改选择，页面即时变深色，`当前显示：深色`（截图 02） |
+| 强制浅色（系统深色） | 点击 LIGHT，系统保持 `night yes` | `当前显示：浅色`，页面保持浅色（截图 03／11） |
+| 强制深色（系统浅色） | 点击 DARK，系统 `night no` | `当前显示：深色`，页面保持深色（截图 04） |
+| 强制模式不受系统变化影响 | 交替 `cmd uimode night yes/no`（强制 LIGHT 与强制 DARK 各一轮） | 强制 LIGHT 期间始终 `当前显示：浅色`；强制 DARK 期间始终 `当前显示：深色` |
+| 重启持久化 | `am force-stop` → `am start` | 无需重新选择，页面仍为深色，06 区显示 `当前显示：深色`（截图 05／06） |
+| 持久化值 | `run-as com.qingke.schedule cat files/datastore/schedule_preferences.preferences_pb` | 文件 369 B；`appearance_mode` 后紧跟 protobuf 字符串 `dark`（`*\x04dark`），文件中不含 `light`／`system`；继续复用既有键名与存储值 |
+| 首次设置页 | `pm clear` → 系统深色下启动并滚到底部 | 分区止于 `05 数据备份`，**没有** 06／外观／DISPLAY 入口；页面仍按系统深色渲染（截图 16，见 `r1`→本节表末行） |
+| 弹窗 | 课程编辑器点“保存”（空名称） | 浅色与深色下都弹出既有 `无法保存课程` 红色弹窗，文字与按钮可读（截图 10、15） |
+| 系统栏 | 同数据截图取样 | 浅色态状态栏为浅色表面（均值 224）且存在深色图标像素（约 166 个）；深色态状态栏为深色表面（均值 24–26）且存在浅色图标像素（132–212 个）；底部导航栏始终深色表面配浅色手势条 |
+| FATAL／ANR | `logcat -d | grep -E "FATAL EXCEPTION|ANR in com.qingke"` | 0 命中 |
+
+## 3. 主题一致性（同数据、同截图取样）
+
+`python3` 纯 Python PNG 取样（每 16 px 均值）：浅色态页面均值 200–227，深色态页面均值 21–36，
+没有夹在中间的页面；下表是强制模式与系统模式**相反**时拍的，因此任何“仍跟随系统”的局部都会暴露为异常值。
+
+| 截图 | 主题 | 系统 | 全屏均值 | 顶部条均值 |
+| --- | --- | --- | --- | --- |
+| 07-today-forced-dark | 深色 | 浅色 | 30.6 | 32.0 |
+| 08-week-forced-dark | 深色 | 浅色 | 36.2 | 32.2 |
+| 09-course-editor-forced-dark | 深色 | 浅色 | 36.4 | 24.9 |
+| 10-course-editor-invalid-dialog-forced-dark | 深色 | 浅色 | 21.7 | 9.5 |
+| 11/12/13/14/15 forced-light-system-dark | 浅色 | 深色 | 200.3／226.9／214.4／219.7／94.5 | 85.8／217.1／217.3／86.3／25.0 |
+
+（编辑页顶部条均值偏低是因为深色工具栏占据顶部；浅色页状态栏本身为 224。）
+
+## 4. A11 验证实际暴露的主题问题与修正
+
+**现象**：强制浅色而系统为深色时，首次设置／今日／课表／设置的品牌 Logo 变成浅色夜版图形叠在浅色页面上，
+几乎不可读；强制深色而系统为浅色时正常。
+
+**原因**：`BrandHeader` 用 `painterResource(if (dark) qingke_logo_dark else qingke_logo)` 选图，而
+`qingke_logo` 同时存在于 `drawable-nodpi`（深色墨水版）与 `drawable-night-nodpi`（亮色版，与
+`qingke_logo_dark.png` 字节相同），资源限定符按**系统**夜间模式解析，与应用外观三态无关——正是
+“局部仍跟随系统”。
+
+**修正**：`BrandHeader` 改为按应用外观解析：深色仍用 `qingke_logo_dark`；浅色用一份把 `uiMode` 强制为
+`UI_MODE_NIGHT_NO` 的配置上下文解析 `qingke_logo`，因此不再受系统夜间限定符影响，也不改任何资源文件、
+不重做已验收页面。
+
+**回归证据**：新增 `AppearanceSettingsTest` 两个用例（强制浅色 + 系统深色要求 Logo 节点出现深色墨水；
+强制深色 + 系统浅色要求出现亮色墨水）。修正前两条断言分别失败（复现缺陷），修正后 13 个外观设备测试全部通过；
+设备截图 12-today-forced-light-system-dark 显示品牌 Logo 恢复为深色墨水，与 A10 浅色截图一致。
+
+## 5. 自动化覆盖（本次实际运行）
+
+- JVM：`ScheduleViewModelAppearanceTest` 6 条（相同值不写、成功只改外观、失败保留旧值并报错、失败后重试、
+  取消不误报、写入中第二次选择被忽略且不排队）、`AppearanceLayoutTest` 4 条（文案顺序、宽度／字号阈值）。
+- 设备（API 37 ARM64）：`AppearanceSettingsTest` 13 条：分区顺序 04→05→06→保存卡片、首次设置无 06 且仍消费
+  已保存深色、三态文案／选中／单选与“已选择”语义、强制 LIGHT／DARK 即时切换与“当前显示”、SYSTEM 跟随真实
+  系统配置并动态更新、写入中禁用与失败保留原主题并显示既有错误弹窗、320dp／130%／无障碍 200% 竖排与 48dp、
+  普通宽度横排、浅色下深色墨水与深色下亮色墨水的可读性、品牌 Logo 两种反向系统状态。
+
+## 6. 未验证与限制
+
+1. 写入中的禁用只由自动化验证（真实 DataStore 写入在毫秒级，adb 无法稳定捕捉中间态）。
+2. 未使用签名 release 构建：仓库没有发布签名配置（D04 只约定个人 debug 安装），设备运行使用 debug APK。
+3. iOS App 真实 UI、A08 真实权限弹窗／通知观感／重启／Doze／厂商真机投递仍未验证，本轮不改变其状态。
+4. 本轮只修改 `Android/` 与 `docs/Android/`；未改 iOS、Web、共享 schema／fixtures、version 1、Room schema、
+   DataStore 键名或存储值、A08 语义、A10、工具链、发布配置或 `main`。

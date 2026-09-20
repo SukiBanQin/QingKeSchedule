@@ -1,0 +1,47 @@
+# A11 品牌 Logo 主题修正证据（2026-09-20）
+
+## 缺陷（A11 设备验证实际暴露）
+
+强制浅色 + 系统深色时，品牌 Logo 显示为浅色夜版图形叠在浅色页面上（几乎不可读）；强制深色 + 系统浅色正常。
+
+原因：`BrandHeader` 以 `painterResource(if (dark) R.drawable.qingke_logo_dark else R.drawable.qingke_logo)` 取图，
+而 `qingke_logo` 同时存在于：
+
+- `res/drawable-nodpi/qingke_logo.png`（深色墨水版，sha256 c034ecdb…，取样 8719 个不透明像素全部暗于 60）
+- `res/drawable-night-nodpi/qingke_logo.png`（亮色版，与 `qingke_logo_dark.png` 字节相同，sha256 1c313468…）
+
+资源限定符按**系统**夜间模式解析，与应用外观三态无关，所以强制浅色时仍会拿到亮色版。
+
+## 修正（仅 Android 代码，不改资源与已验收页面）
+
+`BrandHeader` 改用按应用外观解析的 `brandLogo(dark)`：深色仍取 `qingke_logo_dark`；浅色用一份把
+`uiMode` 强制为 `UI_MODE_NIGHT_NO` 的配置上下文解析 `qingke_logo`，不再受系统夜间限定符影响。
+
+## 断言级证据
+
+新增两个设备用例（API 37 ARM64 `emulator-5554`）：
+
+- `theForcedLightBrandLogoStaysInkInkOnALightSurfaceWhileTheSystemIsDark`：强制浅色 + 系统深色时，
+  `today-brand-logo` 节点必须存在不透明深色墨水像素。
+- `theForcedDarkBrandLogoStaysBrightWhileTheSystemIsLight`：强制深色 + 系统浅色时，
+  `today-brand-logo` 节点必须存在不透明亮色像素。
+
+修正前（提交前工作树）：
+
+```
+13 tests; 2 failures; 0 errors
+FAILED theForcedDarkBrandLogoStaysBrightWhileTheSystemIsLight
+  java.lang.AssertionError: the dark brand logo must not keep dark ink   （当时还额外断言无深色像素）
+FAILED theForcedLightBrandLogoStaysInkInkOnALightSurfaceWhileTheSystemIsDark
+  java.lang.AssertionError: the light brand logo must not follow the dark system qualifier
+```
+
+修正后：
+
+```
+13 tests; 0 failures; 0 errors; 0 skipped
+```
+
+设备截图 `12-today-forced-light-system-dark-api37.png` 与 `11-settings-06-forced-light-system-dark-api37.png`
+显示品牌 Logo 已恢复为浅色主题的深色墨水版，与 A10 已验收的浅色截图一致；`02-system-dark-settings-06-api37.png`
+与 `06-persisted-dark-settings-06-api37.png` 显示深色主题下仍为亮色版。

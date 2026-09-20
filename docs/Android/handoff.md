@@ -1,6 +1,41 @@
 # 安卓项目当前交接状态
 
-## P3-09／A11 已授权实施，尚未开始（最新，2026-09-20）
+## P3-09／A11 外观模式已实施并自测，待 Sol 独立复审和用户验收（最新，2026-09-20）
+
+用户已授权实施 P3-09／A11。本轮由原 DeepSeek V4.1 FLASH 执行窗口（复用同一窗口、未创建子 Agent）完成实现、
+自测、API 37 设备证据、文档、提交与推送；实际模型标识／服务／思考参数以用户客户端为准，本窗口无法读取，未核实。
+
+- 当前基准：分支 `Android`，开始基准 `a3ecf997535f12328ccc925fc04c26273cfb99dc`（= `origin/Android`），开始时工作区干净；
+  本轮只改本任务文件，未改写历史、未强推、未合并 `main`。
+- 实现：`ScheduleViewModel.setAppearanceMode`（复用 `ScheduleAppState.updatePreferences` 与 `appearance_mode` 键，
+  相同值不写、写入中忽略第二次选择、失败／取消保留最后成功模式与既有中文错误，成功后才发布并即时重组主题，
+  不触发提醒重算）；正式设置页新增 `06 外观／DISPLAY`（位于 `05 数据备份` 之后、保存卡片之前，首次设置页没有该
+  入口但仍消费已保存／系统主题），三态 `AUTO／跟随系统`、`LIGHT／浅色`、`DARK／深色` 使用既有反相背景 + 黄色
+  底线与“已选择”单选语义，下方显示实际解析结果“当前显示：浅色／深色”；普通宽度横排，320dp、130% 与无障碍
+  200% 字号竖排且每项 ≥48dp。
+- A11 验证暴露并修正的一处真实主题问题：品牌 Logo 原先按系统夜间资源限定符取图，强制浅色 + 系统深色时不可读；
+  现改为按应用外观解析，不改资源文件、不重做已验收页面（见 [品牌 Logo 主题修正证据](evidence/p3-09-a11-appearance/brand-logo-theme-fix-20260920.txt)）。
+- 未改：iOS、Web、共享 schema／fixtures、version 1、Room schema、DataStore 键名与存储值、A08 提醒语义、
+  A10 导入导出、其他业务规则、工具链、发布配置或 `main`。
+- 验证（实际运行）：Debug／Release JVM 各 **283 tests、0 failures／0 errors／0 skipped**（A11 新增 10）；
+  API 37 ARM64 `connectedDebugAndroidTest` **202 tests、0 failures／0 errors／0 skipped**（A10 189 + `AppearanceSettingsTest` 13）；
+  `assembleDebug`／`assembleRelease`／`assembleDebugAndroidTest` 成功；`lintDebug` **0 errors／24 warnings**（全部既有类别，
+  A11 无新增）；文档测试与 `git diff --check` 通过。
+- 真实设备（`emulator-5554`，API 37 ARM64，1080x2400／420）：系统浅色／深色下 SYSTEM 即时跟随；强制 LIGHT／DARK
+  后交替切换系统明暗均不跟随；`force-stop` 重开后仍为最后一次选择，DataStore 中 `appearance_mode` 为 `dark`；
+  固定同数据核对今日、周课表、设置、课程编辑器与弹窗在两种强制主题下一致可读（浅色页面全屏均值 200–227、
+  深色 21–36，无夹在中间的页面）；状态栏／导航栏图标可辨；`logcat` 检索 FATAL／ANR 0 命中。证据索引见
+  [P3-09／A11 证据](evidence/p3-09-a11-appearance/README.md)。
+- 未验证限制：写入中禁用与失败保留由自动化证明（真实写入毫秒级，adb 无法稳定捕捉中间态）；设备运行使用本次
+  构建的 debug APK（仓库无发布签名配置，D04 只约定个人 debug 安装）；iOS App 真实 UI 与 A08 真机通知遗留不因本轮
+  变成已验证。
+- 准确状态：**A11 已实施并自测，待 Sol 独立复审和用户验收；用户验收未进行。** 不宣称整个 P3、A08 真机遗留或
+  完整 App 完成；P6、发布与 `main` 合并仍未授权。
+- 实现记录见 [P3-09／A11 实施记录](p3-09-a11-appearance.md)，分析边界见 [实施分析](p3-09-a11-appearance-analysis.md)。
+
+## P3-09／A11 已授权实施，尚未开始（历史，2026-09-20）
+
+> 后续状态：A11 已实施并自测，见本文档首节；本节的“尚未开始”已被其取代。
 
 用户在完成只读分析后明确回复“继续吧”，据此授权实施 P3-09／A11 外观模式。实施边界、验收条件和禁止事项以
 [P3-09／A11 外观模式实施分析](p3-09-a11-appearance-analysis.md)为准。

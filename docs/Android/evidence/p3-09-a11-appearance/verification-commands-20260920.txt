@@ -1,0 +1,49 @@
+# P3-09／A11 最终验证命令与结果（2026-09-20）
+
+环境：macOS 26.6.2 arm64，JDK 17.0.20.1，本会话沙箱；GRADLE_USER_HOME=/tmp/a10-gradle-home（~/.gradle 不可写），
+追加 -Pkotlin.compiler.execution.strategy=in-process 规避含中文工程路径下 Kotlin 守护进程把路径转义为 u8BFE... 的问题。
+
+## ./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest testReleaseUnitTest
+```
+BUILD SUCCESSFUL
+testDebugUnitTest: 283 tests, 0 failures, 0 errors, 0 skipped
+testReleaseUnitTest: 283 tests, 0 failures, 0 errors, 0 skipped
+```
+
+## ./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process assembleDebug assembleRelease assembleDebugAndroidTest lintDebug
+```
+BUILD SUCCESSFUL
+lint Warning: AndroidGradlePluginVersion x1
+lint Warning: GradleDependency x10
+lint Warning: IconDuplicates x2
+lint Warning: IconLauncherShape x2
+lint Warning: MonochromeLauncherIcon x2
+lint Warning: NewerVersionAvailable x2
+lint Warning: ObsoleteSdkInt x2
+lint Warning: UseKtx x3
+lint total: 24 (0 errors；全部既有类别，A11 无新增)
+```
+
+## ANDROID_SERIAL=emulator-5554 ./gradlew --offline -Pkotlin.compiler.execution.strategy=in-process connectedDebugAndroidTest
+```
+Running tests on devices: emulator-5554 - 17
+BUILD SUCCESSFUL
+connected: 202 tests, 0 failures, 0 errors, 0 skipped
+  com.qingke.schedule.ui.AppearanceSettingsTest: 13（A11 新增）
+  com.qingke.schedule.ui.DataTransferSectionTest: 15
+  com.qingke.schedule.transfer.ScheduleImportDeviceTest: 5
+  com.qingke.schedule.transfer.ScheduleFileAccessDeviceTest: 4
+```
+
+## 仓库根目录文档与空白检查
+```
+python3 docs/tests/android-documentation.test.py  -> Ran 71 tests, OK
+bash docs/tests/documentation.test.sh              -> exit 0
+bash docs/tests/repository-layout.test.sh          -> exit 0
+git diff --check                                    -> 无输出（无空白错误）
+```
+
+A11 新增测试：JVM ScheduleViewModelAppearanceTest 6 + AppearanceLayoutTest 4 = 10；
+设备 AppearanceSettingsTest 13（含 2 条品牌 Logo 主题回归，修正前失败、修正后通过）。
+
+真实设备运行与截图见同目录 device-verification-20260920.txt、brand-logo-theme-fix-20260920.txt。
