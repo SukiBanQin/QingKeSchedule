@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "semester": {
+    "id": "mi10-a08-20260921",
+    "name": "A08 小米 10 真机验证",
+    "startDate": "2026-09-21",
+    "totalWeeks": 2,
+    "periods": [
+      { "number": 1, "startTime": "18:50", "endTime": "18:55" },
+      { "number": 2, "startTime": "19:05", "endTime": "19:10" },
+      { "number": 3, "startTime": "19:20", "endTime": "19:25" },
+      { "number": 4, "startTime": "19:35", "endTime": "19:40" },
+      { "number": 5, "startTime": "19:50", "endTime": "19:55" }
+    ]
+  },
+  "courses": [
+    {
+      "id": "mi10-a08-exact",
+      "name": "A08 精确提醒验证",
+      "teacher": "测试",
+      "color": "#287B74",
+      "schedules": [{ "id": "mi10-exact", "dayOfWeek": 1, "startPeriod": 1, "endPeriod": 1, "startWeek": 1, "endWeek": 1, "repeat": "every", "classroom": "测试 A101" }]
+    },
+    {
+      "id": "mi10-a08-reboot",
+      "name": "A08 重启恢复验证",
+      "teacher": "测试",
+      "color": "#D96952",
+      "schedules": [{ "id": "mi10-reboot", "dayOfWeek": 1, "startPeriod": 2, "endPeriod": 2, "startWeek": 1, "endWeek": 1, "repeat": "every", "classroom": "测试 B202" }]
+    },
+    {
+      "id": "mi10-a08-doze",
+      "name": "A08 休眠投递验证",
+      "teacher": "测试",
+      "color": "#536FAF",
+      "schedules": [{ "id": "mi10-doze", "dayOfWeek": 1, "startPeriod": 3, "endPeriod": 3, "startWeek": 1, "endWeek": 1, "repeat": "every", "classroom": "测试 C303" }]
+    },
+    {
+      "id": "mi10-a08-inexact",
+      "name": "A08 非精确提醒验证",
+      "teacher": "测试",
+      "color": "#9A6AAF",
+      "schedules": [{ "id": "mi10-inexact", "dayOfWeek": 1, "startPeriod": 4, "endPeriod": 4, "startWeek": 1, "endWeek": 1, "repeat": "every", "classroom": "测试 D404" }]
+    },
+    {
+      "id": "mi10-a08-cancel",
+      "name": "A08 取消旧提醒验证",
+      "teacher": "测试",
+      "color": "#B87928",
+      "schedules": [{ "id": "mi10-cancel", "dayOfWeek": 1, "startPeriod": 5, "endPeriod": 5, "startWeek": 1, "endWeek": 1, "repeat": "every", "classroom": "测试 E505" }]
+    }
+  ],
+  "updatedAt": "2026-09-21T10:30:00Z"
+}
