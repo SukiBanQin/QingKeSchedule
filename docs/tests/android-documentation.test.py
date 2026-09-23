@@ -34,19 +34,20 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
-    def test_p6_final_review_keeps_user_and_release_gates(self):
+    def test_p6_acceptance_keeps_release_gate_and_limits(self):
         handoff = (DOCS / "handoff.md").read_text().split(
-            "## P6-02 最终回归通过 GPT6 SOL 独立复审", 1
+            "## P6 阶段获用户验收；交给新窗口", 1
         )[1].split("\n## ", 1)[0]
         review = (DOCS / "p6-final-regression-review.md").read_text()
         matrix = (DOCS / "p6-final-regression.md").read_text()
-        for marker in ("23b5b2c313aca285b877deda23ed3c19d7a1cf84", "283", "202", "P6 阶段仍待用户确认", "D04"):
+        for marker in ("23b5b2c313aca285b877deda23ed3c19d7a1cf84", "283", "202", "P6 阶段按已记录范围与限制通过用户验收", "D04"):
             self.assertIn(marker, handoff)
         for marker in ("通过 GPT6 SOL 独立复审", "自然长时待机", "未验证", "不发布", "不合并 `main`"):
             self.assertIn(marker, review)
         for acceptance_id in range(1, 12):
             self.assertIn(f"A{acceptance_id:02d} ", matrix)
-        self.assertIn("P6 阶段仍待用户确认", matrix)
+        self.assertIn("用户随后于 2026-09-23 明确接受 P6 阶段结果", matrix)
+        self.assertIn("D04", matrix)
 
     def test_user_selected_executor_preserves_review_gate(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 角色与修改范围", 1)[1].split("# Codex 回退模式", 1)[0]

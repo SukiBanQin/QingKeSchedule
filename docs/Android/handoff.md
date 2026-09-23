@@ -1,5 +1,13 @@
 # 安卓项目当前交接状态
 
+## P6 阶段获用户验收；交给新窗口（最新，2026-09-23）
+
+用户在阅读 P6-02 最终回归及 GPT6 SOL 独立复审结果后明确回复“接受”，因此 **P6 阶段按已记录范围与限制通过用户验收**。A01—A11 的各自状态及证据见 [P6-02 最终回归](p6-final-regression.md)，独立复审结论见 [P6-02 复审](p6-final-regression-review.md)。P6 用户验收不表示自然长时待机、手动拒绝权限完整路径、非精确能力长期待机、其他厂商投递或 A10 的 iOS App 文件 UI 往返已验证；这些既有边界继续保留。小米 10 成功提醒依赖自启动开启、青课省电策略“无限制”及通知类别的悬浮／震动／完整锁屏显示；默认推荐省电策略曾实际阻滞闹钟。
+
+本次交接更新前的已推送基准是 `Android` 分支 `ad0a9d56912107c45efe48ea6ab3bb6516c34f5b`；本次文档提交编号以交付消息或 `git log` 为准。新窗口接手前须重新核对 `HEAD`、`origin/Android`、远程同名分支与 `git status`。当时工作区只有用户未跟踪 `.vscode/`，应保留且不纳入本任务。P6-02 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84`、GPT6 SOL 复审提交 `ad0a9d5`；执行子 Agent `/root/p6_final_regression`（本 GPT6 SOL 主会话、`gpt-6-luna`／`xhigh`）已完成并回报，当前没有授权中的应用写入任务。全量回归：Debug／Release JVM 各 283、API 37 ARM64 connected 202，均 0 failures／errors／skipped；三种构建成功，lint 0 errors／24 warnings；复审文档验证 72 tests OK，详见上述证据文件。
+
+**下一步是与用户讨论 D04 的个人安装／分发／正式发布目标，而不是默认启动开发。** P1 已确认个人 debug 安装验证，正式发行范围仍未决定；用户尚未授权发布配置、签名、商店提交或 `main` 合并。用户称小米测试课程已自行清理，手机未连接 Mac，未独立核对课程、节次或闹钟；用户明确不需要恢复第 1 节到 18:50，新窗口不得自行改动手机数据。执行模型由用户在新窗口选择 GPT6 Luna 或 DSH；GPT6 SOL 按需独立审查，不能假定当前子 Agent 可跨新窗口复用。
+
 ## P6-02 最终回归通过 GPT6 SOL 独立复审（最新，2026-09-23）
 
 GPT6 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84` 的五个文档改动、A01—A11 状态矩阵及原始回归报告已经 GPT6 SOL 集中复审，未发现阻断。独立读取本地 XML：Debug／Release JVM 各 283 项、API 37 ARM64 设备 202 项，均 0 failures／errors／skipped；Lint HTML 为 24 warnings，执行记录的构建与文档验证结果一致。完整范围、依据及未测限制见 [P6-02 独立复审](p6-final-regression-review.md)。本次复审未重复完整 Gradle 测试，也未改应用代码。
