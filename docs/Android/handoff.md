@@ -1,5 +1,11 @@
 # 安卓项目当前交接状态
 
+## P6-02 最终回归通过 GPT6 SOL 独立复审（最新，2026-09-23）
+
+GPT6 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84` 的五个文档改动、A01—A11 状态矩阵及原始回归报告已经 GPT6 SOL 集中复审，未发现阻断。独立读取本地 XML：Debug／Release JVM 各 283 项、API 37 ARM64 设备 202 项，均 0 failures／errors／skipped；Lint HTML 为 24 warnings，执行记录的构建与文档验证结果一致。完整范围、依据及未测限制见 [P6-02 独立复审](p6-final-regression-review.md)。本次复审未重复完整 Gradle 测试，也未改应用代码。
+
+准确状态：**P6-02 全量回归与证据收口已通过独立技术复审；P6 阶段仍待用户确认。** A08 是用户按已观察范围验收，未测限制继续保留；D04 待单独决定，不发布、不合并 `main`。
+
 ## P6-02 最终回归与 A01—A11 证据收口（最新，2026-09-23）
 
 本轮基准为 `Android` 分支 `5700d42197e8a53391e4b267371a50ff8a6833bb`，与 `origin/Android` 一致；开始时仅有无关未跟踪 `.vscode/`，已保留且未纳入。修改范围为 `docs/Android/`，未改应用代码、iOS、Web、共享协议或发布配置。A01—A11 状态矩阵、iOS 基准证据索引和保留限制见 [P6-02 最终回归记录](p6-final-regression.md)；本轮 Gradle 命令、原始报告路径和结果见[回归证据记录](evidence/p6-final-regression-20260923.txt)。
