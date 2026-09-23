@@ -378,7 +378,13 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["settings-tab"].tap()
 
         let importControl = app.buttons["schedule-import-test-file"]
+        let todayTab = app.buttons["today-tab"]
+        XCTAssertTrue(todayTab.waitForExistence(timeout: 5))
         scrollToElement(importControl, in: app)
+        for _ in 0..<8 where importControl.frame.maxY >= todayTab.frame.minY {
+            app.swipeUp()
+        }
+        XCTAssertLessThan(importControl.frame.maxY, todayTab.frame.minY)
         tapVisibleBlankArea(of: importControl, horizontalOffset: 0.88)
         XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
         app.buttons["取消"].coordinate(
