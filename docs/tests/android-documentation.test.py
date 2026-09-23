@@ -137,7 +137,10 @@ class AndroidDocumentationTests(unittest.TestCase):
             "Android 8.0（API 26）", "QingKeSchedule-1.0.apk", "SHA-256",
             "相同包名和正式签名密钥", "更高的 `versionCode`", "不会自动检查或安装更新",
             "导出课表 JSON", "卸载 Debug 版", "小米 10（Android 13）",
-            "自然长时待机", "GitHub Issues",
+            "自然长时待机", "GitHub Issues", "ios/QingKeSchedule.xcodeproj",
+            "iOS 17", "没有公开的 iOS 安装包（IPA）", "Personal Team",
+            "Signing & Capabilities", "Automatically manage signing", "Developer Mode",
+            "有效期为 7 天", "TestFlight 或 App Store",
         ):
             self.assertIn(marker, readme)
 
@@ -156,6 +159,19 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertEqual(
             urlsplit(issue_url.group(1)).path,
             "/SukiBanQin/QingKeSchedule/issues",
+        )
+        apple_doc_paths = {
+            urlsplit(url).path
+            for url in re.findall(r"\]\((https://developer\.apple\.com/[^)]+)\)", readme)
+        }
+        self.assertEqual(
+            apple_doc_paths,
+            {
+                "/help/account/basics/about-your-developer-account/",
+                "/documentation/xcode/distributing-your-app-to-registered-devices",
+                "/documentation/xcode/enabling-developer-mode-on-a-device",
+                "/programs/",
+            },
         )
         self.assertIn("当前固定工程组合", android_readme)
 

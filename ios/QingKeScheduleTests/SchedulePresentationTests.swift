@@ -30,11 +30,30 @@ struct SchedulePresentationTests {
         #expect(presentation.items.filter(\.isNext).map(\.id) == ["schedule-alpha"])
         let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
         #expect(current.timingProgress == CourseTimingProgress(
-            elapsedMinutes: 46,
-            remainingMinutes: 64,
+            elapsedSeconds: 46 * 60,
+            remainingSeconds: 64 * 60,
             fraction: 46.0 / 110.0
         ))
         #expect(presentation.items.first?.timingProgress == nil)
+    }
+
+    @Test("进行中课程使用真实秒数计算倒计时")
+    func timingProgressUsesSecondPrecision() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let presentation = TodaySchedulePresentation(
+            semester: semester,
+            courses: data.courses,
+            now: try date(2026, 8, 31, hour: 9, minute: 41, second: 52),
+            calendar: calendar
+        )
+
+        let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
+        let progress = try #require(current.timingProgress)
+        #expect(progress.elapsedSeconds == 46 * 60 + 52)
+        #expect(progress.remainingSeconds == 63 * 60 + 8)
+        #expect(progress.remainingClockText == "63:08")
+        #expect(progress.fraction == Double(46 * 60 + 52) / Double(110 * 60))
     }
 
     @Test("学期外与学期内无课有不同空状态")
@@ -209,6 +228,127 @@ struct SchedulePresentationTests {
         ) == 18)
     }
 
+    @Test("学期开始前初始化的周课表会继续跟随教学周")
+    func weekSelectionInitializedBeforeSemesterFollowsIntoLaterWeeks() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 8, 30, hour: 12),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect((1...semester.totalWeeks).contains(selection.selectedWeek))
+
+        selection.refresh(
+            for: try date(2026, 8, 31, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 1)
+
+        selection.refresh(
+            for: try date(2026, 9, 7, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 2)
+        #expect((1...semester.totalWeeks).contains(selection.selectedWeek))
+    }
+
+    @Test("周课表跟随当天跨午夜更新星期")
+    func weekSelectionFollowsDayAcrossMidnight() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 8, 31, hour: 23, minute: 59, second: 59),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect(selection.followsCurrentDay)
+
+        selection.refresh(
+            for: try date(2026, 9, 1, hour: 0, minute: 0),
+            semester: semester,
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 2)
+    }
+
+    @Test("周课表跟随当前日期跨周日到周一更新教学周")
+    func weekSelectionFollowsSundayIntoNextTeachingWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: try date(2026, 9, 6, hour: 23, minute: 59, second: 59),
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 1)
+        #expect(selection.selectedDay == 7)
+
+        selection.refresh(
+            for: try date(2026, 9, 7, hour: 0, minute: 0),
+            semester: semester,
+            calendar: calendar
+        )
+
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 1)
+    }
+
+    @Test("周课表手动浏览保持选择并可恢复跟随当前日期")
+    func weekSelectionPreservesManualBrowsingUntilReturningToCurrentWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let monday = try date(2026, 8, 31, hour: 9)
+        var selection = WeekScheduleSelection(
+            semester: semester,
+            now: monday,
+            calendar: calendar
+        )
+
+        selection.selectNextWeek(totalWeeks: semester.totalWeeks)
+        selection.selectDay(3, now: monday, calendar: calendar)
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 3)
+        #expect(!selection.followsCurrentWeek)
+        #expect(!selection.followsCurrentDay)
+
+        let thirdWeekMonday = try date(2026, 9, 14, hour: 9)
+        selection.refresh(for: thirdWeekMonday, semester: semester, calendar: calendar)
+        #expect(selection.selectedWeek == 2)
+        #expect(selection.selectedDay == 3)
+
+        selection.returnToCurrentWeek(
+            semester: semester,
+            now: thirdWeekMonday,
+            calendar: calendar
+        )
+        selection.selectDay(1, now: thirdWeekMonday, calendar: calendar)
+        #expect(selection.selectedWeek == 3)
+        #expect(selection.selectedDay == 1)
+        #expect(selection.followsCurrentWeek)
+        #expect(selection.followsCurrentDay)
+
+        selection.refresh(
+            for: try date(2026, 9, 21, hour: 9),
+            semester: semester,
+            calendar: calendar
+        )
+        #expect(selection.selectedWeek == 4)
+        #expect(selection.selectedDay == 1)
+    }
+
     @Test("周课表摘要和课程紧凑信息使用真实数据")
     func weekMatrixLabels() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
@@ -257,7 +397,8 @@ struct SchedulePresentationTests {
         _ month: Int,
         _ day: Int,
         hour: Int = 0,
-        minute: Int = 0
+        minute: Int = 0,
+        second: Int = 0
     ) throws -> Date {
         try #require(calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,
@@ -265,7 +406,8 @@ struct SchedulePresentationTests {
             month: month,
             day: day,
             hour: hour,
-            minute: minute
+            minute: minute,
+            second: second
         )))
     }
 }

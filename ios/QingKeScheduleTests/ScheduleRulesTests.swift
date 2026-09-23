@@ -111,7 +111,7 @@ struct ScheduleRulesTests {
         ).isEmpty)
     }
 
-    @Test("课程状态包含开始和结束分钟边界")
+    @Test("课程状态包含秒级开始和结束边界")
     func occurrenceStatusBoundaries() throws {
         let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
         let semester = try #require(data.semester)
@@ -120,10 +120,10 @@ struct ScheduleRulesTests {
             schedule: try schedule(id: "schedule-every", in: data)
         )
 
-        #expect(status(atHour: 7, minute: 59, occurrence: occurrence, semester: semester) == .upcoming)
-        #expect(status(atHour: 8, minute: 0, occurrence: occurrence, semester: semester) == .ongoing)
-        #expect(status(atHour: 9, minute: 40, occurrence: occurrence, semester: semester) == .ongoing)
-        #expect(status(atHour: 9, minute: 41, occurrence: occurrence, semester: semester) == .finished)
+        #expect(status(atHour: 7, minute: 59, second: 59, occurrence: occurrence, semester: semester) == .upcoming)
+        #expect(status(atHour: 8, minute: 0, second: 0, occurrence: occurrence, semester: semester) == .ongoing)
+        #expect(status(atHour: 9, minute: 39, second: 59, occurrence: occurrence, semester: semester) == .ongoing)
+        #expect(status(atHour: 9, minute: 40, second: 0, occurrence: occurrence, semester: semester) == .finished)
     }
 
     @Test("冲突同时考虑星期、节次、周次和单双周")
@@ -166,6 +166,7 @@ struct ScheduleRulesTests {
     private func status(
         atHour hour: Int,
         minute: Int,
+        second: Int = 0,
         occurrence: CourseOccurrenceDTO,
         semester: SemesterDTO
     ) -> CourseStatus {
@@ -175,7 +176,8 @@ struct ScheduleRulesTests {
             month: 8,
             day: 31,
             hour: hour,
-            minute: minute
+            minute: minute,
+            second: second
         ))!
         return ScheduleRules.occurrenceStatus(
             occurrence,

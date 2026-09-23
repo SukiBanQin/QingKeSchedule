@@ -8,6 +8,16 @@
 
 正式签名 keystore 留在仓库外；本机与私人 iCloud Drive 两处加密副本已核对，密码在本机登录钥匙串和 Apple“密码”App 中一致。iCloud 云端完成同步及异机恢复尚未独立验证。公开前已更换 keystore 密码并以新密码重建成功，签名证书和最终 APK 不变。P6 既有验收与未测限制继续保留，不因发布扩大结论；实体手机未连接，也未修改其数据。工作区保留用户未跟踪 `.vscode/`，未纳入提交。
 
+## iOS 源码同步完成；`main` 等待独立审查（2026-09-23）
+
+用户已明确授权把 `/Users/takagisan/课表软件-IOS` 的 `ios/` 同步到本仓库 `Android` 分支，更新仓库根 `README.md` 添加 iOS 工程介绍与 Mac/Xcode 本机签名安装指引，并在验证后同步到 `main`。不修改签名密钥、APK、GitHub Release/tag、手机数据或 iOS 应用逻辑；保持原 `IOS` 工作区和 Android 的用户未跟踪 `.vscode/`。
+
+- 基准核对：开始时 Android `bd54b73aba51103386e2c5e5b6044ba5f5cf9218` 与 `origin/Android` 一致，工作区仅有未跟踪 `.vscode/`；iOS 源分支 `IOS`／`origin/IOS` 起点为 `fc3ddfb8ffa14b205a591ffdbed5632d5f975001` 且干净。原 `ios/` 差异为 12 个文件、554 行增加／56 行删除；现 Android 的 `ios/` 已逐文件匹配 `IOS`／`origin/IOS` 的 `bdb77da5f54752468054375180a459c15a308b0b`，相对开始的 Android 提交为 12 个文件、566 行增加／60 行删除，未改 iOS 应用逻辑。IOS 分支先后提交并推送 `b5dd4561d795dc6071c31e9e16ee0e1dc68bd8d3`、`bdb77da5f54752468054375180a459c15a308b0b`，均只修正 UI 测试环境假设／可见性。
+- iOS 工程最低部署版本是 iOS 17。README 已说明源码路径、没有公开 IPA／TestFlight／App Store 版本、选择自己的 Xcode Team 与自动签名、连接并信任自己的 iPhone、按提示启用 Developer Mode；Personal Team 的开发配置文件有效期为 7 天。信息参考 Apple 官方账户、Xcode 设备分发、Developer Mode 与 Developer Program 页面，不宣称 iOS 已公开发布。
+- 全量 UI 测试首次结果为 100/101：唯一失败 `testAppearancePreferenceAppliesImmediately` 把“跟随系统”硬编码成深色；在干净 IOS 起点、iPhone 17 Pro（iOS 26.5）重现，而 `simctl ui appearance` 为 `unknown`。IOS 提交 `b5dd456` 将该测试改为记录真实 system label，仍检查 LIGHT=浅色、DARK=深色即时更新和切回 SYSTEM 恢复原外观；单项测试在 iPhone 17 Pro Max（iOS 26.5）通过。全量中的另一旧 UI 用例 `testDataTransferImportControlRespondsOutsideItsText` 在第 383 行未打开确认面板；失败 xcresult 活动记录及 hierarchy 显示导入测试按钮 y=831.7–879.7、底部 Tab bar 从 y=836 起覆盖，`isHittable` 仍为 true，点中心被导航栏拦截。IOS 提交 `bdb77da` 在测试中滚动到控件下缘高于底栏后仍点击右侧文字外区域，保留原导入预览确认断言；对应 targeted test 在另一台 iPhone 17（iOS 26.5）通过。没有修改 App 导入／外观逻辑。
+- 使用隔离 `/tmp/qingke-ios-source-sync-20260923/` DerivedData 保持仓库内现有忽略构建目录不变。同步树 `xcodebuild build` 成功；文档测试 `android-documentation.test.py` **77 项通过**，文档脚本、仓库布局脚本与 `git diff --check` 通过。最新一次修正后的全量 XCTest 在 iPhone 17（iOS 26.5）未能验证：22/22 UI 用例均因 CoreSimulator `SBMainWorkspace Busy (Application failed preflight checks)` 无法启动应用，0 项通过；这是 simulator 启动失败，不是测试断言结果。不要声称全量通过，按主审要求不重复全量运行。源代码 targeted 外观与导入 UI 测试各 1/1 通过；无实体 iPhone 签名安装或发布 iOS 包验证。
+- 根 README、该文档测试、本文及 `ios/` 已更新，Android 对应提交与推送待完成。`origin/main` 当前为 `8a379403e4a4131ed7d2e75553f8072075c3f2ad`；用户已授权非强推合并，但本次主审明确要求先审阅全量测试阻断证据，故 **尚未合并／推送 main**。当前准确状态是 **iOS 源码已同步至 Android 工作树、Mac 本机签名说明和文档验证完成；全量 UI 测试未通过（模拟器启动阻断），iOS 未经独立审查／实体设备验收，也没有公开 iOS 版本**。
+
 ## D04 GitHub 1.0 发布准备通过独立复审（历史阶段记录，2026-09-23）
 
 GPT6 SOL 已集中核对 `5aa4805`、`cedc6bc`、`1b024e5` 的实际 diff、签名 APK、测试 XML 与发布文案；结论为**发布准备通过独立技术复审**，详见 [D04 独立复审](d04-release-v1.0-review.md)。签名 1.0 APK 的 SHA-256 为 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51`，已独立确认；P6 既有未测限制保留。

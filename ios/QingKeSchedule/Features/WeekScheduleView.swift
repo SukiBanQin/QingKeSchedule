@@ -1,16 +1,103 @@
 import SwiftUI
 
+struct WeekScheduleSelection: Equatable {
+    private(set) var selectedWeek: Int
+    private(set) var selectedDay: Int
+    private(set) var followsCurrentWeek: Bool
+    private(set) var followsCurrentDay: Bool
+
+    init(semester: SemesterDTO, now: Date, calendar: Calendar) {
+        selectedWeek = WeekSchedulePresentation.initialWeek(
+            semester: semester,
+            now: now,
+            calendar: calendar
+        )
+        selectedDay = Self.dayOfWeek(for: now, calendar: calendar)
+        followsCurrentWeek = true
+        followsCurrentDay = true
+    }
+
+    mutating func refresh(for now: Date, semester: SemesterDTO, calendar: Calendar) {
+        if followsCurrentWeek,
+           let currentWeek = Self.currentTeachingWeek(
+               semester: semester,
+               now: now,
+               calendar: calendar
+           ), selectedWeek != currentWeek {
+            selectedWeek = currentWeek
+        }
+        let currentDay = Self.dayOfWeek(for: now, calendar: calendar)
+        if followsCurrentDay, selectedDay != currentDay {
+            selectedDay = currentDay
+        }
+    }
+
+    mutating func selectPreviousWeek() {
+        selectedWeek = max(selectedWeek - 1, 1)
+        followsCurrentWeek = false
+    }
+
+    mutating func selectNextWeek(totalWeeks: Int) {
+        selectedWeek = min(selectedWeek + 1, totalWeeks)
+        followsCurrentWeek = false
+    }
+
+    mutating func returnToCurrentWeek(
+        semester: SemesterDTO,
+        now: Date,
+        calendar: Calendar
+    ) {
+        guard let currentWeek = Self.currentTeachingWeek(
+            semester: semester,
+            now: now,
+            calendar: calendar
+        ) else {
+            return
+        }
+        selectedWeek = currentWeek
+        followsCurrentWeek = true
+    }
+
+    mutating func selectDay(_ day: Int, now: Date, calendar: Calendar) {
+        selectedDay = day
+        followsCurrentDay = day == Self.dayOfWeek(for: now, calendar: calendar)
+    }
+
+    private static func currentTeachingWeek(
+        semester: SemesterDTO,
+        now: Date,
+        calendar: Calendar
+    ) -> Int? {
+        guard let week = ScheduleRules.teachingWeek(
+            for: now,
+            semester: semester,
+            calendar: calendar
+        ), ScheduleRules.isTeachingWeekInSemester(week, semester: semester) else {
+            return nil
+        }
+        return week
+    }
+
+    private static func dayOfWeek(for date: Date, calendar: Calendar) -> Int {
+        let sundayBasedWeekday = calendar.component(.weekday, from: date)
+        return sundayBasedWeekday == 1
+            ? ScheduleDisplayText.weekdayNames.count
+            : sundayBasedWeekday - 1
+    }
+}
+
 struct WeekScheduleView: View {
     let semester: SemesterDTO
     let courses: [CourseDTO]
     let now: Date
     let academicCalendarSettings: AcademicCalendarSettings
     let calendar: Calendar
+    let isRefreshing: Bool
+    let onRefresh: () async -> Void
     let onAddCourse: () -> Void
     let onSelectCourse: (CourseDTO) -> Void
 
-    @State private var selectedWeek: Int
-    @State private var selectedDay: Int
+    @State private var selection: WeekScheduleSelection
 
     init(
         semester: SemesterDTO,
@@ -18,6 +105,8 @@ struct WeekScheduleView: View {
         now: Date,
         academicCalendarSettings: AcademicCalendarSettings,
         calendar: Calendar,
+        isRefreshing: Bool = false,
+        onRefresh: @escaping () async -> Void = {},
         onAddCourse: @escaping () -> Void,
         onSelectCourse: @escaping (CourseDTO) -> Void
     ) {
@@ -26,22 +115,20 @@ struct WeekScheduleView: View {
         self.now = now
         self.academicCalendarSettings = academicCalendarSettings
         self.calendar = calendar
+        self.isRefreshing = isRefreshing
+        self.onRefresh = onRefresh
         self.onAddCourse = onAddCourse
         self.onSelectCourse = onSelectCourse
-        _selectedWeek = State(initialValue: WeekSchedulePresentation.initialWeek(
+        _selection = State(initialValue: WeekScheduleSelection(
             semester: semester,
             now: now,
             calendar: calendar
         ))
-        let sundayBasedWeekday = calendar.component(.weekday, from: now)
-        _selectedDay = State(initialValue: sundayBasedWeekday == 1
-            ? ScheduleDisplayText.weekdayNames.count
-            : sundayBasedWeekday - 1)
     }
 
     private var presentation: WeekSchedulePresentation {
         WeekSchedulePresentation(
-            week: selectedWeek,
+            week: selection.selectedWeek,
             semester: semester,
             courses: courses,
             now: now,
@@ -59,8 +146,12 @@ struct WeekScheduleView: View {
     }
 
     private var selectedDayPresentation: WeekDayPresentation {
-        presentation.days.first(where: { $0.dayOfWeek == selectedDay })
+        presentation.days.first(where: { $0.dayOfWeek == selection.selectedDay })
             ?? presentation.days[0]
+    }
+
+    private var currentDateKey: Date {
+        calendar.startOfDay(for: now)
     }
 
     var body: some View {
@@ -75,6 +166,9 @@ struct WeekScheduleView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
+                        if isRefreshing {
+                            TerminalRefreshFeedback(accessibilityIdentifier: "week-refresh-status")
+                        }
                         screenTitle
                         weekControls
                         weekdayStrip
@@ -87,6 +181,8 @@ struct WeekScheduleView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("week-schedule")
                 }
+                .scrollBounceBehavior(.always)
+                .refreshable { await onRefresh() }
             }
 
             VStack {
@@ -103,6 +199,13 @@ struct WeekScheduleView: View {
             }
         }
         .navigationBarHidden(true)
+        .onChange(of: currentDateKey) { _, _ in
+            selection.refresh(
+                for: now,
+                semester: semester,
+                calendar: calendar
+            )
+        }
     }
 
     private var screenTitle: some View {
@@ -125,7 +228,7 @@ struct WeekScheduleView: View {
                 Text("WEEK")
                     .font(.terminal(9, weight: .black, relativeTo: .caption2))
                     .tracking(1.1)
-                Text(String(format: "%02d", selectedWeek))
+                Text(String(format: "%02d", selection.selectedWeek))
                     .font(.terminal(42, weight: .light, relativeTo: .title))
             }
         }
@@ -134,13 +237,13 @@ struct WeekScheduleView: View {
     private var weekControls: some View {
         HStack(spacing: 0) {
             Button {
-                selectedWeek = max(selectedWeek - 1, 1)
+                selection.selectPreviousWeek()
             } label: {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 64)
                     .contentShape(Rectangle())
             }
-            .disabled(selectedWeek <= 1)
+            .disabled(selection.selectedWeek <= 1)
             .accessibilityLabel("上一周")
             .accessibilityIdentifier("week-previous")
 
@@ -149,18 +252,20 @@ struct WeekScheduleView: View {
                 .frame(width: 1, height: 64)
 
             Button {
-                if let currentWeek = presentation.currentWeek {
-                    selectedWeek = currentWeek
-                }
+                selection.returnToCurrentWeek(
+                    semester: semester,
+                    now: now,
+                    calendar: calendar
+                )
             } label: {
                 VStack(spacing: 3) {
                     Text(semester.name)
                         .font(.caption)
                         .foregroundStyle(QingKeTheme.textSecondary)
                         .lineLimit(1)
-                    Text("第 \(String(format: "%02d", selectedWeek)) 教学周")
+                    Text("第 \(String(format: "%02d", selection.selectedWeek)) 教学周")
                         .font(.headline)
-                    Text(selectedWeek.isMultiple(of: 2) ? "EVEN WEEK" : "ODD WEEK")
+                    Text(selection.selectedWeek.isMultiple(of: 2) ? "EVEN WEEK" : "ODD WEEK")
                         .font(.terminal(8, weight: .bold, relativeTo: .caption2))
                         .tracking(1)
                         .foregroundStyle(QingKeTheme.cyan)
@@ -169,8 +274,12 @@ struct WeekScheduleView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(presentation.currentWeek == nil || presentation.currentWeek == selectedWeek)
-            .accessibilityLabel("第 \(selectedWeek) 周，点按返回本周")
+            .disabled(
+                presentation.currentWeek == nil
+                    || (presentation.currentWeek == selection.selectedWeek
+                        && selection.followsCurrentWeek)
+            )
+            .accessibilityLabel("第 \(selection.selectedWeek) 周，点按返回本周")
             .accessibilityIdentifier("selected-week")
 
             Rectangle()
@@ -178,13 +287,13 @@ struct WeekScheduleView: View {
                 .frame(width: 1, height: 64)
 
             Button {
-                selectedWeek = min(selectedWeek + 1, semester.totalWeeks)
+                selection.selectNextWeek(totalWeeks: semester.totalWeeks)
             } label: {
                 Image(systemName: "chevron.right")
                     .frame(width: 44, height: 64)
                     .contentShape(Rectangle())
             }
-            .disabled(selectedWeek >= semester.totalWeeks)
+            .disabled(selection.selectedWeek >= semester.totalWeeks)
             .accessibilityLabel("下一周")
             .accessibilityIdentifier("week-next")
         }
@@ -198,7 +307,7 @@ struct WeekScheduleView: View {
         HStack(spacing: 0) {
             ForEach(presentation.days) { day in
                 Button {
-                    selectedDay = day.dayOfWeek
+                    selection.selectDay(day.dayOfWeek, now: now, calendar: calendar)
                 } label: {
                     VStack(spacing: 3) {
                         Text(String(ScheduleDisplayText.weekdayNames[day.dayOfWeek - 1].suffix(1)))
@@ -212,12 +321,12 @@ struct WeekScheduleView: View {
                     }
                     .foregroundStyle(weekdayForegroundColor(for: day))
                     .frame(maxWidth: .infinity, minHeight: 54)
-                    .background(day.dayOfWeek == selectedDay ? QingKeTheme.inverseSurface : Color.clear)
+                    .background(day.dayOfWeek == selection.selectedDay ? QingKeTheme.inverseSurface : Color.clear)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(weekdayAccessibilityLabel(day))
-                .accessibilityValue(day.dayOfWeek == selectedDay ? "已选择" : "未选择")
+                .accessibilityValue(day.dayOfWeek == selection.selectedDay ? "已选择" : "未选择")
                 .accessibilityIdentifier("week-day-selector-\(day.dayOfWeek)")
 
                 if day.dayOfWeek < ScheduleDisplayText.weekdayNames.count {
@@ -426,8 +535,8 @@ struct WeekScheduleView: View {
     private var dayManifest: some View {
         VStack(alignment: .leading, spacing: 12) {
             TerminalSectionHeader(
-                index: String(format: "%02d", selectedDay),
-                title: ScheduleDisplayText.weekdayNames[selectedDay - 1],
+                index: String(format: "%02d", selection.selectedDay),
+                title: ScheduleDisplayText.weekdayNames[selection.selectedDay - 1],
                 detail: selectedDayDetail
             )
 
@@ -552,11 +661,11 @@ struct WeekScheduleView: View {
 
     private func weekdayIndicatorColor(for day: WeekDayPresentation) -> Color {
         if day.isNonTeachingDay { return QingKeTheme.danger }
-        return day.dayOfWeek == selectedDay ? QingKeTheme.signal : .clear
+        return day.dayOfWeek == selection.selectedDay ? QingKeTheme.signal : .clear
     }
 
     private func weekdayForegroundColor(for day: WeekDayPresentation) -> Color {
-        if day.dayOfWeek == selectedDay { return QingKeTheme.textOnInverse }
+        if day.dayOfWeek == selection.selectedDay { return QingKeTheme.textOnInverse }
         return day.isNonTeachingDay ? QingKeTheme.danger : QingKeTheme.textPrimary
     }
 
