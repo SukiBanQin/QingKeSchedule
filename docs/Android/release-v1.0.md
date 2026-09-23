@@ -47,7 +47,7 @@
 - 支持 Android 8.0（API 26）及以上。
 - 下载 `QingKeSchedule-1.0.apk` 安装；后续版本从本仓库 Releases 下载后覆盖安装。
 - 请核对下方 APK 的 SHA-256。提醒投递可能需要按手机厂商设置自启动、电池后台策略与通知显示权限。
-- 已知限制和跨签名升级说明见[本说明的安装与升级章节](#安装与升级)。
+- 已知限制、安装与跨签名升级说明见[仓库中的 1.0 下载说明](https://github.com/SukiBanQin/QingKeSchedule/blob/v1.0/docs/Android/release-v1.0.md)（此链接在创建 `v1.0` tag 后生效）。
 
 **资产：** `QingKeSchedule-1.0.apk`
 

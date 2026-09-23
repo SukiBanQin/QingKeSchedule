@@ -52,6 +52,7 @@ class AndroidDocumentationTests(unittest.TestCase):
 
     def test_android_v1_release_instructions_and_secret_handling(self):
         release = (DOCS / RELEASE_NAME).read_text(encoding="utf-8")
+        release_draft = release.split("## GitHub Release 发布文字草案", 1)[1]
         gradle = (ROOT / "Android" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
         build_script = (ROOT / "Android" / "scripts" / "build-signed-release.sh").read_text(encoding="utf-8")
         keychain_reader = (ROOT / "Android" / "scripts" / "read-release-password.swift").read_text(encoding="utf-8")
@@ -66,6 +67,20 @@ class AndroidDocumentationTests(unittest.TestCase):
             "macOS 登录钥匙串", "尚未创建 GitHub Release",
         ):
             self.assertIn(marker, release)
+
+        release_doc_link = re.search(
+            r"\[仓库中的 1\.0 下载说明\]\((https://[^)]+)\)", release_draft
+        )
+        self.assertIsNotNone(release_doc_link)
+        release_doc_url = urlsplit(release_doc_link.group(1))
+        self.assertEqual(release_doc_url.scheme, "https")
+        self.assertEqual(release_doc_url.netloc, "github.com")
+        self.assertEqual(
+            release_doc_url.path,
+            "/SukiBanQin/QingKeSchedule/blob/v1.0/docs/Android/release-v1.0.md",
+        )
+        self.assertIn("此链接在创建 `v1.0` tag 后生效", release_draft)
+        self.assertNotIn("](#安装与升级)", release_draft)
 
         self.assertIn("System.getenv(it)", gradle)
         self.assertIn("QINGKE_RELEASE_KEYSTORE", gradle)
