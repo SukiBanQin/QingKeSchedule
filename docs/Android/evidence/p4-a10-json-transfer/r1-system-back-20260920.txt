@@ -1,0 +1,72 @@
+# P4／A10-R1 系统返回修正：设备与自动化证据（2026-09-20）
+
+执行窗口：DeepSeek V4.1 FLASH（实施、自测、设备证据、文档、提交、推送）。实际模型标识／服务／思考参数以
+用户客户端为准，本窗口无法读取，未核实。R0 的完整证据见同目录 `device-verification-20260920.txt`，
+本文件只记录 R1 的系统返回修正。
+
+## 1. 修改点
+
+`Android/app/src/main/java/com/qingke/schedule/ui/QingKeApp.kt` 的 `TransferDialogHost`：
+
+- 新增 `BackHandler(enabled = transfer.showsPrompt)`：只有传输提示（预览、解析失败、导出失败、可重试写入
+  失败）确实可见时才注册，因此不影响 SAF 文件面板、课程编辑器、学期保存弹窗和普通页面返回。
+- `isWriting == true` 时回调只消费返回，不调用 `dismissTransferPrompt()`、不调用 `confirmImport()`、
+  不取消事务；事务结束后仍沿用既有成功／失败状态。
+- 非写入态时返回与对应「取消／好／知道了」一致：只调用一次 `dismissTransferPrompt()`，停在原页面。
+- `TransferUiState.showsPrompt` 是唯一可见性判定，同时驱动弹窗渲染与返回注册，避免两者漂移。
+
+## 2. API 37 ARM64 真实 UI 运行记录（emulator-5554）
+
+设备：API 37（Android 17）、arm64-v8a、1080x2400、density 420、动画缩放 0（同 `device-properties.txt`）。
+应用：R1 构建的 `app-debug.apk`，`pm clear` 后从未配置状态开始。
+
+命令与实际结果（每一步都用 `uiautomator dump` 复核控件文本，`dumpsys activity` 复核前台页面）：
+
+```
+adb -s emulator-5554 install -r app-debug.apk                      -> Success
+adb -s emulator-5554 shell pm clear com.qingke.schedule            -> Success
+adb -s emulator-5554 push ios-export-complete-schedule.json /sdcard/Download/qingke-r1-back.json -> 1 file pushed
+adb -s emulator-5554 shell am start -n com.qingke.schedule/.MainActivity
+# 首次设置页 → 05 区「从 JSON 文件导入课表」（bounds [138,1474][517,1537]）
+adb -s emulator-5554 shell input tap 540 1505
+  -> topResumedActivity=com.google.android.documentsui/com.android.documentsui.picker.PickActivity（真实 OpenDocument）
+adb -s emulator-5554 shell input tap 346 1121                    # 选择 qingke-r1-back.json
+  -> 预览弹窗可见：IMPORT / VERIFY、REPLACE DATA、替换当前课表？、取消、替换当前课表
+adb -s emulator-5554 shell input keyevent KEYCODE_BACK           # 真实系统返回
+  -> 弹窗消失（"替换当前课表？" 不再出现）
+  -> topResumedActivity=com.qingke.schedule/.MainActivity（App 未退出）
+  -> 页面仍是原首次设置页：可见文本包含 首次设置、INITIAL SETUP、05、数据备份、TRANSFER、
+     仅支持青课 JSON 备份文件、从 JSON 文件导入课表、设置学期后可导出备份、创建课表、INITIALIZE TERMINAL
+  -> 没有出现「已导入 …」，即返回只收起弹窗，没有确认替换
+  -> 截图：13-r1-preview-back-dismissed-api37.png
+adb -s emulator-5554 shell input keyevent KEYCODE_BACK           # 无弹窗时的普通返回
+  -> topResumedActivity=com.google.android.apps.nexuslauncher/.NexusLauncherActivity
+  -> 说明没有传输提示时返回仍按系统默认行为离开页面，BackHandler 没有被错误启用
+```
+
+写入中的返回在实际设备上无法手工捕捉（整体事务通常在毫秒级完成），该项由下面带真实系统返回事件的
+自动化设备测试确定性证明。
+
+## 3. 自动化设备测试（真实系统返回事件，API 37 ARM64）
+
+`DataTransferSectionTest` 用 `androidx.test.espresso.Espresso.pressBack()` 注入真实系统返回事件（与仓库既有
+时间选择器返回测试同一机制），在 `emulator-5554` 上运行：
+
+| 测试 | 断言要点 |
+| --- | --- |
+| `aVisiblePreviewGivesSystemBackToTheCancelActionOnceAndKeepsThePage` | 可取消态返回只调用一次 `dismissTransferPrompt`（1 次）、调用 `confirmImport` 0 次、弹窗消失、`main-shell`／`settings-transfer-section` 仍在、`activity.isFinishing == false` |
+| `anImportFailureAndARetryableWriteFailureAlsoGiveSystemBackToTheirCancelAction` | 解析失败态与可重试写入失败态各只调用一次 dismiss（累计 2）、confirm 0 次、弹窗消失、页面仍在、Activity 未结束 |
+| `aWritingPreviewConsumesSystemBackWithoutCancellingOrLeavingTheActivity` | `isWriting` 时返回后 confirm 0 次、dismiss 0 次、预览弹窗仍显示、两个按钮仍 `assertIsNotEnabled`、`main-shell` 仍在、Activity 未结束 |
+| `theBackContractStaysOffWhileNoTransferPromptIsVisible` | 没有传输提示时（仅有成功状态）返回仍交给课程编辑器的 `editorBack` 1 次，dismiss／confirm 0 次，Activity 未结束（证明未注册或未被启用的 BackHandler 不会抢占其他层的返回） |
+| `thePreviewScrimStillBlocksTouchesToThePageBehindIt` | 预览可见时对弹窗后「从 JSON 文件导入课表」坐标做真实触摸，`requestImport` 0 次、弹窗仍在、Activity 未结束（保留遮罩回归） |
+
+结果：`DataTransferSectionTest` **15 tests、0 failures／0 errors／0 skipped**（R0 为 10，R1 新增 5）。
+完整设备集合与其余回归命令见 `verification-commands-20260920.txt` 的 R1 小节。
+
+## 4. R1 未验证限制
+
+- 写入中的系统返回只由自动化设备测试证明（真实事务时间过短，无法用 adb 手工捕捉）；这不改变 R0 已记录的
+  其余限制（iOS App 真实 UI 往返、A08 真实重启／Doze／厂商真机投递与通知观感）。
+- 本轮未修改协议、5 MiB 边界、严格校验、Room 事务、提醒协调与 D01 本地偏好边界，也未触碰 iOS／Web／共享
+  schema／fixtures／A11／发布／`main`。
+- R1 已实施并自测，**待 Sol 再复审**；不得据此宣布复审或用户验收通过。

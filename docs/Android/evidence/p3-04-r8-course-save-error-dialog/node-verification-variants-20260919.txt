@@ -1,0 +1,4 @@
+P3-04-R8 dialog variants
+dark: course-save-error bounds=(l=105.0,t=941.0,r=975.0,b=1459.0) size=870.0x518.0 texts=[] | course-save-error-dismiss bounds=(l=105.0,t=1336.0,r=975.0,b=1457.0) size=870.0x121.0 texts=[]
+font130: course-save-error bounds=(l=105.0,t=868.0,r=975.0,b=1533.0) size=870.0x665.0 texts=[] | course-save-error-dismiss bounds=(l=105.0,t=1410.0,r=975.0,b=1531.0) size=870.0x121.0 texts=[]
+narrow light: course-save-error bounds=(l=105.0,t=613.0,r=735.0,b=1278.0) size=630.0x665.0 texts=[] | course-save-error-dismiss bounds=(l=105.0,t=1155.0,r=735.0,b=1276.0) size=630.0x121.0 texts=[]

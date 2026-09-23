@@ -1,0 +1,8 @@
+P3-04-R8-R2 real-gesture evidence (API 37 ARM64 1080x2400@420dpi, font_scale 1.0)
+first boot picker: hour swipes=1 minute swipes=5 terminal-time-picker bounds=(l=47.0,t=682.0,r=1033.0,b=1718.0) size=986.0x1036.0 texts=[]
+first boot draft after confirm: start=07:20 writes=0
+settings picker: hour swipes=1 minute swipes=3 terminal-time-picker bounds=(l=47.0,t=682.0,r=1033.0,b=1718.0) size=986.0x1036.0 texts=[]
+settings save: period start=06:35 writes=2
+lunch picker: hour swipes=1 minute swipes=7 terminal-lunch-time-picker bounds=(l=47.0,t=682.0,r=1033.0,b=1718.0) size=986.0x1036.0 texts=[]
+lunch preferences: end=13:30 updates=1
+color dialog: panel height=1488 window=2400 clipped=false tabs top 901 -> 901

@@ -1,0 +1,182 @@
+# P3-04（A04/A05）课程 CRUD 验证证据
+
+日期：2026-09-14
+
+## 范围与基准
+
+- 实现提交：`30015f7 feat(android): implement p3-04 course editor`。
+- 本收尾修正提交在本文档写入时尚未产生；交付前由 Git 记录确认。
+- 分支：`Android`；仅修改 `Android/` 与 `docs/Android/`。
+- 合法重复课程 ID 的编辑／删除按“源课程位置＋打开时 `Course` 指纹”定位；未改 iOS、Web、`source/`、共享 schema、Room schema／版本或导入协议。
+
+## 自动化验证
+
+环境：`ANDROID_HOME` 与 `ANDROID_SDK_ROOT` 均为
+`/Users/takagisan/Library/Android/sdk-qingke-api37`，`ANDROID_AVD_HOME` 为
+`/Users/takagisan/.android/qingke-api37-r3-avd`，设备为 `qingke-api37-r3-arm` / `emulator-5554`（API 37、`arm64-v8a`）。
+
+| 命令／报告 | 结果 |
+| --- | --- |
+| `./gradlew testDebugUnitTest testReleaseUnitTest --no-daemon --console=plain` | 通过；Debug／Release 各 8 个 XML，0 failures／errors／skipped。 |
+| `./gradlew assembleDebug assembleRelease lintDebug assembleDebugAndroidTest --no-daemon --console=plain` | 通过；Debug、Release、AndroidTest APK 已生成；`lintDebug` 为 0 errors、21 warnings。 |
+| `./gradlew connectedDebugAndroidTest --no-daemon --console=plain` | 通过；API 37 ARM64 XML 为 42 tests、0 failures、0 errors、0 skipped。 |
+| `git diff --check` | 通过。 |
+
+仪器测试同时覆盖 Room 下重复业务 ID 的精确保存／删除与陈旧指纹拒绝；Compose 回归保留 TODAY 的状态、颜色、详情及 featured 断言。课程行新增可点击语义后，5 处子节点查询改为 `useUnmergedTree = true`，没有降低任何状态、颜色、详情或显示断言。
+
+## 已知验证边界
+
+- 本轮没有把 testhost 截图或固定测试数据称作生产用户验收。
+- 生产 APK 的人工新增／追加／编辑／冲突确认／删除／force-stop 重启和浅色／深色／130% 截图仍待 Sol 独立复审时补做；当前不能据此宣称用户验收。
+
+## R1 复审返工（2026-09-14）
+
+- TODAY 在安全区的右下角始终提供真实浮动 `ADD`；无课程仍直达新建，有课程进入按课程名称稳定排序、但保留来源 index 的 chooser。
+- 追加模式改为只读复用资料卡；ViewModel 同时拒绝名称、教师、颜色及原始颜色输入的修改。系统返回在确认层存在时只关闭确认层。
+- 预设色改为 iOS 六色：`#287B74 #D96952 #536FAF #9A6AAF #B87928 #46835A`；自定义色改为方角 Compose 对话框，原始输入与候选色由 ViewModel 保持。
+- 成功反馈改为主壳内 2.6 秒非阻塞终端提示，不使用 Android Toast；编辑器表单修正深色可读性、星期／节次时间文案和 in-flight 禁用语义。
+- 新增／扩展 ViewModel、Room、Compose 用例。R1 API 37 ARM64 `connectedDebugAndroidTest`：45 tests、0 failures、0 errors、0 skipped；设备确认 SDK 37、`arm64-v8a`。生产人工长链与截图仍未完成，保持待 Sol 最终复审。
+
+## R2 复审返工（2026-09-14）
+
+- 成功提示正文使用主题对应文字色；Compose 用例验证浅／深主题、主壳 ADD 仍可点击及 2.6 秒自动消失。R2 API 37 ARM64 connected 为 46 tests、0 failures、0 errors、0 skipped。
+- 编辑器改为固定品牌头、inverse 顶栏（底部 signal line）、顶部保存、编号资料／安排分区和仅编辑模式可见的 `99 / 危险操作` 删除区；chooser 使用平衡的顶部栏。节次分别显示其对应的起止时间。
+- R2 `testReleaseUnitTest assembleDebug assembleRelease lintDebug` 返回 `BUILD SUCCESSFUL`；lint 为 0 errors、21 warnings。生产人工 CRUD 全链和规定截图仍未执行，不能宣称设备生产验收。
+
+## R3 结构收口（2026-09-14）
+
+- 编辑器不再复用 TODAY 的 `LOCAL / 01` 品牌头：顶部工具栏在前，chooser 为 `PROFILE / 04` / `course-choice-brand-header`，编辑器为 `CREATE`、`EDIT` 或 `APPEND / 04` / `course-editor-brand-header`。
+- 编号修正为身份 `01`、第一安排 `02`、后续递增、危险区 `99`；开始／结束节次分别显示对应开始／结束时间。新增 Compose 断言覆盖编辑 code、01／02／99 和危险区。
+- 本轮未取得生产 UI 长链或截图证据；不得将此结构收口视为该硬门槛完成。
+
+## B 协调层补测（2026-09-14）
+
+- `ScheduleViewModelTest` 新增可执行协调用例：空名称／完全重复不写、冲突确认冻结候选、失败保留草稿、删除取消／成功、重复 ID 第二项精确删除及陈旧指纹拒绝后保留编辑器。Debug JVM 86 tests、0 failures/errors/skipped。
+- 本轮只处理 B 自动化，尚未关闭所有 Activity recreate、挂起／取消、Room cancellation 与完整 Compose 流程分支；C 生产证据仍未开始。
+
+## B2 单飞补测（2026-09-14）
+
+- `appendSuccessAndSuspendedSaveDeleteAreSingleFlight` 用 `CompletableDeferred` 实际验证 append 成功文案、挂起保存双击只有一次写入，以及挂起删除双击只有一次写入并在完成后关闭编辑器。Debug JVM 87 tests、0 failures/errors/skipped。
+- B 的 Activity recreate／Room cancellation／完整 Compose back 分支仍待补齐，C 仍明确排除。
+
+## B3 编辑器重建与取消补测（2026-09-14）
+
+- `P3R2ActivityRecreationTest.activityRecreationKeepsCourseEditorRouteDraftColorDialogAndConfirmation` 在真实 `scenario.recreate()` 后确认同一 ViewModel 仍保留 CREATE 路由、名称、教师、非法 `colorInput`、颜色对话框、两个安排及放弃确认层；定向 API 37 ARM64 connected 为 3 tests、0 failures/errors/skipped。
+- `courseCancellationAndDeleteFailureKeepEditorWithoutOrdinaryError` 验证 save `CancellationException` 后草稿保留、in-flight 恢复且无普通错误，以及 delete 普通失败保留编辑器并发布错误。Debug JVM 88 tests、0 failures/errors/skipped。
+- B4 的完整 Compose Back／连续消息和 Room cancellation/reopen 仍未完成；C 仍未开始。
+
+## B4 Compose 与 Room 收口（2026-09-14）
+
+- Compose 增加真实 `onBackPressedDispatcher` 确认层返回、顶部保存／危险删除点击，以及连续 success message 重新计时测试。
+- Room 增加 precise delete 普通失败、`CancellationException`、关闭重开及越界／错误指纹后原数据保持断言。AndroidTest APK 编译通过；完整 connected 回归待本轮收尾执行。
+
+## 本轮 connected 测试修正（2026-09-14）
+
+- `RoomScheduleRepositoryTest.preciseDeleteFailureAndCancellationReopenOriginalData` 在 `runBlocking` 结尾显式返回 `Unit`，修正
+  JUnit 对表达式体测试方法返回类型的拒绝，使该类全部用例实际进入测试体。
+- `QingKeAppTest` 对编辑器 code 和 success message 保留标签可见性断言，并使用未合并语义树的实际 `Text` 节点验证
+  `EDIT / 04` 与 `B`。编号分区和危险区先滚动至可见位置，未删除内容验证。
+- 连续成功提示测试用 `waitUntil` 保持 Compose 重组可运行，取代阻塞测试线程的 `SystemClock.sleep`；仍验证旧计时器不会提前
+  清除 `B`，且 `B` 的 2.6 秒计时会自行结束。
+- 三个定向 API 37 ARM64 instrumentation 用例均通过。最终
+  `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 的 XML 为 **51 tests、0 failures、0 errors、0 skipped**；
+  `./gradlew assembleDebugAndroidTest --no-daemon --console=plain` 与 `git diff --check` 通过。
+- 未改生产代码；生产 APK 的人工 CRUD／重启／日志和截图证据仍是未完成硬门槛，Sol 独立复审和用户验收均未完成。
+
+## 编辑器取消文字对比度修正（2026-09-14）
+
+- 生产 APK 截图发现共享 `EditorHeader` 的取消按钮在浅色主题（含 130% font scale）虽然可点击且无障碍树包含文本，但默认
+  `OutlinedButton` 取浅色主题 `primary = InverseSurface`，使文字与固定深色 toolbar 同色。
+- 取消按钮改为显式 `ButtonDefaults.outlinedButtonColors(contentColor = #F1F5F4)`，匹配 iOS `textOnInverse`；保存按钮原有
+  黄底深字色、回调、尺寸和布局未改。
+- `editorCloseUsesVisibleInverseInkAcrossThemesAndLargeFont` 在浅色／深色、1.0／1.3 font scale 的四个组合中捕捉按钮位图，
+  排除边框后要求实际浅色文字像素存在，并确认按钮显示且可用，避免只凭无障碍文本掩盖同色绘制。
+- 定向测试及最终 `./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain` 均通过；最终 XML 为
+  **52 tests、0 failures、0 errors、0 skipped**。`lintDebug` 为 0 errors、21 warnings，`assembleDebugAndroidTest` 与
+  `testDebugUnitTest`（88 tests、0 failures、0 errors、0 skipped）及 `git diff --check` 通过。生产人工长链与截图仍由 Sol
+  继续，未宣称用户验收。
+
+## 官方 Sol 生产 APK 人工长链与最终独立复审（2026-09-14）
+
+设备和入口：唯一 `qingke-api37-r3-arm` / `emulator-5554`，SDK 37、`arm64-v8a`；通过
+`Android/app/build/outputs/apk/debug/app-debug.apk` 安装并启动真实 `com.qingke.schedule/.MainActivity`，没有使用 testhost。
+业务长链在 `fc8e526` 的生产入口 APK 上完成；其后 `7f9137d` 只修正共用 toolbar 的取消文字颜色且最终 connected 全通过，
+并重新安装 `7f9137d` APK 复拍 chooser、APPEND、CREATE 浅色／深色／130% 证据。
+
+- 清除应用数据后完成首次学期保存；空状态 TODAY 显示真实浮动 `ADD`，无课程时直接进入 CREATE。
+- CREATE 中实际输入课程、添加第二条安排；两条完全相同安排保存时显示“该上课安排已存在，请勿重复添加”，修改第二条星期后保存成功。
+- 保存后执行 `am force-stop com.qingke.schedule` 并冷启动；学期、课程和安排恢复，未重新进入首次设置。
+- 有课程时 `ADD` 进入 PROFILE chooser；“新建课程”和按来源课程复用资料追加均可达。APPEND 显示只读课程资料，修改新增安排后保存成功。
+- TODAY 课程行进入 EDIT；预设色修改后保存并在 TODAY 色条语义显示 `#D96952`。自定义颜色对话框显示严格 `#RRGGBB` 输入、RGB 和 HSV 控件。
+- 第二门课程与已有课程同周同节保存时出现冲突详情；“返回修改”保留表单，再次保存并选择“仍然保存”后两门课程同时存在。
+- 顶部“取消”和系统返回均触发未保存确认；确认层“返回修改”保留编辑器。删除先“返回修改”取消，再次确认删除后仅目标课程消失。
+- 长链结束后导出 logcat 并精确检索 `FATAL EXCEPTION`、`ANR in com.qingke.schedule`、目标进程 crash／`am_anr`，均无匹配。
+- 最新生产修正后补跑 Release JVM、Debug／Release APK：Release 与既有 Debug JVM 各 88 tests、0 failures／errors／skipped，
+  `assembleDebug assembleRelease` 通过；首次漏传专用 SDK 环境变量的调用在任务解析阶段退出，补齐固定 API 37 SDK 环境后有效重跑通过。
+- 模拟器系统外观和字体已恢复为 light / `font_scale=1.0`，应用停在 TODAY；模拟器暂不关闭，供用户查看。
+
+生产截图位于 `docs/Android/evidence/p3-04/`：
+
+- `android-api37-production-empty-light.png`
+- `android-api37-production-after-create.png`
+- `android-api37-production-after-restart.png`
+- `android-api37-production-chooser.png`
+- `android-api37-production-append.png`
+- `android-api37-production-multiple-schedules.png`
+- `android-api37-production-conflict.png`
+- `android-api37-production-dirty-confirm.png`
+- `android-api37-production-delete-confirm.png`
+- `android-api37-production-custom-color.png`
+- `android-api37-production-dark.png`
+- `android-api37-production-create-light-fixed.png`
+- `android-api37-production-create-dark-fixed.png`
+- `android-api37-production-create-font130-fixed.png`
+
+Sol 已检查 `80ed71b^..7f9137d` 的实际生产／测试 diff、Room index＋fingerprint 精确写入、冲突与完全重复规则、
+ViewModel single-flight／失败／取消保留、真实 UI 回调和 Activity 重建覆盖；未发现剩余 P3-04 代码阻断项。因此可表述为
+**P3-04 已通过 Sol 技术独立复审**。这不等于用户产品验收；用户验收仍待用户亲自在已打开的模拟器中确认，也不得据此开始 P3-04 之外阶段。
+
+## B4 后续终端视觉返工（2026-09-14）
+
+- 仅在 TODAY 与 P3-04 ADD／CourseEditor 已授权范围内实施：编辑器改为独立、不透明的 terminal backdrop；58dp 顶栏采用文字取消、居中中文／英文双行标题和黄色文字保存；chooser 改为创建方式与已课程复用两个编号分区，按名称排序但仍通过原 source index 追加。
+- CREATE／EDIT 的课程资料使用圆形六色样本和选中记号；安排标题移至卡外并使用 `02… / 上课安排 N / SCHEDULE`；添加安排使用黄色填充；底部重复保存入口已移除，EDIT 的 `99 / 危险操作` 保留，APPEND 不显示危险区。
+- TODAY 的 ADD 改为 54dp 黄色方形（加号、ADD、内对角折线），空态为 `QUEUE EMPTY` 和 `+ ADD`，课程行改为右侧进入提示并去除末端色条，结束标记居中。Material `AlertDialog` 已改为方角 terminal dialog，覆盖冲突、未保存、删除、应用错误和自定义颜色层。
+- 新增 Compose AndroidTest 覆盖独立编辑器标识、toolbar／section／色样／单一保存入口、chooser 双 section、terminal conflict dialog，以及 TODAY ADD／空态／进入提示／结束标记；原有颜色条语义断言同步改为确认末端色条不存在。
+- 本轮主机 clean 验证：Debug／Release JVM 各 **88 tests、0 failures、0 errors、0 skipped**；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 通过；`lintDebug` 为 **0 errors、21 warnings**。API 37 ARM64 的定向 `todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances` 通过；完整 clean connected 回归尚在本轮提交后的收口中，不能将本节记为用户验收或新的生产截图证据。
+
+## B4 后续视觉复审修正（2026-09-14）
+
+- 按 Sol 实际 diff 复审继续修正：CourseEditor 现在在覆盖层首层绘制独立 `TerminalBackdrop`（网格、圆环与同款背景），并有专用 tag；资料字段包入 terminal panel 与分隔线；chooser 新建路径使用 terminal panel、说明与黄色操作；星期／开始节次／结束节次替换为紧凑循环选择控件，周数仍保留 stepper。
+- 空态恢复为 section detail `QUEUE EMPTY`、卡内 `STANDBY` 和完整 ADD 指引；ADD 增加内描边与右上实心折角；课程颜色语义移到左侧实际 accent，原色值验证未移除。dialog 追加 status tag、状态点、按确认类型的次要动作文字，并按浅／深主题渲染。
+- API 37 ARM64 已定向通过编辑器 backdrop／色样／单一保存入口与 TODAY 空态／色值契约的 instrumentation。完整回归与生产截图仍待本轮后续，不得声称视觉验收。
+
+## B4 终端层级复审修正（2026-09-14）
+
+- `01 / 课程资料` 现将名称、教师、课程颜色、圆形六色样本、自定义颜色和当前色值置于同一 terminal panel；名称和教师改为 plain 输入行与 divider，保留原业务 tag 与更新回调。APPEND 改为 `沿用课程资料 / REUSED PROFILE`，并明确仅新增安排；危险区改为独立 `99` header、panel 与不可撤销说明。
+- CourseEditor backdrop 提升到全屏 root，内层内容才应用系统栏 padding；测试断言 backdrop 和 editor root 有相同 bounds。三类 dialog 使用独立有色 status tag、状态点及按 discard/delete/conflict 选择的 tone／文案；浅色标题和正文采用主题文字色。
+- API 37 ARM64 定向 instrumentation 已通过：课程 panel／backdrop bounds、冲突 status tag，以及真实 dropdown 打开并选择非相邻星期。完整主机、connected 与生产截图仍待最终提交基准执行。
+
+- 最终确认层修正：top row 仅保留 code 和状态点；status 是下一行独立方角有色 tag。discard／delete 的 accent、code、状态点、status 与主操作统一 `Danger`，conflict 统一 signal。三种指定中文文案、两按钮与 status tag 的定向 API 37 用例通过；完整回归待最后提交基准。
+
+## B4 终端视觉生产复拍与最终自动化（2026-09-14）
+
+- 最终代码基准 `ccfb078`：固定 API 37 ARM64 `emulator-5554` 上，`clean testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease lintDebug assembleDebugAndroidTest` 成功。Debug／Release JVM 均为 **88 tests、0 failures、0 errors、0 skipped**；`lintDebug` **0 errors、21 warnings**；Debug、Release 与 AndroidTest APK 都已生成。
+- 最终 `connectedDebugAndroidTest --rerun-tasks` XML：**56 tests、0 failures、0 errors、0 skipped**。
+- 生产 `app-debug.apk` 安装并通过真实 `MainActivity` 操作最小学期与两门课程；新截图位于 `evidence/p3-04-visual-r1/`：TODAY 浅色空态／有课、CREATE、PROFILE chooser、APPEND、实际星期菜单、未保存确认、删除确认、冲突确认，以及深色 + 130% 字体的冲突确认。画面检查覆盖独立 editor 网格背景不透出 TODAY、双行顶栏、单课程信息 panel、ADD 内框／折角、菜单、三种 status tag 和浅色／深色可读性；未发现裁切或重叠。
+- 生产流程后导出 logcat 并检索 `FATAL EXCEPTION`、`ANR in com.qingke.schedule`、`am_anr` 与目标应用 crash，均无匹配。系统恢复 light / 1.0 font scale。该证据表示已修正、已测试，仍等待 Sol 最终视觉复审和用户验收；不代表用户验收。
+
+## B4 R1 成功提示与证据重拍（2026-09-14）
+
+- 复核发现 success notice 与 TODAY 浮动 ADD 发生覆盖。notice 现为 tab 与 ADD 预留 180dp 底部安全区；Compose 回归直接读取两个语义 bounds，要求二者不相交，同时仍验证 notice 下 ADD 可点击与自动消失。
+- 替换了误采的浅色 chooser 文件：`production-chooser-light.png` 现在实际显示 `SELECT PROFILE`、两个 section 与已有课程；`production-conflict.png` 在关闭软键盘后重拍完整 dialog。补拍当前代码的 deep chooser、deep + 130% conflict。生产 logcat 再次筛查无目标 FATAL／ANR，设备最终恢复 light / 1.0。
+- 浅色的 TODAY 空／有课、CREATE、chooser、APPEND、picker、discard、delete、conflict 与深色 chooser、深色+130% conflict 构成当前最小矩阵；它覆盖所有本轮返工结构，但仍等待 Sol 复审与用户验收。
+
+## B4 R2 成功提示安全区与紧凑编辑器复核（2026-09-14）
+
+- iOS 实机复核确认底部视觉顺序为 `ADD → TerminalToast → TerminalTabBar`。Android 改由 `MainShell` 的共享垂直 stack 布局：ADD 在上、success notice 在中、tab bar 在下；notice 的实际内容高度会自然推高 ADD，不再使用互不关联的固定 bottom offset。ADD 与 notice 使用 8dp 明确间距，tab bar 保持自身顶部内边距。
+- `successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires` 现在严格校验 ADD bottom 不高于 notice top、notice bottom 不低于 tab bar top、ADD/notice 的间距在 6–22dp、ADD 仍可点击，并在深色和 130% 字体下重复方向检查；notice 仍在约 2.6 秒后清除。
+- 真实 `ToastProof` 的 EDIT→保存生产复拍使用无文本输入路径。canonical `production-today-success-notice-light.png` 清楚显示 `OK 课程修改已保存`、上方完整 ADD、下方完整 tab bar 和手势导航条；`dumpsys input_method` 为 `mInputShown=false`，没有 Gboard/IME。中间 `-compact-light` 图已删除且不纳入提交。
+- `PlainEditorTextField` 去除了固定 92dp 左侧标签列，空值时以单行全宽 placeholder 显示“课程名称”或“教师（选填）”。API 37 130% 回归验证两个 placeholder 横向不越界、文本高度不超过 48dp，避免教师文案折行。
+- 本轮 canonical 生产图：`production-chooser-light.png`、`production-chooser-dark.png`、`production-create-light.png`、`production-create-dark-font130.png`、`production-append.png`、`production-append-font130.png`、`production-today-success-notice-light.png`。其中 `production-create-light.png` 已在最终代码上重拍并显示“教师（选填）”；深色/130%三图确认新 chooser、CREATE、APPEND 的可见区域无裁切或溢出；截图后设备已恢复 light / `font_scale=1.0`。
+- 最终代码的 Debug／Release JVM 各为 **88 tests、0 failures、0 errors、0 skipped**；`lintDebug` 为 **0 errors、21 warnings**；Debug、Release 和 AndroidTest APK 均构建通过。API 37 ARM64 `emulator-5554` 的完整 `connectedDebugAndroidTest --rerun-tasks` 为 **58 tests、0 failures、0 errors、0 skipped**，其中 `QingKeAppTest` 定向全类为 31 tests 全通过。
+- 生产 Debug APK 在清数据后的真实入口完成首次学期保存、TODAY ADD→CREATE，并核对最终“教师（选填）”；随后 force-stop 冷启动回到 TODAY，ADD 可见，目标 logcat 无 FATAL／ANR。Sol 已完成实际 diff、iOS 基准与证据图独立技术复核；本节仍不构成用户视觉验收。

@@ -1,0 +1,133 @@
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop sys.boot_completed
+1
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop ro.build.version.sdk
+37
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop ro.product.cpu.abi
+arm64-v8a
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell getprop ro.build.fingerprint
+google/sdk_gphone64_arm64/emu64a:17/CE2A.260420.019/15611780:userdebug/dev-keys
+exit=0
+$ bash Android/scripts/p1-02-apk-check.sh
+APK metadata check passed: com.qingke.schedule, minSdk 26, targetSdk 37
+exit=0
+APK SHA256 2bf6b1abdfdb11c479573dc7ceab0dae654a3c7ace70f7fbe1effe8f113d3c4f
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 install -r Android/app/build/outputs/apk/debug/app-debug.apk
+Performing Streamed Install
+Success
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 logcat -b all -c
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell am force-stop com.qingke.schedule
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell am start -W -n com.qingke.schedule/.MainActivity
+Starting: Intent { cmp=com.qingke.schedule/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.qingke.schedule/.MainActivity
+TotalTime: 607
+WaitTime: 609
+Complete
+exit=0
+Activity 1:
+  * Task{98548e4 #9 type=standard A=10231:com.qingke.schedule U=0 visible=true visibleRequested=true mode=fullscreen translucent=false sz=1}
+    topResumedActivity=ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+    * Hist  #0: ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+      packageName=com.qingke.schedule processName=com.qingke.schedule
+      app=ProcessRecord{4c00f50 4283:com.qingke.schedule/u0a231}
+      Intent { flg=0x10000000 xflg=0x5 cmp=com.qingke.schedule/.MainActivity }
+      rootOfTask=true task=Task{98548e4 #9 type=standard A=10231:com.qingke.schedule}
+      taskAffinity=10231:com.qingke.schedule
+      mActivityComponent=com.qingke.schedule/.MainActivity
+      baseDir=/data/app/~~6Vpoh73UgnRKkhbSaTWhUg==/com.qingke.schedule-23ankA-Lx_wDui-LWdr4Sg==/base.apk
+      dataDir=/data/user/0/com.qingke.schedule
+      windows=[Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}]
+    Resumed: ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+  ResumedActivity: ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+  topDisplayFocusedRootTask=Task{98548e4 #9 type=standard A=10231:com.qingke.schedule}
+  deepestLastOrientationSource=ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+  mImeLayeringTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeInputTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeControlTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeParent=ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+  mCurrentFocus=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mFocusedApp=ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+  mObscuringWindow=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      mPreferredTopFocusableRootTask=Task{98548e4 #9 type=standard A=10231:com.qingke.schedule}
+      mLastFocusedRootTask=Task{98548e4 #9 type=standard A=10231:com.qingke.schedule}
+      * Task{98548e4 #9 type=standard A=10231:com.qingke.schedule U=0 visible=true visibleRequested=true mode=fullscreen translucent=false sz=1}
+        * ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}
+    mFocusedWindow=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mTopFullscreenOpaqueWindowState=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mSystemUiControllingWindow=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mSystemBarColorApps={ActivityRecord{213562487 u0 com.qingke.schedule/.MainActivity t9}}
+    mNavBarColorWindowCandidate=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mNavBarBackgroundWindowCandidate=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}:
+        mControlTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        mControlTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        mControlTarget=Window{da2a2c2 u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        (fullscreen) Task{98548e4 #9 type=standard A=10231:com.qingke.schedule}
+  VisibleActivityProcess:[ ProcessRecord{4c00f50 4283:com.qingke.schedule/u0a231}]
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell pidof com.qingke.schedule
+4283
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell am force-stop com.qingke.schedule
+exit=0
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell am start -W -n com.qingke.schedule/.MainActivity
+Starting: Intent { cmp=com.qingke.schedule/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.qingke.schedule/.MainActivity
+TotalTime: 691
+WaitTime: 692
+Complete
+exit=0
+Activity 2:
+  * Task{7101473 #10 type=standard A=10231:com.qingke.schedule U=0 visible=true visibleRequested=true mode=fullscreen translucent=false sz=1}
+    topResumedActivity=ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+    * Hist  #0: ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+      packageName=com.qingke.schedule processName=com.qingke.schedule
+      app=ProcessRecord{d4d84cf 4341:com.qingke.schedule/u0a231}
+      Intent { flg=0x10000000 xflg=0x5 cmp=com.qingke.schedule/.MainActivity }
+      rootOfTask=true task=Task{7101473 #10 type=standard A=10231:com.qingke.schedule}
+      taskAffinity=10231:com.qingke.schedule
+      mActivityComponent=com.qingke.schedule/.MainActivity
+      baseDir=/data/app/~~6Vpoh73UgnRKkhbSaTWhUg==/com.qingke.schedule-23ankA-Lx_wDui-LWdr4Sg==/base.apk
+      dataDir=/data/user/0/com.qingke.schedule
+      windows=[Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}]
+    Resumed: ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+  ResumedActivity: ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+  topDisplayFocusedRootTask=Task{7101473 #10 type=standard A=10231:com.qingke.schedule}
+  deepestLastOrientationSource=ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+  mImeLayeringTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeInputTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeControlTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mImeParent=ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+  mCurrentFocus=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+  mFocusedApp=ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+  mObscuringWindow=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      mPreferredTopFocusableRootTask=Task{7101473 #10 type=standard A=10231:com.qingke.schedule}
+      mLastFocusedRootTask=Task{7101473 #10 type=standard A=10231:com.qingke.schedule}
+      * Task{7101473 #10 type=standard A=10231:com.qingke.schedule U=0 visible=true visibleRequested=true mode=fullscreen translucent=false sz=1}
+        * ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}
+    mFocusedWindow=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mTopFullscreenOpaqueWindowState=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mSystemUiControllingWindow=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mSystemBarColorApps={ActivityRecord{162547938 u0 com.qingke.schedule/.MainActivity t10}}
+    mNavBarColorWindowCandidate=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+    mNavBarBackgroundWindowCandidate=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+      Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}:
+        mControlTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        mControlTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        mControlTarget=Window{17899f u0 com.qingke.schedule/com.qingke.schedule.MainActivity}
+        (fullscreen) Task{7101473 #10 type=standard A=10231:com.qingke.schedule}
+  VisibleActivityProcess:[ ProcessRecord{d4d84cf 4341:com.qingke.schedule/u0a231}]
+$ /Users/takagisan/Library/Android/sdk-qingke-api37/platform-tools/adb -s emulator-5586 shell pidof com.qingke.schedule
+4341
+exit=0
+logcat -b all -d saved to logcat.txt

@@ -81,6 +81,9 @@ enum ScheduleDataTransfer {
         guard version == ScheduleDataDTO.supportedSchemaVersion else {
             throw ScheduleDataTransferError.unsupportedSchemaVersion(version)
         }
+        guard hasOnlyVersion1Fields(dictionary) else {
+            throw ScheduleDataTransferError.malformedFile
+        }
 
         let decoded: ScheduleDataDTO
         do {
@@ -94,6 +97,66 @@ enum ScheduleDataTransfer {
             throw ScheduleDataTransferError.invalidData(issues)
         }
         return ScheduleImportPreview(data: decoded)
+    }
+
+    private static func hasOnlyVersion1Fields(_ root: [String: Any]) -> Bool {
+        guard hasOnlyKeys(root, allowed: ["schemaVersion", "semester", "courses", "updatedAt"]) else {
+            return false
+        }
+
+        if let semester = root["semester"], !(semester is NSNull) {
+            guard
+                let semester = semester as? [String: Any],
+                hasOnlyKeys(semester, allowed: ["id", "name", "startDate", "totalWeeks", "periods"]),
+                let periods = semester["periods"] as? [Any]
+            else {
+                return false
+            }
+            for period in periods {
+                guard
+                    let period = period as? [String: Any],
+                    hasOnlyKeys(period, allowed: ["number", "startTime", "endTime"])
+                else {
+                    return false
+                }
+            }
+        }
+
+        guard let courses = root["courses"] as? [Any] else {
+            return false
+        }
+        for course in courses {
+            guard
+                let course = course as? [String: Any],
+                hasOnlyKeys(course, allowed: ["id", "name", "teacher", "color", "schedules"]),
+                let schedules = course["schedules"] as? [Any]
+            else {
+                return false
+            }
+            for schedule in schedules {
+                guard
+                    let schedule = schedule as? [String: Any],
+                    hasOnlyKeys(
+                        schedule,
+                        allowed: [
+                            "id", "dayOfWeek", "startPeriod", "endPeriod", "startWeek",
+                            "endWeek", "repeat", "classroom",
+                        ]
+                    )
+                else {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
+
+    private static func hasOnlyKeys(
+        _ object: [String: Any],
+        allowed: Set<String>
+    ) -> Bool {
+        Set(object.keys).isSubset(of: allowed)
     }
 
     static func exportDocument(

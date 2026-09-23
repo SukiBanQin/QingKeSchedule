@@ -1,0 +1,71 @@
+P2-01-R2-R1 API 37 Room 集成测试证据
+日期：2026-09-09
+分支／实施基准：Android / 1bdfa77d01ba19f1dd3a2d1b289757012a452012
+
+一、最小测试入口修正
+
+修改文件：
+Android/app/src/androidTest/java/com/qingke/schedule/persistence/RoomScheduleRepositoryTest.kt
+
+三个 AndroidJUnit4 测试由表达式函数改为普通块体方法，块体内调用 runBlocking：
+- emptyRoundTripOrderDuplicatesAndReopen
+- invalidWriteAndInjectedFailureRollBack
+- cancellationPropagatesFromReadAndRollsBackWrite
+
+原因：三个表达式函数的 runBlocking 最后结果是 File.delete() 的 Boolean，Kotlin 因此生成
+boolean 测试方法，AndroidJUnit4 拒绝执行。还将事务故障注入调用改为
+repository(file, beforeCommit = { error("injected") })：R1 测试工厂新增 beforeRead 参数后，
+旧尾随 lambda 的绑定目标发生变化；显式命名恢复原有提交前故障注入语义，未删除、跳过或放宽断言。
+
+javap 核对（assembleDebugAndroidTest 成功后）：
+public final void emptyRoundTripOrderDuplicatesAndReopen();
+public final void invalidWriteAndInjectedFailureRollBack();
+public final void deleteFirstDuplicateAndKeepsClockContract();
+public final void cancellationPropagatesFromReadAndRollsBackWrite();
+
+二、设备与启动验证
+
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+AVD=qingke-api37-r3-arm
+序列号=emulator-5588
+
+启动参数：
+emulator -avd qingke-api37-r3-arm -no-snapshot -no-window -gpu software -no-audio -no-boot-anim -port 5588
+
+启动后实测：
+- adb -s emulator-5588 get-state：device
+- adb -s emulator-5588 shell getprop sys.boot_completed：1
+- adb -s emulator-5588 shell getprop ro.build.version.sdk：37
+- adb -s emulator-5588 shell getprop ro.product.cpu.abi：arm64-v8a
+- adb devices -l 仅列出 emulator-5588。
+
+三、connectedDebugAndroidTest
+
+执行命令：
+cd Android
+ANDROID_SERIAL=emulator-5588 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 6s；74 actionable tasks：1 executed，73 up-to-date。
+Gradle 输出确认仅在 qingke-api37-r3-arm(AVD) - 17 上运行。
+
+报告：
+Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+Android/app/build/reports/androidTests/connected/debug/com.qingke.schedule.persistence.RoomScheduleRepositoryTest.html
+
+XML 汇总：tests=4，failures=0，errors=0，skipped=0；设备属性为 emulator-5588。
+实际进入测试体并通过的用例：
+- deleteFirstDuplicateAndKeepsClockContract
+- cancellationPropagatesFromReadAndRollsBackWrite
+- invalidWriteAndInjectedFailureRollBack
+- emptyRoundTripOrderDuplicatesAndReopen
+
+四、JVM 回归
+
+执行：./gradlew testDebugUnitTest testReleaseUnitTest --no-daemon --console=plain
+结果：BUILD SUCCESSFUL in 3s；56 actionable tasks 均 up-to-date。
+Debug／Release 各 28 tests，均为 failures=0、errors=0、skipped=0。
+
+本证据只说明 P2-01-R2-R1 的测试入口和现有四项 Room API 37 集成测试已实际通过。P2-01、A09、
+P2 和完整 App 的最终结论仍由分析审查窗口复审，不在本次执行结论内。

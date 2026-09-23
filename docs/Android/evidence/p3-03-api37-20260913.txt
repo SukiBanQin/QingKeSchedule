@@ -1,0 +1,10 @@
+P3-03 今日页与秒级时钟 API 37 证据
+====================================
+
+- 基准：Android `1426661035d386bce0146d3eb048a72f0abd197a`。
+- 范围：秒级展示规则、可观察 ViewModel 时钟、TODAY 页面、对应 JVM／Compose 测试；未修改持久化、Application、MainActivity、课程编辑或周表。
+- 秒级回归：共享 fixture 的 2026-08-31T09:41:52 进行中课程为 elapsedSeconds=2812、remainingSeconds=3788、remainingClockText=63:08、fraction=2812.0/6600.0；开始、结束前一秒与结束时刻边界均有 JVM 断言。
+- API 37：AVD `qingke-api37-r3-arm`，`emulator-5584`，SDK 37，ABI arm64-v8a；connectedDebugAndroidTest XML 为 31 tests、0 failures、0 errors、0 skipped。装配 2、Room 11、DataStore 8、QingKeAppTest 9、P3R2ActivityRecreationTest 1。
+- clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest：通过；Debug／Release JVM XML 各 78 tests、0 failures、0 errors、0 skipped；lintDebug 0 errors、15 warnings。
+- 文档验证：android-documentation.test.py 53 项通过，documentation.test.sh、repository-layout.test.sh 与 git diff --check 通过。
+- 限制：本轮固定课程页面证据来自 Compose 测试宿主；生产入口仍只验证已有学期的真实空状态。课程编辑、周课表、设置、通知、导入导出和 P3-04 均未进入。本轮完成后模拟器正常关闭。

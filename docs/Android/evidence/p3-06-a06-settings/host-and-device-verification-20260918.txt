@@ -1,0 +1,79 @@
+P3-06／A06 完整设置页与学期编辑：主机与设备验证记录
+日期：2026-09-18    分支：Android    开始基准：0e2e937（= origin/Android）    工作区开始时干净
+
+== 环境说明 ================================================================
+构建以工作区用户 takagisan 运行（`su takagisan -c ...`），避免在共享的 Android/app/build 产生 root 所有文件；
+JAVA_HOME=/Applications/Android Studio.app/Contents/jbr/Contents/Home；Gradle 用户目录为 /Users/takagisan/.gradle。
+ADB/模拟器：/Users/takagisan/Library/Android/sdk-qingke-api37/{platform-tools/adb,emulator/emulator}。
+
+== 主机侧 ==================================================================
+执行：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+结果：BUILD SUCCESSFUL
+  testDebugUnitTest   tests=96 failures=0 errors=0 skipped=0
+  testReleaseUnitTest tests=96 failures=0 errors=0 skipped=0
+  lintDebug           errors=0 warnings=20
+  APK                  assembleDebug／assembleRelease／assembleDebugAndroidTest 均产出
+
+文档验证（仓库根目录，DEVELOPER_DIR=/Library/Developer/CommandLineTools）：
+  python3 docs/tests/android-documentation.test.py  → Ran 70 tests, OK
+  bash docs/tests/documentation.test.sh             → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh         → Repository layout tests passed.
+  git diff --check                                  → 通过（无输出）
+
+== 设备侧 ==================================================================
+设备：emulator-5556（AVD qingke-api37-r3-arm），API 37.0 google_apis arm64-v8a
+      窗口：Physical 1080x1920，Override 1080x2400（与既有记录基准一致），密度 420
+完整套件：./gradlew connectedDebugAndroidTest --console=plain --no-daemon（ANDROID_SERIAL=emulator-5556）
+结果：BUILD SUCCESSFUL —— TEST-qingke-api37-r3-arm(AVD) - 17.xml：tests=83 failures=0 errors=0 skipped=0
+  （P3-05 基线 74 + 本轮 9：QingKeAppTest 新增 7 项设置页与联动用例，RoomScheduleRepositoryTest 新增 2 项）
+
+窗口尺寸敏感性观察（未修改 P3-04 代码或测试）：
+  在 Override 1080x1920（无 override）下，完整套件中两个既有 P3-04 用例失败：
+    chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales
+      → course-start-week-compact-minus height=22.0（节点被裁剪后的高度小于 48dp 断言）
+    r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState
+      → expected:<ODD> but was:<EVERY>
+  恢复记录的 1080x2400 基准后二者通过，其余用例两次运行均通过。该现象与 A06 改动无关，已记入 README 限制。
+
+截图（真实 debug 入口，数据：默认学期 + Advanced Mathematics）：
+  p3-06-settings-light-api37.png、p3-06-periods-light-api37.png、p3-06-settings-dark-api37.png、
+  p3-06-periods-dark-api37.png、p3-06-settings-light-font130-api37.png、
+  p3-06-settings-small-top-api37.png、p3-06-settings-small-save-api37.png（720x1280@320dpi）、
+  p3-06-weeks-shrink-rejected-api37.png（缩周被拒的内联提示）
+逐张目视结论见本目录 README.md。结束时设备恢复 light／font_scale=1.0／窗口 1080x2400，
+应用数据保持在“18 周”的已提交状态（缩周保存被拒绝，旧数据未变）。
+
+== 首轮 Sol 复审后返修（R2，2026-09-18）====================================
+修正内容：节次身份级课程引用保护（PeriodDraft.sourceNumber + impactIssues）、深色设置页裸文本前景色、
+证据目录所有权／权限、状态文档（product-baseline／technical-design／implementation-plan／handoff）。
+
+主机（返修后）：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+  BUILD SUCCESSFUL；Debug／Release JVM 各 98 tests、0 failures／0 errors／0 skipped；lint 0 errors、20 warnings
+
+设备（返修后）：emulator-5556（AVD qingke-api37-r3-arm，1080x2400，420dpi）
+  ./gradlew connectedDebugAndroidTest --no-daemon → BUILD SUCCESSFUL
+  TEST-qingke-api37-r3-arm(AVD) - 17.xml：tests=84 failures=0 errors=0 skipped=0
+
+负向对照（证明新增回归用例确实能发现问题，之后均已恢复）：
+  1) 把 impactIssues 临时改回“引用编号是否仍存在”的旧实现：
+     DraftTest.semesterDraftRejectsDeletionThatMovesAnotherPeriodOntoAReferencedNumber FAILED
+     ScheduleViewModelTest.deletingAPeriodThatShiftsAReferencedNumberIsRejectedAndKeepsDraft FAILED
+     （98 tests completed, 2 failed）；恢复身份检查后 BUILD SUCCESSFUL
+  2) 临时去掉 WeekControl／PeriodRow 的显式前景色：
+     QingKeAppTest.semesterLabelsUseThemeForegroundsInBothThemes FAILED
+     （AssertionError: semester-total-weeks must render light ink against its surface, inkPixels=0）
+     恢复后 OK (1 test)
+
+权限核对（未改动任何证据内容）：
+  docs/Android/evidence/p3-06-a06-settings  chown takagisan:staff，目录 755、文件 644
+    （修复前：目录与文件属 root，host-and-device-verification 为 0600，普通用户不可读）
+  docs/Android/evidence/p3-05-visual-r1／p3-05-visual-r2  一并规范化为 takagisan:staff
+  Android/app/build  find ! -user takagisan 无输出（无 root 所有文件）
+
+截图：p3-06-r2-settings-dark-api37.png、p3-06-r2-periods-dark-api37.png（重新拍摄并逐张目视核对：
+「总周数：18」与「第 1—5 节」均为浅色可读）；首轮深色截图保留并标注为已推翻。
+
+文档：python3 docs/tests/android-documentation.test.py → Ran 71 tests, OK；
+  documentation.test.sh／repository-layout.test.sh 通过；git diff --check 通过。

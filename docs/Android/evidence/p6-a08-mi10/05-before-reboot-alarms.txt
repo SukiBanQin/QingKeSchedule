@@ -1,0 +1,52 @@
+    RTC_WAKEUP #15: Alarm{94db59c type 0 origWhen 1789988100000 whenElapsed 60138313 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.COURSE_REMINDER
+      type=RTC_WAKEUP origWhen=2026-09-21 18:55:00.000 window=0 exactAllowReason=permission repeatInterval=0 count=0 flags=0x5
+      policyWhenElapsed: requester=+12m28s872ms app_standby=-2m31s79ms device_idle=-- battery_saver=-2m31s79ms tare=-2m31s79ms power_pending=--
+      whenElapsed=+12m28s872ms maxWhenElapsed=+12m28s872ms
+      operation=PendingIntent{6140ba5: PendingIntentRecord{8b36b7a com.qingke.schedule broadcastIntent}}
+      idle-options=Bundle[{android.pendingIntent.backgroundActivityAllowed=false, android:broadcast.temporaryAppAllowlistReasonCode=302, android:broadcast.temporaryAppAllowlistDuration=10000, android:broadcast.temporaryAppAllowlistReason=, android:broadcast.temporaryAppAllowlistType=0}]
+    RTC #16: Alarm{b5cf36 type 1 origWhen 1789988232909 whenElapsed 60271223 com.miui.securitycenter}
+      tag=*alarm*:com.miui.powercenter.action.BATTERYHISTORY_CHECKRESET
+--
+    RTC_WAKEUP #19: Alarm{b5ebd21 type 0 origWhen 1789989000000 whenElapsed 61038313 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.COURSE_REMINDER
+      type=RTC_WAKEUP origWhen=2026-09-21 19:10:00.000 window=0 exactAllowReason=permission repeatInterval=0 count=0 flags=0x5
+      policyWhenElapsed: requester=+27m28s872ms app_standby=-2m31s78ms device_idle=-- battery_saver=-2m31s78ms tare=-2m31s78ms power_pending=--
+      whenElapsed=+27m28s872ms maxWhenElapsed=+27m28s872ms
+      operation=PendingIntent{d7cc546: PendingIntentRecord{c5f8307 com.qingke.schedule broadcastIntent}}
+      idle-options=Bundle[{android.pendingIntent.backgroundActivityAllowed=false, android:broadcast.temporaryAppAllowlistReasonCode=302, android:broadcast.temporaryAppAllowlistDuration=10000, android:broadcast.temporaryAppAllowlistReason=, android:broadcast.temporaryAppAllowlistType=0}]
+    ELAPSED_WAKEUP #20: Alarm{d011c34 type 2 origWhen 61546223 whenElapsed 61546223 com.miui.cloudbackup}
+      tag=*walarm*:com.miui.cloudbackup/.alarm.BackupAlarmUpdatePoster
+--
+    RTC_WAKEUP #21: Alarm{52fefd2 type 0 origWhen 1789989900000 whenElapsed 61938314 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.COURSE_REMINDER
+      type=RTC_WAKEUP origWhen=2026-09-21 19:25:00.000 window=0 exactAllowReason=permission repeatInterval=0 count=0 flags=0x5
+      policyWhenElapsed: requester=+42m28s873ms app_standby=-2m31s77ms device_idle=-- battery_saver=-2m31s77ms tare=-2m31s77ms power_pending=--
+      whenElapsed=+42m28s873ms maxWhenElapsed=+42m28s873ms
+      operation=PendingIntent{ee748a3: PendingIntentRecord{1adc7a0 com.qingke.schedule broadcastIntent}}
+      idle-options=Bundle[{android.pendingIntent.backgroundActivityAllowed=false, android:broadcast.temporaryAppAllowlistReasonCode=302, android:broadcast.temporaryAppAllowlistDuration=10000, android:broadcast.temporaryAppAllowlistReason=, android:broadcast.temporaryAppAllowlistType=0}]
+    RTC #22: Alarm{f90ef59 type 1 origWhen 1789990154175 whenElapsed 62192488 com.miui.systemAdSolution}
+      tag=*alarm*:com.miui.systemAdSolution/com.miui.app.WakeupService
+--
+    RTC_WAKEUP #24: Alarm{fd82815 type 0 origWhen 1789990800000 whenElapsed 62838313 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.COURSE_REMINDER
+      type=RTC_WAKEUP origWhen=2026-09-21 19:40:00.000 window=0 exactAllowReason=permission repeatInterval=0 count=0 flags=0x5
+      policyWhenElapsed: requester=+57m28s872ms app_standby=-2m31s76ms device_idle=-- battery_saver=-2m31s76ms tare=-2m31s76ms power_pending=--
+      whenElapsed=+57m28s872ms maxWhenElapsed=+57m28s872ms
+      operation=PendingIntent{7da72a: PendingIntentRecord{2eb291b com.qingke.schedule broadcastIntent}}
+      idle-options=Bundle[{android.pendingIntent.backgroundActivityAllowed=false, android:broadcast.temporaryAppAllowlistReasonCode=302, android:broadcast.temporaryAppAllowlistDuration=10000, android:broadcast.temporaryAppAllowlistReason=, android:broadcast.temporaryAppAllowlistType=0}]
+    RTC #25: Alarm{a88eab8 type 1 origWhen 1789991326453 whenElapsed 63364766 com.miui.securitycenter}
+      tag=*alarm*:com.miui.securitycenter/.receiver.CleanerReceiver
+--
+    RTC_WAKEUP #83: Alarm{3647b95 type 0 origWhen 1790592000043 whenElapsed 664038357 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+      type=RTC_WAKEUP origWhen=2026-09-28 18:40:00.043 window=+1h0m0s0ms repeatInterval=0 count=0 flags=0x20
+      policyWhenElapsed: requester=+6d23h57m28s916ms app_standby=-2m31s74ms device_idle=-- battery_saver=-2m31s74ms tare=-2m31s74ms power_pending=--
+      whenElapsed=+6d23h57m28s916ms maxWhenElapsed=+7d0h57m28s916ms
+      operation=PendingIntent{9ae34aa: PendingIntentRecord{8b4689b com.qingke.schedule broadcastIntent}}
+      idle-options=Bundle[{android.pendingIntent.backgroundActivityAllowed=false, android:broadcast.temporaryAppAllowlistReasonCode=-1, android:broadcast.temporaryAppAllowlistDuration=10000, android:broadcast.temporaryAppAllowlistReason=, android:broadcast.temporaryAppAllowlistType=1}]
+  LazyAlarmStore stats:
+    GET_NEXT_DELIVERY_TIME: count=4232, total=10.8ms, avg=0.003ms, max calls/s=0 max dur/s=0.0ms max time=4.8ms
+--
+    +62ms 1 wakes 1 alarms, last -2m31s128ms:
+      *walarm*:com.qingke.schedule.action.COURSE_REMINDER

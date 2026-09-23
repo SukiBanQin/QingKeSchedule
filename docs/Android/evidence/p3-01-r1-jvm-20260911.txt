@@ -1,0 +1,47 @@
+P3-01-R1 JVM 测试与证据
+日期：2026-09-11
+
+任务边界：
+- 执行基准：e980238d4c2bc8d5fd2d7bcf063c1f9eaaad0cf7，分支 Android。
+- 实施提交在本文件写入时尚未创建；提交编号由交付记录核对，避免文档自引用。
+- 实际修改：Android/app/src/test/java/com/qingke/schedule/presentation/SchedulePresentationTest.kt、
+  docs/Android/handoff.md、本证据和 docs/tests/android-documentation.test.py。
+- 本轮未修改任何 Android src/main 生产代码，也没有修改 UI、状态、Room、DataStore、草稿、校验器、构建依赖、
+  iOS、Web 或共享 schema／fixtures；没有进入 P3-02 或页面实现。
+
+新增回归测试：
+- duplicateBusinessIdsKeepEverySourceOccurrenceAndConflictByCourseId：两个来源位置相同 course.id 且重复
+  schedule.id 的发生项都保留，OccurrenceKey 为 (0,0)／(1,0)，不互相冲突；不同 course.id 但相同
+  schedule.id 的重叠项仍都保留并分别标记冲突，矩阵也不丢失来源键。
+- makeupDateUsesSameSourceScheduleInTodayAndWeek：真实调课日期 2026-09-05 同时调用 TodaySchedulePresentation
+  和 WeekSchedulePresentation；二者均取来源周一课程，周模型仍在周六显示列，不显示周六来源课程。
+- todayWeekAndMatrixSortDisruptedInputsDeterministically：逆序的“张／苹果／阿”同节次课程按 zh_CN 名称排序；
+  乱序矩阵项目按稳定键排序，闭区间连通分量 lane 为 0／1／0，laneCount 为 2／2／2，分离项复用 lane 0。
+- missingPeriodsDegradeStatusAndProgressSafely：开始或结束节次缺失时均不抛异常，状态安全退化为 UPCOMING，
+  timingProgress 为 null。
+
+环境与完整构建：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+cd Android
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：
+- BUILD SUCCESSFUL in 53s。
+- 145 actionable tasks：142 executed、3 up-to-date。
+- assembleDebug、assembleRelease、testDebugUnitTest、testReleaseUnitTest、lintDebug、assembleDebugAndroidTest 均成功。
+- Debug JVM XML：tests=65，failures=0，errors=0，skipped=0；SchedulePresentationTest tests=9，新增四项均进入测试体。
+- Release JVM XML：tests=65，failures=0，errors=0，skipped=0；SchedulePresentationTest tests=9，新增四项均进入测试体。
+- lintDebug：0 errors，13 warnings。
+- AndroidTest APK 已编译；本轮为纯 Kotlin 测试补强，按授权未启动模拟器、未运行 connectedDebugAndroidTest，
+  因此没有新的设备执行结果。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：48 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+- git diff --cached --check：提交前通过。
+
+结论与未完成边界：本轮只补齐 P3-01-R1 的 JVM 回归证据，P3-01-R1 仍需分析审查窗口最终独立复审；不代表
+P3-01、A02、A03、A07、P3、完整 App 或用户验收完成，不自动进入 P3-02。

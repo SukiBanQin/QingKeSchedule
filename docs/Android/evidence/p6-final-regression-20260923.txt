@@ -1,0 +1,46 @@
+P6-02 最终全量回归原始结果摘要
+日期：2026-09-23（Asia/Shanghai）
+代码基准：Android / 5700d42197e8a53391e4b267371a50ff8a6833bb
+设备：emulator-5554 / API 37 / arm64-v8a
+JDK：17.0.20.1
+
+1. 构建、lint 与完整设备测试
+
+命令（工作目录 Android/）：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SERIAL=emulator-5554 JAVA_HOME=/Users/takagisan/Library/Java/JavaVirtualMachines/ms-17.0.20.1/Contents/Home ./gradlew testDebugUnitTest testReleaseUnitTest connectedDebugAndroidTest assembleDebug assembleRelease assembleDebugAndroidTest lintDebug --no-daemon --console=plain
+
+终端结果：
+- `BUILD SUCCESSFUL in 3m 17s`
+- `145 actionable tasks: 13 executed, 132 up-to-date`
+- API 37 ARM64 仪器测试日志：`run started: 202 tests`，`run finished: 202 tests, 0 failed, 0 ignored`
+- Debug JVM 首轮任务显示 `UP-TO-DATE`，因此随后执行下节强制重跑。
+- Release JVM 首轮实际运行，XML 汇总为 283 tests，failures=0、errors=0、skipped=0。
+- `assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest`、`lintDebug` 均成功；Lint HTML 标题为 `Lint Report: 24 warnings`，无 errors。
+- 模拟器控制台在安装测试 APK 时输出一次 `Emulator console auth failed`；ADB 仍返回 `device`，`sys.boot_completed=1`，仪器测试完成。
+
+原始 Gradle 报告（由本地构建生成，未纳入 Git）：
+- Debug JVM：`Android/app/build/test-results/testDebugUnitTest/`
+- Release JVM：`Android/app/build/test-results/testReleaseUnitTest/`
+- Connected：`Android/app/build/outputs/androidTest-results/connected/debug/TEST-emulator-5554 - 17.xml`，根计数 202／0 failures／0 errors／0 skipped。
+- Lint：`Android/app/build/reports/lint-results-debug.html` 与 `.sarif`。
+
+2. Debug JVM 强制重跑
+
+命令（工作目录 Android/）：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37 JAVA_HOME=/Users/takagisan/Library/Java/JavaVirtualMachines/ms-17.0.20.1/Contents/Home ./gradlew testDebugUnitTest --rerun-tasks --no-daemon --console=plain
+
+终端结果：
+- `BUILD SUCCESSFUL in 20s`
+- `28 actionable tasks: 28 executed`
+- Debug JVM XML 汇总：283 tests，failures=0、errors=0、skipped=0。
+- Debug 编译输出两个 Java deprecated 警告：`QingKeApp.kt:496 statusBarColor`、`QingKeApp.kt:497 navigationBarColor`。
+
+3. 文档验证
+
+本轮文档完成后实际运行：
+- `python3 docs/tests/android-documentation.test.py`：Ran 71 tests，OK。
+- `bash docs/tests/documentation.test.sh`：`Documentation tests passed.`
+- `bash docs/tests/repository-layout.test.sh`：`Repository layout tests passed.`
+- `git diff --check`：退出码 0。
+
+跨端基准核对：`git diff --name-only 77da40b..HEAD -- Android ios web ios/Shared` 无输出；沿用 P6 预审、P3-03-R2 对照和 A10 iOS version 1 导出完整性证据，没有重跑 iOS App UI。

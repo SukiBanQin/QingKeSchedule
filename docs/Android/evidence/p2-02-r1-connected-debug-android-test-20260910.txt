@@ -1,0 +1,44 @@
+P2-02-R1 ReminderPreferences connectedDebugAndroidTest 设备证据
+日期：2026-09-10
+
+修正基准：8ae63295ca16cb22f5e233ef27f5e17d943991f3
+分支：Android
+范围：仅修正无效 reminderLeadMinutes 规范化时错误重置 remindersEnabled 的问题，并新增对应真实 DataStore AndroidTest。
+
+修正行为：
+- reminderLeadMinutes 小于 0 或大于 180 时，保留 remindersEnabled。
+- 只将 reminderLeadMinutes 回退为 10，usesCustomLeadTime 回退为 false。
+- AppearanceMode、AcademicCalendarPreferences 和其他偏好不改变。
+- 公开 save 与 update 的返回值、随后 load、关闭并重建同一 DataStore 文件后的读取一致。
+
+主机构建：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+结果：BUILD SUCCESSFUL，40 秒。Debug JVM 34 tests、Release JVM 34 tests，均为 0 failures、0 errors、0 skipped。
+
+设备：
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+AVD：qingke-api37-r3-arm
+唯一设备：emulator-5584
+adb state：device
+sys.boot_completed：1
+ro.build.version.sdk：37
+ro.product.cpu.abi：arm64-v8a
+
+执行命令：
+ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL，8 秒。
+XML：Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+总计：19 tests，0 failures，0 errors，0 skipped。
+- com.qingke.schedule.persistence.RoomScheduleRepositoryTest：11 tests，0 failures，0 errors，0 skipped。
+- com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest：8 tests，0 failures，0 errors，0 skipped。
+
+新增用例 publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen 已实际进入设备测试体：
+- save 写入 remindersEnabled=true、reminderLeadMinutes=-1、usesCustomLeadTime=true，返回值和 load 均为 true、10、false。
+- update 写入 reminderLeadMinutes=181 后仍为 true、10、false。
+- 关闭并重建同一 DataStore 后读取一致，且完整 SchedulePreferences 断言证明外观和教学日历未改变。
+
+取证后在同一受控会话执行 adb -s emulator-5584 emu kill；随后 adb devices -l 无连接设备。该证据仅说明
+P2-02-R1 已实施并完成本轮测试，仍须由分析审查窗口独立复审；不代表 P2-02、A09、P2 或完整 App 完成。

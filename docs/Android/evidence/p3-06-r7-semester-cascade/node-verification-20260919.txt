@@ -1,0 +1,11 @@
+P3-06-R7 API 37 ARM64 1080x2400@420dpi node verification
+semester-save-error bounds=(l=105.0,t=941.0,r=975.0,b=1459.0) size=870.0x518.0 texts=[]
+semester-save-error-confirm bounds=(l=105.0,t=1336.0,r=975.0,b=1457.0) size=870.0x121.0 texts=[]
+bottom entry: semester-save-error bounds=(l=105.0,t=941.0,r=975.0,b=1459.0) size=870.0x518.0 texts=[]
+semester-cascade bounds=(l=105.0,t=941.0,r=975.0,b=1459.0) size=870.0x518.0 texts=[]
+semester-cascade-summary bounds=(l=105.0,t=1228.0,r=975.0,b=1291.0) size=870.0x63.0 texts=[]
+semester-cascade-dismiss bounds=(l=105.0,t=1336.0,r=529.0,b=1457.0) size=424.0x121.0 texts=[]
+semester-cascade-confirm bounds=(l=550.0,t=1336.0,r=975.0,b=1457.0) size=425.0x121.0 texts=[]
+after confirm: periods=[1, 2] courseSchedules=[(1, 1)]
+week matrix: week-period-1-start bounds=(l=80.0,t=1319.0,r=142.0,b=1382.0) size=62.0x63.0 texts=[08:55]
+saved settings draft: periods=[1, 2]

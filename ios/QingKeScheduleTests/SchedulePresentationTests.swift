@@ -28,6 +28,13 @@ struct SchedulePresentationTests {
         ])
         #expect(presentation.items.map(\.status) == [.finished, .ongoing, .upcoming, .upcoming])
         #expect(presentation.items.filter(\.isNext).map(\.id) == ["schedule-alpha"])
+        let current = try #require(presentation.items.first { $0.id == "schedule-odd" })
+        #expect(current.timingProgress == CourseTimingProgress(
+            elapsedMinutes: 46,
+            remainingMinutes: 64,
+            fraction: 46.0 / 110.0
+        ))
+        #expect(presentation.items.first?.timingProgress == nil)
     }
 
     @Test("学期外与学期内无课有不同空状态")
@@ -84,6 +91,106 @@ struct SchedulePresentationTests {
         #expect(evenMonday.map(\.occurrence.course.id).contains("course-even"))
         #expect(evenWeek.currentWeek == 2)
         #expect(evenWeek.days[2].items.map(\.occurrence.schedule.id) == ["schedule-wednesday"])
+
+        let matrix = WeekMatrixPresentation(semester: semester, days: oddWeek.days)
+        #expect(matrix.periods.map(\.number) == [1, 2, 3, 4])
+        #expect(matrix.items.count == 6)
+        let every = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-every"
+        })
+        let odd = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-odd"
+        })
+        #expect(every.dayColumn == 0)
+        #expect(every.startRow == 0)
+        #expect(every.rowSpan == 2)
+        #expect(every.laneCount == 2)
+        #expect(odd.lane != every.lane)
+        let wednesday = try #require(matrix.items.first {
+            $0.occurrence.schedule.id == "schedule-wednesday"
+        })
+        #expect(wednesday.dayColumn == 2)
+        #expect(wednesday.startRow == 2)
+        #expect(wednesday.rowSpan == 1)
+        #expect(wednesday.laneCount == 1)
+    }
+
+    @Test("停课日不显示课程，调课日按指定星期课表展示")
+    func calendarExceptionsAffectTodayAndWeek() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let monday = try date(2026, 8, 31, hour: 9)
+        let saturday = try date(2026, 9, 5)
+        var settings = AcademicCalendarSettings.defaults
+        settings.setNonTeaching(monday, calendar: calendar)
+        settings.setMakeupTeachingDay(saturday, followsDayOfWeek: 1, calendar: calendar)
+
+        let today = TodaySchedulePresentation(
+            semester: semester,
+            courses: data.courses,
+            now: monday,
+            academicCalendarSettings: settings,
+            calendar: calendar
+        )
+        #expect(today.isNonTeachingDay)
+        #expect(today.items.isEmpty)
+        #expect(today.emptyMessage.contains("停课"))
+
+        let week = WeekSchedulePresentation(
+            week: 1,
+            semester: semester,
+            courses: data.courses,
+            now: monday,
+            academicCalendarSettings: settings,
+            calendar: calendar
+        )
+        #expect(week.days[0].isNonTeachingDay)
+        #expect(week.days[0].items.isEmpty)
+        #expect(week.days[5].scheduleSourceDayOfWeek == 1)
+        #expect(!week.days[5].isNonTeachingDay)
+        #expect(week.days[5].items.map(\.occurrence.course.id).contains("course-every"))
+        #expect(week.days[5].items.allSatisfy { $0.displayDayOfWeek == 6 })
+    }
+
+    @Test("星期日课程进入周矩阵第七列")
+    func sundayCourseAppearsInWeekMatrix() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let sundaySchedule = CourseScheduleDTO(
+            id: "schedule-sunday",
+            dayOfWeek: 7,
+            startPeriod: 1,
+            endPeriod: 1,
+            startWeek: 1,
+            endWeek: semester.totalWeeks,
+            repeat: .every,
+            classroom: "S707"
+        )
+        let sundayCourse = CourseDTO(
+            id: "course-sunday",
+            name: "周日课程",
+            teacher: "周老师",
+            color: "#12ABEF",
+            schedules: [sundaySchedule]
+        )
+        let sundayItem = WeekCourseItem(
+            occurrence: CourseOccurrenceDTO(course: sundayCourse, schedule: sundaySchedule),
+            isConflicting: false,
+            displayDayOfWeek: 7
+        )
+        let sunday = WeekDayPresentation(
+            dayOfWeek: 7,
+            date: nil,
+            items: [sundayItem],
+            isNonTeachingDay: false,
+            scheduleSourceDayOfWeek: nil
+        )
+
+        let matrix = WeekMatrixPresentation(semester: semester, days: [sunday])
+        let item = try #require(matrix.items.first)
+
+        #expect(item.occurrence.schedule.id == "schedule-sunday")
+        #expect(item.dayColumn == 6)
     }
 
     @Test("默认周次限制在学期范围内")
@@ -100,6 +207,49 @@ struct SchedulePresentationTests {
             now: try date(2027, 2, 1),
             calendar: calendar
         ) == 18)
+    }
+
+    @Test("周课表摘要和课程紧凑信息使用真实数据")
+    func weekMatrixLabels() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let semester = try #require(data.semester)
+        let course = try #require(data.courses.first { !$0.teacher.isEmpty })
+        let schedule = try #require(course.schedules.first { !$0.classroom.isEmpty })
+
+        #expect(ScheduleDisplayText.weekMatrixSummary(periodCount: 4) == "MON–SUN / 4 PERIODS")
+        #expect(
+            ScheduleDisplayText.compactCourseDetails(course: course, schedule: schedule)
+                == "\(schedule.classroom) · \(course.teacher)"
+        )
+
+        let week = WeekSchedulePresentation(
+            week: 1,
+            semester: semester,
+            courses: data.courses,
+            now: try date(2026, 8, 31),
+            calendar: calendar
+        )
+        var settings = AcademicCalendarSettings.defaults
+        settings.lunchBreak.startTime = "09:40"
+        settings.lunchBreak.endTime = "10:00"
+        let matrix = WeekMatrixPresentation(
+            semester: semester,
+            days: week.days,
+            academicCalendarSettings: settings
+        )
+        #expect(matrix.scheduleBreak == WeekMatrixBreak(
+            title: "午休",
+            startTime: "09:40",
+            endTime: "10:00",
+            insertionRow: 2
+        ))
+
+        settings.lunchBreak.isEnabled = false
+        #expect(WeekMatrixPresentation(
+            semester: semester,
+            days: week.days,
+            academicCalendarSettings: settings
+        ).scheduleBreak == nil)
     }
 
     private func date(

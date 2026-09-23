@@ -1,0 +1,63 @@
+P3-01 今日与周课表展示模型 JVM 证据
+日期：2026-09-10
+
+代码基准：93e1005263871c25a87cd8d8dae4a8f822dbb52b
+分支：Android
+实际修改文件：
+- Android/app/src/main/java/com/qingke/schedule/domain/ScheduleRules.kt
+- Android/app/src/main/java/com/qingke/schedule/presentation/SchedulePresentation.kt
+- Android/app/src/test/java/com/qingke/schedule/domain/ScheduleRulesTest.kt
+- Android/app/src/test/java/com/qingke/schedule/presentation/SchedulePresentationTest.kt
+- docs/Android/handoff.md
+- docs/Android/evidence/p3-01-schedule-presentation-jvm-20260910.txt
+- docs/tests/android-documentation.test.py
+
+范围：新增纯 Kotlin 的今日／周课表展示规则，未修改 MainActivity、Application、Compose、ViewModel、导航、
+主题、ScheduleAppState、Room、DataStore、草稿、ScheduleValidator、通知、导入导出、iOS、Web、共享 schema／
+fixtures 或构建依赖，未进入 P3-02。
+
+实现摘要：
+- OccurrenceKey 用课程和安排来源下标区分历史重复 course.id／schedule.id；不会去重、覆盖或丢失发生项。
+- ScheduleRules 提供教学周日期、指定周发生项、HH:mm 分钟与 FINISHED／ONGOING／UPCOMING 边界计算。
+- AcademicCalendarResolver 以停课、调课、周末、正常星期的优先级解析日期；调课保留显示日列但使用来源星期。
+- TodaySchedulePresentation 输出教学周、停课状态、固定空文案、排序项目、唯一下一门及进行中进度。
+- WeekSchedulePresentation 固定七天、限制周次、计算 currentWeek 与 initialWeek，按真实发生项标记不同课程业务 ID 的闭区间节次冲突。
+- WeekMatrixPresentation 输出跨节行、稳定 lane、链式重叠分量 laneCount、可复用的分离分量 lane、午休分隔和安全忽略无效节次映射。
+- ScheduleDisplayText 输出星期、节次／时间、矩阵摘要与无多余分隔符的教室／教师文字。
+
+共享 fixture 与 JVM 覆盖：
+- SchedulePresentationTest 直接通过现有 ScheduleDataDecoder 加载 ios/Shared/fixtures/valid/complete-schedule.json。
+- 今日 fixture 顺序为 schedule-every、schedule-odd、schedule-alpha、schedule-beta；状态为 FINISHED、ONGOING、UPCOMING、UPCOMING；仅 schedule-alpha 是下一门；进行中进度为 46、64、46.0/110.0。
+- 覆盖学期前后、学期内无课、开始前／开始／结束／结束后状态、第一／末周、单双周、周三与周日列、真实日期、学期外 currentWeek。
+- 覆盖停课优先同日调课、周末、正常工作日以及今日／周一致性；调课日 displayDayOfWeek 与来源星期不同。
+- 覆盖不同课程冲突、同课程不标红、闭区间端点、单双周过滤、重复业务 ID 独立发生项和来源键。
+- 覆盖矩阵跨节、两项与三项链式重叠、分离分量 lane 复用、稳定顺序、无效节次映射、午休合法／禁用／相交／首节前／末节后及文字空字段。
+
+使用的 SDK：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+最终完整构建命令（Android/）：
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+最终结果：BUILD SUCCESSFUL in 53s
+145 actionable tasks：142 executed，3 up-to-date
+assembleDebug：成功
+assembleRelease：成功
+assembleDebugAndroidTest：成功（仅 APK 编译）
+lintDebug：0 errors，11 warnings；未将 warning 记为 error，且本轮未修改产生既有 warning 的依赖、资源或 AndroidTest 文件。
+
+JVM XML（Android/app/build/test-results/）：
+- testDebugUnitTest：tests=61，failures=0，errors=0，skipped=0
+- testReleaseUnitTest：tests=61，failures=0，errors=0，skipped=0
+- ScheduleRulesTest：每变体 tests=7，failures=0，errors=0，skipped=0
+- SchedulePresentationTest：每变体 tests=5，failures=0，errors=0，skipped=0
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：46 tests 通过
+- bash docs/tests/documentation.test.sh：通过
+- bash docs/tests/repository-layout.test.sh：通过
+- git diff --check：通过
+
+本轮纯 Kotlin，未启动模拟器且未运行 connectedDebugAndroidTest；AndroidTest APK 已成功编译。
+P3-01、A02、A03、A07、P3、完整 App 和用户验收均未完成，下一步必须交回分析审查窗口独立复审。

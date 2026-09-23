@@ -1,0 +1,65 @@
+P2-04 应用状态与生产依赖装配同窗口复审证据
+日期：2026-09-10
+
+角色与限制：
+- 用户指定由当前分析审查角色复审，不修改应用代码。
+- 实施与复审由同一 Codex 任务完成；本证据是同窗口重新核对和重跑，不表述为另一窗口独立审查。
+
+复审范围：
+- 实施基准：205831819ff1343b5f736ea011e6817f9b7e5b55
+- 实施提交：e6a3513d720fe39f3b3f10aca1acc55208d9d820
+- 分支：Android
+- 实施 diff：13 个文件；MainActivity、Compose、ViewModel、通知、导入导出、iOS、Web、
+  共享 schema/fixtures、Room schema 和 DataStore 键均未修改。
+
+Git 核对：
+- 复审开始与应用验证完成时工作区干净。
+- HEAD、refs/heads/Android、origin/Android：
+  e6a3513d720fe39f3b3f10aca1acc55208d9d820
+- git ls-remote origin refs/heads/Android：
+  e6a3513d720fe39f3b3f10aca1acc55208d9d820
+- git diff --check 2058318..e6a3513：通过。
+
+主机复审验证：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 42s；145 actionable tasks，141 executed、4 up-to-date。
+- Debug JVM：55 tests，0 failures，0 errors，0 skipped。
+- Release JVM：55 tests，0 failures，0 errors，0 skipped。
+- ScheduleAppStateTest：每个变体 21 tests。
+- lintDebug：0 errors、13 warnings；1 AndroidGradlePluginVersion、8 GradleDependency、
+  1 MissingApplicationIcon、2 NewerVersionAvailable、1 UnusedResources。
+- assembleDebugAndroidTest：成功。
+
+设备复审验证：
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+AVD：qingke-api37-r3-arm
+唯一设备：emulator-5584
+adb state：device
+sys.boot_completed：1
+ro.build.version.sdk：37
+ro.product.cpu.abi：arm64-v8a
+
+执行：
+ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL in 7s；74 actionable tasks，1 executed、73 up-to-date。
+XML：Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+总计：21 tests，0 failures，0 errors，0 skipped。
+- ScheduleAppDependenciesTest：2 tests。
+- RoomScheduleRepositoryTest：11 tests。
+- DataStoreSchedulePreferencesRepositoryTest：8 tests。
+- 新增装配测试 realRoomAndDataStoreCompositionRestoresJointStateAfterReopen 与
+  manifestApplicationLazilyProvidesOneProductionDependencyContainer 均进入测试体。
+- javap：上述两个方法均为 public final void。
+
+设备清理：
+- adb -s emulator-5584 emu kill：OK。
+- adb devices -l：为空。
+
+复审结论：
+- 未发现 P2-04 代码或证据阻断项。
+- P2-04 已实现、测试并通过当前分析角色复审；组织性独立审查限制保留。
+- 不表示用户验收、P2、A01—A11、P3 或完整 App 完成。

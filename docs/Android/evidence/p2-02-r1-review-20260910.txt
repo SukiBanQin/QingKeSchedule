@@ -1,0 +1,44 @@
+P2-02-R1 独立复审证据
+日期：2026-09-10
+
+复审范围：
+- 修正基准：8ae63295ca16cb22f5e233ef27f5e17d943991f3
+- 实施提交：2ba11ec8ec2fe95b9e34a210e4597f52ee05805a
+- 分支：Android
+- 实际 diff 只包含 SchedulePreferences.kt、DataStoreSchedulePreferencesRepositoryTest.kt、
+  handoff.md、本轮执行证据和 android-documentation.test.py 五个文件。
+
+代码结论：
+- ReminderPreferences.normalized() 在 reminderLeadMinutes 小于 0 或大于 180 时保留
+  remindersEnabled，只将提前量回退为 10、usesCustomLeadTime 回退为 false。
+- 修正后与 iOS UserDefaultsReminderSettingsStore.load 及 Android 原始 DataStore 读取路径一致。
+- 新用例通过公开 save 覆盖 -1、通过公开 update 覆盖 181，验证返回值、load、
+  关闭重建及外观／教学日历不变。未发现新的阻断问题。
+
+独立主机验证：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+- BUILD SUCCESSFUL in 44s，145 actionable tasks：141 executed、4 up-to-date。
+- Debug／Release JVM 各 34 tests，均为 0 failures、0 errors、0 skipped。
+- lintDebug 为 0 errors、12 个既有 warnings；AndroidTest APK 成功编译。
+
+独立设备验证：
+- ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+- AVD：qingke-api37-r3-arm；唯一设备 emulator-5584。
+- adb state=device，sys.boot_completed=1，SDK=37，ABI=arm64-v8a。
+- ANDROID_SERIAL=emulator-5584 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+- BUILD SUCCESSFUL in 7s。XML 为 19 tests、0 failures、0 errors、0 skipped：Room 11 tests，
+  DataStore 8 tests。publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen 已实际进入测试体。
+- 取证后正常关闭 emulator-5584，adb devices -l 为空。
+
+文档与仓库验证：
+- python3 docs/tests/android-documentation.test.py：37 tests 通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+- 复审时 HEAD、refs/heads/Android、origin/Android 和远程 refs/heads/Android 均为
+  2ba11ec8ec2fe95b9e34a210e4597f52ee05805a，工作区干净。
+
+结论：P2-02-R1 聚焦修正通过独立复审，P2-02 实施范围的已知阻断项关闭。这不等于
+P2-02 用户验收、A09、P2 或完整 App 完成，也不自动授权 P2-03 或 P3。

@@ -1,0 +1,157 @@
+# 安卓技术方案
+
+## 文档状态
+
+P4／A10 JSON 导入导出已按本文档的协议与存储约定实现并通过 [Sol 独立技术复审](p4-a10-json-transfer-review.md)，用户随后确认验收通过。R0 发现传输弹窗未接管 Android 系统返回；R1 `156b004` 已修正并通过再复审：`TransferDialogHost` 仅在 `TransferUiState.showsPrompt` 为真时启用 `BackHandler`，可取消态的系统返回只调用一次 `dismissTransferPrompt()` 并停留原页面，`isWriting` 时消费返回且不取消事务、不退出 Activity，无提示时不抢占其他返回处理；真实系统返回设备测试和 API 37 `OpenDocument` 流程均已核对（[R1 证据](evidence/p4-a10-json-transfer/r1-system-back-20260920.txt)）。**A10 当前约定范围的技术与用户验收门槛均已关闭**（实现细节、验证命令与限制见 [P4／A10 实施记录](p4-a10-json-transfer.md)、设备与双向往返证据见 [证据目录](evidence/p4-a10-json-transfer/README.md)）：有界读取（恰好 5 MiB 接受、第 5 MiB+1 字节即拒绝，不信任文件元数据）、复用共享版本 1 的严格解码与业务校验、预览确认后由既有 `ScheduleAppState`／Room 整体事务替换、取消与失败保留原数据、成功后重建学期草稿并只以 `DATA_SAVED` 协调一次提醒、导出只生成 version 1 JSON。D01 的设备本地偏好（教学日历、午休、提醒、外观）导入前后逐字段不变，且未被宣称为跨存储事务。
+
+准确状态是 P3-03-R2、[P3-04 课程新增、编辑与删除](p3-04-course-editor.md) 与 P3-05／A03 周课表均已实施、完成 API 37 设备验证、通过 Sol 技术独立复审并获用户视觉验收（P3-05 实现 `e3321bd`、验收收口 `5fb0bd2`）。P3-04／A04／A05 与 P3-05／A03 当前实现范围的验收门槛已关闭。P3-06／A06 完整设置页与学期编辑已实现并自测（`83d1a9f`），首轮 Sol 独立复审未通过；本轮返修已完成（既有课程引用的节次身份保护、深色设置页前景色、证据目录权限、状态文档），**等待再次复审与用户视觉验收，尚未通过复审**。上述确认不扩大为 A02、A06—A11、整个 P3 或完整 App 验收，后续阶段未授权。
+
+更新日期：2026-09-15。状态：用户已确认方案及 P1、P2 阶段结果；P1-01 及两轮修正已完成[独立审查](p1-01-review.md)。P1-03 已升级到经 D02 核对的 API 37.0 组合，工具链、源码／依赖边界和 API 37 设备运行门槛均通过[专项复审](p1-03-review.md)，授权范围完成；P1-04 及 P1-04-IOS-SYNC 均已通过独立复审，两个开发分支已同步。P2-01、P2-02-R1 已独立复审；P2-03 已通过最终独立复审。P2-04 的[应用状态与生产依赖装配](p2-04-application-state-composition.md)已通过[当前分析角色同窗口复审](p2-04-review.md)，用户接受组织性独立限制并确认 P2。P3-01 [今日与周课表展示模型](p3-01-schedule-presentation.md)已实现、测试、通过最终独立复审并获用户确认；P3-02 [应用壳、状态加载与首次学期设置](p3-02-app-shell-onboarding.md)已实现、测试、通过最终独立复审并获用户确认；[P3-03 今日课表页面与实时刷新](p3-03-today-schedule.md)及 R1 已完成技术复审，[P3-03-R2 今日页与共享主壳视觉对齐](p3-03-r2-visual-alignment.md)已实施、完成 API 37 设备验证、通过 Sol 技术独立复审并获用户视觉验收。[P3-04 课程新增、编辑与删除](p3-04-course-editor.md)已按源课程位置与打开时数据指纹精确修改／删除合法重复 ID 课程，业务 ID、导入协议和共享 schema 不变，iOS 同步未授权；实现和测试已完成，并通过 API 37 生产验证、Sol 技术独立复审及用户产品／视觉验收。P3、功能页面整体和完整应用验收仍未完成，后续阶段未授权。
+
+产品要求见 [功能对照及验收清单](product-baseline.md)，阶段安排见 [实施计划](implementation-plan.md)，实时状态见 [交接记录](handoff.md)。P2-01 的可执行存储／状态契约见 [专项分析](p2-01-persistence-state.md)，P2-03 的纯 Kotlin 草稿／冲突边界见 [表单草稿分析](p2-03-form-drafts.md)，P2 收口的联合状态与生产入口见 [P2-04 分析](p2-04-application-state-composition.md)；今日／周表纯 Kotlin 展示规则见 [P3-01 分析](p3-01-schedule-presentation.md)，首个 Compose／状态／持久化垂直切片见 [P3-02 分析](p3-02-app-shell-onboarding.md)，真实今日页和当前 iOS 秒级时间基准见 [P3-03 分析](p3-03-today-schedule.md)。
+
+## 建议技术路线
+
+保留 iOS 原生实现，在 `Android/` 新建 Kotlin 原生安卓项目。采用 Jetpack Compose、ViewModel 与 StateFlow 管理 UI 和状态，Room 保存结构化课表，DataStore 保存偏好设置，Kotlin 序列化库负责 JSON。P1-01 已固定依赖并验证可构建；P1-03 已采用 API 37.0、AGP 9.4.0、Gradle 9.6.0、Build Tools 36.0.0 与 JDK 17，保持 minSdk 26。AGP 9 built-in Kotlin、serialization 和 Compose plugin 迁移已通过主机侧构建复核；Room 已在 P2-01 接入，DataStore 偏好边界已在 P2-02 以 `androidx.datastore:datastore-preferences:1.2.1` 接入，其 P2-02-R1 聚焦修正已通过独立复审。
+
+以现有 Mac 为主力，安卓真机补充模拟器；Windows 可按需要承担安卓开发和测试。Gradle Wrapper 提供 macOS 与 Windows 对应入口，不使用个人绝对路径。包名 `com.qingke.schedule`、最低 API 26 及首轮个人 debug 验证已确认，正式发布范围待定。
+
+参考：[Android 架构建议](https://developer.android.com/topic/architecture/recommendations)、[Jetpack 组件](https://developer.android.com/jetpack)、[Android Studio 安装](https://developer.android.com/studio/install)。
+
+## 模块边界
+
+首版可在一个应用模块中按职责分包，避免为目录形式提前拆分大量 Gradle 模块：
+
+| 层 | 职责 | iOS 对照 |
+| --- | --- | --- |
+| 界面 | 今日、周表、编辑、学期、提醒、数据备份、外观 | `Features/` 中的 View 和样式 |
+| 展示与状态 | 固定时钟输入、展示模型、表单草稿、保存／导入协调 | `SchedulePresentation`、`CourseDraft`、`ScheduleAppState` |
+| 领域 | 数据类型、日期、单双周、冲突、校验、教学日历、未来课程发生 | `Domain/`、教学日历设置、通知规划逻辑 |
+| 存储 | 课表事务、排序、关系、版本迁移、偏好设置 | `Persistence/`、各 SettingsStore |
+| 系统适配 | 通知调度、权限、文件选择和分享、生命周期 | `Notifications/`、`Transfer/` |
+
+界面不直接写数据库或安排闹钟；领域逻辑不依赖 Android UI／Context。日期计算采用明确时区及可注入时钟，使用日期类型做日历运算，不以固定秒数计算教学周。Android UI 持续显示时的时间刷新、前台恢复和日期切换需明确处理并测试。
+
+## 跨端协议与校验
+
+- 继续使用 [共享 Schema](../../ios/Shared/schedule-data.schema.json) 和 [fixtures 清单](../../ios/Shared/fixtures/manifest.json)，不复制一套会自行漂移的协议。
+- JSON 字段保留 `repeat`、`dayOfWeek`、`classroom` 等原名；日期 `yyyy-MM-dd` 表示本地日期，时间 `HH:mm`，`updatedAt` 为 UTC ISO 8601。星期一为 1。
+- 版本 1 必需包含 `semester`，允许显式 `null`；无学期不得有课程。未知版本和非法业务数据必须拒绝。
+- 输入大小与 iOS 当前限制保持一致：最多 5 × 1,048,576 字节。对 ContentResolver 流执行有界读取，不只信任文件大小元数据。
+- 先解码和业务校验，再预览、确认、事务替换；取消、解析失败或写入失败保留原课表。A10 已按此实现：预览不写库，只有「替换当前课表」触发一次事务替换，失败与取消保持预览可重试且不先报成功。
+- 版本 1 不携带教学日历、提醒和外观等设备偏好。D01 已确认首版不扩展协议：A10 导入／导出只迁移学期
+  与课程，导入不清除或覆盖上述本地偏好；不修改 iOS 或共享文件。未来如需迁移完整设置，另行设计并授权
+  新协议版本。
+- 版本 1 未知字段按共享 schema 严格拒绝，适用于顶层和全部嵌套协议对象；Android 已符合，iOS 导入边界由 P1-04 统一。重复 ID、节次顺序和数字类型继续按已核实行为处理，不自行加严。
+
+## 存储与导入导出
+
+Room 建议保存元数据、单个学期、节次、课程和多个安排，保留稳定 ID 与顺序字段。课程删除级联删除安排。数据替换和元数据更新在事务内进行，测试注入失败确保旧数据仍可读取。
+
+P2-01 固定采用 `androidx.room` 2.8.4 与 KSP 2.3.11，保持现有 AGP 9 built-in Kotlin
+和工具链不变。Room 内部主键与 DTO ID 分离，避免把 P1 已接受的重复 ID 变成数据库新增
+限制；所有数组使用显式顺序字段。仓库 suspend 写操作返回已提交完整聚合，状态层成功后直接
+发布该快照，不执行可能产生“磁盘已提交、内存仍旧”的第二次读取。空库返回固定默认聚合；
+部分／非法记录报损坏且不清库。详细失败、并发和测试契约以专项分析为准。
+
+偏好中保存教学日历、提醒提前量和外观；系统通知授权不以偏好布尔值代替。P2-02 已采用
+DataStore 建立可替换的偏好存储接口，覆盖 `AppearanceMode`、提醒开关／提前量／自定义标记、
+以及教学日历的周末停课、停课日期、调课日期和午休设置。读取缺失、可识别磁盘损坏或未知枚举值时
+回退到基准默认值；普通 I/O／写入异常和协程取消必须向调用方传播。写入后关闭并重建 DataStore
+应恢复同一规范化设置。偏好自身独立版本化，不能把 DataStore 与 Room 的两个独立写入误称为跨存储
+原子事务；P2-02 不接页面、`ScheduleAppState` 或通知调度。
+
+P2-02 的键名和编码格式须集中定义并保留迁移余地；列表字段必须保持稳定顺序或按基准规则
+规范化，日期继续使用 `yyyy-MM-dd`，时间继续使用 `HH:mm`。实现不得改变 iOS 已有默认值、
+教学日历优先级、提醒提前量 0—180 分钟范围或外观三态语义。
+
+DataStore 和上述偏好不属于 P2-01，已由独立授权的 P2-02 实现；该实现不提前决定跨存储恢复策略，
+其 P2-02-R1 聚焦修正已通过独立复审。这不表示 P2-02 已用户验收或 P2 完成。
+
+P2-03 将表单草稿定义为纯 Kotlin 转换／评估层：课程草稿负责默认安排、字段规范化、
+dirty 判断、多安排和新增完全重复阻止；学期草稿负责季节名称、默认十节、增删和连续编号。
+基础合法性复用 `ScheduleValidator`。`ScheduleRules` 补足同星期、闭区间节次相交和共同单双周的
+冲突计算；冲突只返回给后续页面决定是否仍然保存，草稿层不调用仓库。日期和 ID 生成可注入，
+不让 JVM 测试依赖当前时间、时区或随机 UUID。详细历史重复兼容、不包含项和测试矩阵以专项分析为准。
+
+P2-04 负责把两个已审查仓库连接到一个可观察应用状态：联合加载在取得课表和偏好后一次发布，
+任一普通失败不得发布另一端新快照，取消恢复完整前态并传播；课表和偏好写操作在状态边界串行，
+各自只发布仓库返回的已提交快照，不声称跨存储原子。生产侧由 manifest 注册的 Application 级
+惰性容器提供唯一 Room／DataStore 依赖，状态仍只依赖接口并留给 P3 的 Activity 级 ViewModel 持有。
+P2-04 不修改 `MainActivity`、不主动加载、不新增页面或通知副作用，具体测试和关闭重建门槛以专项分析为准。
+
+P3-02 由 Activity 级 ViewModel 持有唯一 `ScheduleAppState`，在 `viewModelScope` 中只启动一次初始加载，
+Compose 以生命周期感知方式订阅状态。根界面按 `NOT_LOADED／LOADING`、`FAILED`、`READY` 且无学期、
+`READY` 且有学期映射为加载、失败重试、首次设置和主壳；保存错误保留当前主体，不得把它误映射成加载失败。
+首次设置复用 `SemesterDraft`，其可观察界面快照由 Activity 级状态持有以跨越 Activity 重建；成功后只由已
+提交状态驱动进入主壳，失败保留草稿。三标签壳和最小主题不提前接入今日／周表或完整设置，真实 API 37
+验收须覆盖清数据冷启动、保存以及强停后重启恢复。详细依赖、test tag 和排除范围以 P3-02 专项分析为准。
+
+P3-03 将 P3-01 今日模型接入主壳，并以可注入 `LocalDateTime`、Activity 级可观察时钟和生命周期感知协程
+保持页面在前台每秒更新、回前台立即更新；下拉刷新只刷新内存时间，不重新加载 Room／DataStore。由于当前
+`origin/IOS` 已在 `c3191ae` 改为秒级倒计时和结束时刻即 `FINISHED`，Android 必须同步更新进度结构、状态
+边界和回归测试，不能继续沿用已过时的整分钟契约。今日列表键使用 `OccurrenceKey`，不依赖历史上可重复的
+业务 ID。课程编辑未接入前不展示无效 ADD／编辑入口；具体页面、测试和截图门槛以 P3-03 专项分析为准。
+
+P3-03-R2 在不改变上述状态、时间和仓库所有权的前提下，把共享视觉基础和今日页按当前 iOS 运行画面重构：
+使用 `source/cover.png` 生成 launcher icon、使用 `source/qingke-logo-q-matrix-preview.png` 显示品牌头，
+复现网格／圆弧背景、iOS 色彩和方角 token、三段日期 hero、活动条、featured／序列卡片，以及含图标、
+标题、`01/02/03` 和独立选中块的底部标签栏。Android 系统栏、返回方式及合法字体渲染可保留平台差异，
+其余不得以 Material 默认样式代替 iOS 设计；对照与排除范围以 R2 专项分析为准。
+
+P3-04 按已确认的精确来源定位契约接入课程编辑：编辑路由携带源课程位置与打开时数据指纹，Room 写入前
+验证该位置仍指向同一打开快照，再精确替换或删除；不按可能重复的业务 ID 命中第一项。目标漂移或写入失败
+必须保留草稿并提示重试。该内部定位能力不得改变课程业务 ID、共享 schema 或版本 1 导入接受范围，也不构成
+iOS 同步修改授权。页面、ViewModel、确认流程、生产入口和验证矩阵以 P3-04 专项分析为准。
+
+通过 Android 系统文件选择／创建文档和分享接口处理 JSON，不导出平台数据库文件。文件取消不显示成功；不可写、无学期、内容无效时给出明确反馈。A10 使用 SAF `OpenDocument`（`application/json`）与 `CreateDocument("application/json")`（建议名 `qingke-schedule-yyyy-MM-dd.json`），只使用 content URI，不申请存储权限、不使用 `file://` 或自定义文件浏览器；未新增分享能力。实现与限制见 [P4／A10 实施记录](p4-a10-json-transfer.md)。
+
+## 提醒设计与验证风险
+
+业务层将学期、安排、单双周、停课调课设置及提前量转换为未来课程提醒，系统层负责提交与取消。使用稳定的课程发生标识，调课包含日期，避免覆盖同周其他发生；Android PendingIntent 身份需验证不冲突，不能仅依赖可能碰撞的字符串哈希。
+
+建议以 AlarmManager 处理面向用户的课程定时提醒，NotificationManager 显示通知；WorkManager 如有必要用于延后校验或维护，不能承诺精确投递。具体滚动窗口／下一次触发策略在原型验证后确定。
+
+需覆盖通知权限、通知渠道状态、精确闹钟能力检查、重启、时间／时区变化、权限变化、进程结束及重新进入应用后的重建。取消和重建应可重复执行，失败不得破坏已保存课表；必要时序列化协调并忽略旧状态任务，防止快速编辑留下过期提醒。
+
+D03 已确认：精确提醒优先；精确能力不可用时降级为非精确并明确标注「可能延迟」；采用可撤销的
+`SCHEDULE_EXACT_ALARM`，不使用 `USE_EXACT_ALARM`。仍不能承诺强制停止应用后一定提醒，也不能用常驻服务
+掩盖未处理的系统限制；iOS 的最近 60 条策略不直接作为安卓方案。
+
+参考：[闹钟调度](https://developer.android.com/develop/background-work/services/alarms)、[通知权限](https://developer.android.com/develop/ui/compose/notifications/notification-permission)。实施时重新核实目标版本要求；真实可靠性以目标设备测试为准。
+
+## 视觉与平台交互
+
+P3-09／A11 已实施、自测并通过 [Sol 独立技术复审](p3-09-a11-appearance-review.md)（[实施记录](p3-09-a11-appearance.md)、[设备证据](evidence/p3-09-a11-appearance/README.md)）：正式设置页只新增
+`06 外观／DISPLAY` 分区并放在 `05 数据备份` 之后、保存卡片之前，首次设置页不显示该入口但仍消费已保存／系统主题；
+`ScheduleViewModel.setAppearanceMode` 复用 `ScheduleAppState.updatePreferences` 与既有 `appearance_mode` 键，相同值不写、
+写入中忽略第二次选择、成功后才发布并即时重组主题、失败／取消保留最后成功模式与既有中文错误，且不触发提醒重算；
+“当前显示：浅色／深色”直接使用渲染该子树的同一个已解析主题值，普通宽度横排、320dp／130%／无障碍字号竖排且每项
+≥48dp。验证同时暴露并修正了一处真实主题问题：品牌 Logo 原先经 `drawable-night-nodpi` 按**系统**夜间模式取图，
+强制浅色时不可读，现改为按应用外观解析（不改资源、不重做已验收页面）。**A11 已通过技术复审及用户验收。**
+
+P3-09／A11 [只读分析](p3-09-a11-appearance-analysis.md)确认：既有 `AppearanceMode`、DataStore 和根 Compose
+主题继续复用，不新增偏好键或第二套主题状态。正式设置页应在 `05 数据备份` 后增加 `06 外观`，通过 ViewModel
+成功写入偏好后即时发布；SYSTEM 的实际明暗直接取系统配置，LIGHT／DARK 强制对应主题。首次设置页不显示入口，
+但仍消费已保存模式。用户已授权按此边界实施；详细响应式布局、失败边界、测试和设备证据要求见分析文档。
+
+按基准的品牌、终端风格、布局、课程颜色和信息层级实现 Compose 界面。系统文件面板和权限界面采用 Android 默认机制；返回手势、键盘遮挡、安全区域、字体缩放和读屏需适配。先选择相同数据做页面对照，再验收小屏、深色和大字体，不以网页模拟状态作为真实业务参考。
+
+## 测试与交付
+
+- JVM 单元测试：教学周、边界日期、单双周、状态秒级边界、冲突、草稿校验、教学日历优先级及通知规划。
+- 契约测试：直接读取共享有效／无效 fixtures，保留 `semester: null`，验证版本、颜色、导入导出往返；新增规则用例应有明确预期。
+- 存储集成测试：关系和顺序、增改删、事务回滚、重启和迁移。
+- Compose／设备测试：覆盖 A01 至 A11 核心流程，确认／取消、错误反馈及无障碍。
+- 真机测试：权限拒绝与变化、锁屏／休眠、重启、长时间未打开、时间变化、修改删除后旧提醒取消，以及系统文件导入分享。
+- 建工程后提供可复现构建和测试命令。现有 `Android/gradlew` 与 `gradlew.bat`；配置 JDK 17 和有效 SDK 路径后，在 `Android/` 运行 `./gradlew assembleDebug` 和 `./gradlew test`。本轮具体环境和结果见审查记录。
+- 每项交付记录提交、命令、结果和未验证限制；对照清单仍需人工验收，不以自动测试代替所有设备检查。
+
+当前文档验证命令（仓库根目录执行）：
+
+```bash
+python3 docs/tests/android-documentation.test.py
+bash docs/tests/documentation.test.sh
+bash docs/tests/repository-layout.test.sh
+git diff --check
+```

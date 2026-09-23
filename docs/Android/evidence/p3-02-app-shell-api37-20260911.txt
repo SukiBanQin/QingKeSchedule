@@ -1,0 +1,18 @@
+P3-02 应用壳与首次学期设置执行证据
+日期：2026-09-11
+
+基准与范围：
+- 基准：7c6b38bfb6a80eb7ee49a7472b6276b62265b920，分支 Android。
+- 新增 Activity 级 ScheduleViewModel、Compose 根路由、首次学期表单、三标签壳和最小主题；未接入真实今日／周内容、课程编辑、完整设置、通知、导入导出或 P3-03。
+- 早期设备失败：Compose 1.7.6 传递解析 espresso-core 3.5.0，在 API 37 反射调用已移除的 InputManager.getInstance。显式 3.6.1 仍失败；最终固定测试专用 espresso-core 3.7.0，官方修复为改用 getSystemService，最终设备测试通过。
+
+验证：
+- clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest：BUILD SUCCESSFUL in 53s，145 actionable tasks（142 executed、3 up-to-date）。
+- API 37 ARM64：AVD qingke-api37-r3-arm，emulator-5584，ADB device，boot_completed=1，SDK=37，ABI=arm64-v8a。
+- connectedDebugAndroidTest：BUILD SUCCESSFUL；XML 22 tests，0 failures，0 errors，0 skipped（装配 2、Room 11、DataStore 8、Compose 1）。
+- 真实生产路径：清除 com.qingke.schedule 数据后启动显示“建立你的第一个学期”和默认 18 周；点击顶部保存后显示“今日（壳层）”；force-stop 后再次启动仍显示“今日（壳层）”。
+- 截图由本次 API 37 设备在执行过程保存：/tmp/p3-onboarding.png、/tmp/p3-main.png（本地临时取证文件）。
+
+限制：
+- 当前新增 Compose 用例仅验证首次设置默认折叠与展开；完整 P3-02 Compose/JVM 矩阵仍需独立审查时核对覆盖充分性。
+- 本证据不表示 P3-02、A01、A06、A11、P3、完整 App 或用户验收完成。

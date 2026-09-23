@@ -1,0 +1,8 @@
+    RTC_WAKEUP #40: Alarm{136daa3 type 0 origWhen 1790501448192 whenElapsed 609487752 com.qingke.schedule}
+      tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+      operation=PendingIntent{80af1a0: PendingIntentRecord{407d159 com.qingke.schedule broadcastIntent}}
+          type=RTC_WAKEUP tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+          type=RTC_WAKEUP tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+          type=RTC_WAKEUP tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+          type=RTC_WAKEUP tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE
+          type=RTC_WAKEUP tag=*walarm*:com.qingke.schedule.action.REMINDER_MAINTENANCE

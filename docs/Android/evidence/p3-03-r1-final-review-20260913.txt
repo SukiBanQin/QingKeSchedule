@@ -1,0 +1,57 @@
+P3-03-R1 最终独立复审证据
+=============================
+
+日期：2026-09-13
+
+角色、范围与仓库状态：
+- 分析审查窗口，只读审查应用实现；未修改 Android 应用代码、iOS、Web、共享 schema／fixtures，未进入 P3-04。
+- 复审范围：19a04f37a87e55b078e0a4425028044948a2b62f..d7e31dae414c9f5cb6b47aaa0ee35c9c6bd7d590。
+- 范围内提交：4b7b51b、647a8dc、d7e31da；实际 diff 为 12 个文件，仅含 QingKeApp、对应 JVM／AndroidTest、
+  P3-03-R1 交接／证据与六张 PNG，没有修改受保护的状态、存储、协议、iOS 或后续页面。
+- 复审开始时 HEAD、refs/heads/Android、origin/Android 和远端 refs/heads/Android 均为 d7e31da；
+  origin/IOS 为 fc3ddfb8ffa14b205a591ffdbed5632d5f975001；工作区干净。
+
+实现与测试核验：
+- courseColor() 只接受 ^#[0-9A-Fa-f]{6}$，按不透明 sRGB 使用；非法输入回退 QingKeCyan。生产 CourseRow
+  实际以该颜色绘制色条，并为色条提供规范化颜色语义；COMPLETE／CURRENT／NEXT／UPCOMING 仍由独立文字标签表达。
+- JVM 颜色测试覆盖合法小写、位数错误、缺少 #、非法十六进制、前导空格和三位缩写。
+- Compose API 37 用例使用四项固定数据及重复 course.id／schedule.id，逐项断言 OccurrenceKey tag、
+  COMPLETE／CURRENT／NEXT／UPCOMING、合法色和非法青色回退、详情完整与双空回退；生产列表仍直接按
+  TodaySchedulePresentation.items 渲染并以 courseIndex／scheduleIndex 作为 LazyColumn key。
+- 当前课程、下一门课程和全部结束无 featured，以及学期外、学期内无课、停课日三类空状态均有设备用例。
+- 有课和空状态均对 PullToRefreshBox 执行真实 swipeDown；用例断言回调只增加一次、刷新期第二次手势被门禁、
+  SYNC / LOCAL 反馈出现并结束。既有 ViewModel JVM 用例及本轮 Activity 用例共同确认刷新／tick 不增加仓库 load。
+- ActivityScenario 用例验证 STARTED tick、进入 CREATED 后停止、RESUMED 后立即取当前提供者时间、recreate 后从
+  新 Activity 的 ViewModelStore 取得同一 ViewModel、工厂只创建一次、仓库只加载一次。
+- origin/IOS 当前基准仍为 fc3ddfb8：前台立即刷新和每秒 tick、只更新时间的下拉反馈、当前／下一门 featured、
+  秒级 63:08 和课程颜色语义均未变化；Android R1 没有越界实现 iOS 的课程点击或 P3-04。
+
+提交证据核验：
+- 原始 Debug／Release JVM XML 各为 79 tests、0 failures、0 errors、0 skipped；lint XML 为 0 errors、
+  15 warnings；AndroidTest APK 已生成。
+- 原始 connected XML 为 36 tests、0 failures、0 errors、0 skipped：ScheduleAppDependenciesTest 2、Room 11、
+  DataStore 8、P3R2ActivityRecreationTest 2、QingKeAppTest 13。新增颜色矩阵、featured／空状态、真实下拉、
+  三主题截图和生命周期用例均实际出现在 XML 中。
+- 六张提交截图均为 1080x1920。浅色、深色、130% 字体测试宿主截图显示固定四项数据的今日页、featured、
+  状态标签、课程色条和底部标签；生产截图显示已保存学期的 TODAY 空状态、真实下拉指示器和 force-stop 后重启。
+  证据准确区分测试宿主固定课程数据与真实生产空状态；对应过程记录无 FATAL EXCEPTION／ANR。
+- 先前失败已准确更正为命中 ~/.android/avd 下 target=android-0 的错误同名 AVD；正确隔离副本位于
+  ~/.android/qingke-api37-r3-avd 且 target=android-37。错误 TCG／SIGSEGV 未再表述为正确环境阻断。
+
+审查窗口独立验证：
+- ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37 ANDROID_SDK_ROOT=同目录，执行
+  ./gradlew testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --rerun-tasks --no-daemon --console=plain：
+  BUILD SUCCESSFUL，100 actionable tasks 全部 executed；重新生成的两变体 JVM XML 各 79 项全绿，lint 仍为
+  0 errors、15 warnings。
+- 显式 ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd 启动稳定 Emulator 37.1.11.0，日志确认
+  android-37.0/google_apis/arm64-v8a、HVF=on 和 QEMU -enable-hvf；ADB 只有 emulator-5584，实测
+  sys.boot_completed=1、SDK=37、ABI=arm64-v8a。
+- 在该唯一设备执行 ./gradlew connectedDebugAndroidTest --rerun-tasks --no-daemon --console=plain：
+  BUILD SUCCESSFUL，74 actionable tasks 全部 executed；重新生成 XML 仍为 36 tests、0 failures、0 errors、0 skipped。
+  测试后 logcat 未匹配本应用 FATAL EXCEPTION／ANR，模拟器已用 adb emu kill 正常关闭，最终 ADB 列表为空。
+- python3 docs/tests/android-documentation.test.py：审查文档更新后 55 项通过；documentation.test.sh、
+  repository-layout.test.sh 和 git diff --check 均通过。
+
+结论：未发现阻断问题。P3-03-R1 修正关闭首轮复审提出的课程颜色、实时刷新／生命周期测试和完整设备证据
+缺口，P3-03 已实现、测试并通过最终独立复审。该结论不等于用户验收 P3-03、A02、A07、P3 或完整 App；
+当前未授权 P3-04，不自动开始或派发后续实施。

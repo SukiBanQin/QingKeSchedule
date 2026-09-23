@@ -28,6 +28,7 @@ struct CourseDraft {
 
     init(
         course: CourseDTO? = nil,
+        appendingSchedule: Bool = false,
         semester: SemesterDTO,
         now: Date = Date(),
         calendar: Calendar = ScheduleRules.gregorianCalendar()
@@ -43,6 +44,18 @@ struct CourseDraft {
             color = course.color
             schedules = course.schedules.map(Self.makeScheduleDraft)
             baseline = course
+            if appendingSchedule {
+                schedules.append(CourseScheduleDraft(
+                    id: UUID().uuidString,
+                    dayOfWeek: currentDayOfWeek,
+                    startPeriod: firstPeriod,
+                    endPeriod: firstPeriod,
+                    startWeek: 1,
+                    endWeek: semester.totalWeeks,
+                    repeatRule: .every,
+                    classroom: ""
+                ))
+            }
         } else {
             let schedule = CourseScheduleDraft(
                 id: UUID().uuidString,
@@ -104,8 +117,18 @@ struct CourseDraft {
         let issues = validationIssues(semester: semester, calendar: calendar)
         guard issues.isEmpty else { return .invalid(issues) }
 
+        let candidate = course()
+        if hasNewDuplicateSchedule(in: candidate) {
+            return .invalid([
+                ScheduleValidationIssue(
+                    path: "courses.0.schedules",
+                    message: "该上课安排已存在，请勿重复添加"
+                ),
+            ])
+        }
+
         let conflicts = ScheduleRules.conflicts(
-            for: course(),
+            for: candidate,
             against: existingCourses
         )
         return conflicts.isEmpty ? .ready : .conflicting(conflicts)
@@ -156,5 +179,41 @@ struct CourseDraft {
             repeat: schedule.repeatRule,
             classroom: schedule.classroom.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+    }
+
+    private func hasNewDuplicateSchedule(in candidate: CourseDTO) -> Bool {
+        let baselineCounts = Self.scheduleFeatureCounts(for: baseline.schedules)
+        let candidateCounts = Self.scheduleFeatureCounts(for: candidate.schedules)
+
+        return candidateCounts.contains { feature, candidateCount in
+            candidateCount > 1 && candidateCount > (baselineCounts[feature] ?? 0)
+        }
+    }
+
+    private static func scheduleFeatureCounts(
+        for schedules: [CourseScheduleDTO]
+    ) -> [ScheduleFeature: Int] {
+        Dictionary(grouping: schedules, by: ScheduleFeature.init)
+            .mapValues(\.count)
+    }
+
+    private struct ScheduleFeature: Hashable {
+        let dayOfWeek: Int
+        let startPeriod: Int
+        let endPeriod: Int
+        let startWeek: Int
+        let endWeek: Int
+        let repeatValue: String
+        let classroom: String
+
+        init(_ schedule: CourseScheduleDTO) {
+            dayOfWeek = schedule.dayOfWeek
+            startPeriod = schedule.startPeriod
+            endPeriod = schedule.endPeriod
+            startWeek = schedule.startWeek
+            endWeek = schedule.endWeek
+            repeatValue = schedule.repeat.rawValue
+            classroom = schedule.classroom.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
 }

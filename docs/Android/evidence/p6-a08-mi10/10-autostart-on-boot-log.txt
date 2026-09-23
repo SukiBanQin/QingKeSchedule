@@ -1,0 +1,4 @@
+09-21 18:50:41.505 I/ActivityManager( 2105): Posting BOOT_COMPLETED user #0
+09-21 18:50:52.438 I/ActivityManager( 2105): Start proc 8585:com.qingke.schedule/u0a233 for broadcast {com.qingke.schedule/com.qingke.schedule.reminder.ReminderRebuildReceiver} caller=android
+09-21 18:50:56.208 I/ActivityManager( 2105): Finished processing BOOT_COMPLETED for u0
+09-21 18:50:57.697 I/SmartPower.com.qingke.schedule/10233(8585)( 2105): background->idle(5273ms) R(broadcast end Intent { act=android.intent.action.BOOT_COMPLETED flg=0x89000010 cmp=com.qingke.schedule/.reminder.ReminderRebuildReceiver (has extras) }) adj=905.

@@ -2,6 +2,60 @@ import Foundation
 import Observation
 import OSLog
 
+enum AppearanceMode: String, CaseIterable, Equatable, Sendable {
+    case system
+    case light
+    case dark
+}
+
+@MainActor
+protocol AppearanceSettingsStore: AnyObject {
+    func load() -> AppearanceMode
+    func save(_ mode: AppearanceMode)
+}
+
+@MainActor
+final class UserDefaultsAppearanceSettingsStore: AppearanceSettingsStore {
+    private enum Key {
+        static let appearanceMode = "appearanceMode"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> AppearanceMode {
+        guard
+            let rawValue = defaults.string(forKey: Key.appearanceMode),
+            let mode = AppearanceMode(rawValue: rawValue)
+        else {
+            return .system
+        }
+        return mode
+    }
+
+    func save(_ mode: AppearanceMode) {
+        defaults.set(mode.rawValue, forKey: Key.appearanceMode)
+    }
+}
+
+@MainActor
+final class InMemoryAppearanceSettingsStore: AppearanceSettingsStore {
+    private var mode: AppearanceMode
+
+    init(mode: AppearanceMode = .system) {
+        self.mode = mode
+    }
+
+    func load() -> AppearanceMode { mode }
+
+    func save(_ mode: AppearanceMode) {
+        self.mode = mode
+    }
+}
+
 @MainActor
 @Observable
 final class ScheduleAppState {
@@ -13,14 +67,21 @@ final class ScheduleAppState {
     private(set) var isLoaded = false
     var presentedError: String?
     private(set) var reminderSettings: ReminderSettings
+    private(set) var academicCalendarSettings: AcademicCalendarSettings
     private(set) var notificationPermission: NotificationPermissionStatus = .notDetermined
     private(set) var lastNotificationReconciliation: NotificationReconciliation?
     private(set) var notificationDiagnostic: String?
+    private(set) var pendingImportPreview: ScheduleImportPreview?
+    private(set) var importFailure: String?
+    private(set) var importStatusMessage: String?
+    private(set) var appearanceMode: AppearanceMode
 
     @ObservationIgnored private let repository: any ScheduleRepository
     @ObservationIgnored private let nowProvider: () -> Date
     @ObservationIgnored let calendar: Calendar
     @ObservationIgnored private let reminderSettingsStore: any ReminderSettingsStore
+    @ObservationIgnored private let academicCalendarSettingsStore: any AcademicCalendarSettingsStore
+    @ObservationIgnored private let appearanceSettingsStore: any AppearanceSettingsStore
     @ObservationIgnored private let notificationCoordinator: (any NotificationCoordinating)?
     @ObservationIgnored private var notificationTask: Task<Void, Never>?
     @ObservationIgnored private let notificationLogger = Logger(
@@ -33,15 +94,25 @@ final class ScheduleAppState {
         calendar: Calendar = ScheduleRules.gregorianCalendar(),
         now: @escaping () -> Date = { Date() },
         reminderSettingsStore: (any ReminderSettingsStore)? = nil,
+        academicCalendarSettingsStore: (any AcademicCalendarSettingsStore)? = nil,
+        appearanceSettingsStore: (any AppearanceSettingsStore)? = nil,
         notificationCoordinator: (any NotificationCoordinating)? = nil
     ) {
         let resolvedReminderSettingsStore = reminderSettingsStore
             ?? InMemoryReminderSettingsStore()
+        let resolvedAcademicCalendarSettingsStore = academicCalendarSettingsStore
+            ?? InMemoryAcademicCalendarSettingsStore()
+        let resolvedAppearanceSettingsStore = appearanceSettingsStore
+            ?? InMemoryAppearanceSettingsStore()
         self.repository = repository
         self.calendar = calendar
         self.nowProvider = now
         self.reminderSettingsStore = resolvedReminderSettingsStore
         self.reminderSettings = resolvedReminderSettingsStore.load()
+        self.academicCalendarSettingsStore = resolvedAcademicCalendarSettingsStore
+        self.academicCalendarSettings = resolvedAcademicCalendarSettingsStore.load()
+        self.appearanceSettingsStore = resolvedAppearanceSettingsStore
+        self.appearanceMode = resolvedAppearanceSettingsStore.load()
         self.notificationCoordinator = notificationCoordinator
     }
 
@@ -116,6 +187,38 @@ final class ScheduleAppState {
         try ScheduleDataTransfer.previewImport(contents: contents, calendar: calendar)
     }
 
+    func prepareImport(contents: Data) {
+        importStatusMessage = nil
+        do {
+            pendingImportPreview = try previewImport(contents: contents)
+            importFailure = nil
+        } catch {
+            pendingImportPreview = nil
+            importFailure = error.localizedDescription
+        }
+    }
+
+    func presentImportFailure(_ message: String) {
+        importStatusMessage = nil
+        pendingImportPreview = nil
+        importFailure = message
+    }
+
+    func dismissImportPrompt() {
+        pendingImportPreview = nil
+        importFailure = nil
+    }
+
+    @discardableResult
+    func confirmPreparedImport() -> Int? {
+        guard let pendingImportPreview else { return nil }
+        let courseCount = pendingImportPreview.courseCount
+        guard confirmImport(pendingImportPreview) else { return nil }
+        dismissImportPrompt()
+        importStatusMessage = "已导入 \(courseCount) 门课程"
+        return courseCount
+    }
+
     @discardableResult
     func confirmImport(_ preview: ScheduleImportPreview) -> Bool {
         replace(with: preview.data)
@@ -136,16 +239,76 @@ final class ScheduleAppState {
         scheduleNotificationReconciliation(requestAuthorization: enabled)
     }
 
-    func setReminderLeadMinutes(_ minutes: Int) {
+    func setReminderLeadMinutes(
+        _ minutes: Int,
+        usesCustomSelection: Bool? = nil
+    ) {
+        let resolvedCustomSelection = usesCustomSelection
+            ?? !ReminderSettings.presetLeadMinutes.contains(minutes)
         guard
-            ReminderSettings.allowedLeadMinutes.contains(minutes),
+            ReminderSettings.isValidLeadMinutes(minutes),
             reminderSettings.reminderLeadMinutes != minutes
+                || reminderSettings.usesCustomLeadTime != resolvedCustomSelection
         else {
             return
         }
         reminderSettings.reminderLeadMinutes = minutes
+        reminderSettings.usesCustomLeadTime = resolvedCustomSelection
         reminderSettingsStore.save(reminderSettings)
         scheduleNotificationReconciliation()
+    }
+
+    func setAppearanceMode(_ mode: AppearanceMode) {
+        guard appearanceMode != mode else { return }
+        appearanceMode = mode
+        appearanceSettingsStore.save(mode)
+    }
+
+    func setWeekendsAreNonTeachingDays(_ enabled: Bool) {
+        guard academicCalendarSettings.weekendsAreNonTeachingDays != enabled else { return }
+        academicCalendarSettings.weekendsAreNonTeachingDays = enabled
+        persistAcademicCalendarSettings()
+    }
+
+    func addNonTeachingDate(_ date: Date) {
+        academicCalendarSettings.setNonTeaching(date, calendar: calendar)
+        persistAcademicCalendarSettings()
+    }
+
+    func removeNonTeachingDate(_ dateString: String) {
+        academicCalendarSettings.removeNonTeachingDate(dateString)
+        persistAcademicCalendarSettings()
+    }
+
+    func addMakeupTeachingDay(_ date: Date, followsDayOfWeek: Int) {
+        academicCalendarSettings.setMakeupTeachingDay(
+            date,
+            followsDayOfWeek: followsDayOfWeek,
+            calendar: calendar
+        )
+        persistAcademicCalendarSettings()
+    }
+
+    func removeMakeupTeachingDay(_ dateString: String) {
+        academicCalendarSettings.removeMakeupTeachingDay(dateString)
+        persistAcademicCalendarSettings()
+    }
+
+    func setLunchBreakEnabled(_ enabled: Bool) {
+        guard academicCalendarSettings.lunchBreak.isEnabled != enabled else { return }
+        academicCalendarSettings.lunchBreak.isEnabled = enabled
+        persistAcademicCalendarSettings()
+    }
+
+    @discardableResult
+    func setLunchBreak(startTime: String, endTime: String) -> Bool {
+        var updated = academicCalendarSettings.lunchBreak
+        updated.startTime = startTime
+        updated.endTime = endTime
+        guard updated.isValid else { return false }
+        academicCalendarSettings.lunchBreak = updated.sanitized()
+        persistAcademicCalendarSettings()
+        return true
     }
 
     func appBecameActive() {
@@ -180,11 +343,17 @@ final class ScheduleAppState {
         }
     }
 
+    private func persistAcademicCalendarSettings() {
+        academicCalendarSettingsStore.save(academicCalendarSettings)
+        scheduleNotificationReconciliation()
+    }
+
     private func scheduleNotificationReconciliation(requestAuthorization: Bool = false) {
         guard let notificationCoordinator else { return }
         notificationTask?.cancel()
         let dataSnapshot = data
         let settingsSnapshot = reminderSettings
+        let academicCalendarSettingsSnapshot = academicCalendarSettings
         let nowSnapshot = nowProvider()
         let calendarSnapshot = calendar
 
@@ -198,6 +367,7 @@ final class ScheduleAppState {
                     data: dataSnapshot,
                     remindersEnabled: settingsSnapshot.remindersEnabled,
                     leadMinutes: settingsSnapshot.reminderLeadMinutes,
+                    academicCalendarSettings: academicCalendarSettingsSnapshot,
                     now: nowSnapshot,
                     calendar: calendarSnapshot
                 )

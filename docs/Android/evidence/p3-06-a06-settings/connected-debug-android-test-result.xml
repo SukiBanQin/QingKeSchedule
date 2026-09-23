@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="84" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-09-18T13:12:11" hostname="localhost">
+  <testsuite name="com.qingke.schedule.ScheduleAppDependenciesTest" tests="2" failures="0" errors="0" skipped="0" time="0.044" timestamp="2026-09-18T13:12:11" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="realRoomAndDataStoreCompositionRestoresJointStateAfterReopen" classname="com.qingke.schedule.ScheduleAppDependenciesTest" time="0.044" />
+    <testcase name="manifestApplicationLazilyProvidesOneProductionDependencyContainer" classname="com.qingke.schedule.ScheduleAppDependenciesTest" time="0.000" />
+  </testsuite>
+  <testsuite name="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" tests="16" failures="0" errors="0" skipped="0" time="0.139" timestamp="2026-09-18T13:12:11" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="deletingMissingCoursePreservesDataAndUpdatedAt" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.005" />
+    <testcase name="deleteFirstDuplicateAndKeepsClockContract" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.006" />
+    <testcase name="cancellationPropagatesFromReadAndRollsBackWrite" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.013" />
+    <testcase name="invalidSemesterChangeAndMissingSemesterCourseKeepOldData" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.008" />
+    <testcase name="saveSemesterKeepsReversedNumbersNewTimesAndCoursesAcrossReopen" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.012" />
+    <testcase name="foreignKeyCascadeRemovesSchedulesWhenCourseRowIsDeleted" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.003" />
+    <testcase name="saveSemesterPreservesCoursesAndUsesFixedClock" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.004" />
+    <testcase name="preciseOperationsRejectBadIndexAndFingerprintAndRollbackInjectedWrite" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.013" />
+    <testcase name="invalidWriteAndInjectedFailureRollBack" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.014" />
+    <testcase name="schemaVersionForeignKeyAndBusinessIdSchemaAreStable" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.001" />
+    <testcase name="saveCourseUpdatesFirstDuplicateKeepsPositionAndAppendsNewCourse" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.008" />
+    <testcase name="emptyRoundTripOrderDuplicatesAndReopen" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.009" />
+    <testcase name="preciseDuplicateIdSaveAndDeleteUseSourceIndexAndFingerprint" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.009" />
+    <testcase name="invalidStoredAggregatesAreInconsistentAndNotCleared" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.011" />
+    <testcase name="preciseDeleteFailureAndCancellationReopenOriginalData" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.015" />
+    <testcase name="shorteningWeeksBeyondCourseRangeRollsBackWholeSemesterSave" classname="com.qingke.schedule.persistence.RoomScheduleRepositoryTest" time="0.008" />
+  </testsuite>
+  <testsuite name="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" tests="8" failures="0" errors="0" skipped="0" time="0.041" timestamp="2026-09-18T13:12:11" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="newStoreReadsCompleteDefaults" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.002" />
+    <testcase name="calendarRoundTripNormalizesDatesMakeupAndLunchBreak" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.004" />
+    <testcase name="concurrentUpdatesUseLatestCommittedPreferences" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.005" />
+    <testcase name="corruptFileRecoversDefaultsAndCanBeSavedAndReopened" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.004" />
+    <testcase name="writeFailureAndCancellationPropagateWithoutChangingStoredValue" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.008" />
+    <testcase name="missingNewFieldsUseDefaultsAndValidLunchTitleIsTrimmed" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.002" />
+    <testcase name="appearanceAndReminderRoundTripSanitizeUnknownAndLegacyFields" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.009" />
+    <testcase name="publicInvalidReminderLeadSaveAndUpdateKeepEnabledAfterReopen" classname="com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest" time="0.007" />
+  </testsuite>
+  <testsuite name="com.qingke.schedule.ui.P3R2ActivityRecreationTest" tests="3" failures="0" errors="0" skipped="0" time="8.802" timestamp="2026-09-18T13:12:11" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="activityRecreationKeepsCourseEditorRouteDraftColorDialogAndConfirmation" classname="com.qingke.schedule.ui.P3R2ActivityRecreationTest" time="1.882" />
+    <testcase name="activityRecreationKeepsActivityViewModelDraftAndSelectedTab" classname="com.qingke.schedule.ui.P3R2ActivityRecreationTest" time="2.102" />
+    <testcase name="todayClockTicksOnlyWhileStartedRefreshesImmediatelyAndKeepsOneActivityModelAfterRecreate" classname="com.qingke.schedule.ui.P3R2ActivityRecreationTest" time="4.818" />
+  </testsuite>
+  <testsuite name="com.qingke.schedule.ui.QingKeAppTest" tests="55" failures="0" errors="0" skipped="0" time="100.004" timestamp="2026-09-18T13:12:11" hostname="localhost">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="addAndDeleteUseCallbacksRenumberAndExposeNumberedDeleteSemantics" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.751" />
+    <testcase name="inlineCalendarChevronIsVisibleAndAccessibleAcrossThemesAndLargeFont" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.516" />
+    <testcase name="todayApi37ScreenshotsCoverLightDarkAndLargeFontTestHosts" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.336" />
+    <testcase name="terminalModalSurfaceDoesNotLeakAHighContrastBackdrop" classname="com.qingke.schedule.ui.QingKeAppTest" time="0.830" />
+    <testcase name="todayPullToRefreshOnCoursesAndEmptyStateGatesReentryAndFinishesFeedback" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.682" />
+    <testcase name="todayAddAndChooserUseRealCallbacksAndStableSourceTags" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.228" />
+    <testcase name="inlineSemesterCalendarExpandsChangesMonthsAndReturnsControlledLeapDate" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.145" />
+    <testcase name="loadingFailureRetryAndReadyBranchesNeverRenderBlank" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.329" />
+    <testcase name="appendOverlayIsReadOnlyAndInFlightScheduleControlsAreDisabled" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.055" />
+    <testcase name="editorHeadersUseCourseCodesAndNumberedSections" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.079" />
+    <testcase name="mainShellTabsInvokeOneStateOwnerAndHaveAccessibleTargets" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.358" />
+    <testcase name="semesterLabelsUseThemeForegroundsInBothThemes" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.522" />
+    <testcase name="weekMatrixDrawsGridLinesAndShowsLunchBreakOnlyWhenEnabled" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.289" />
+    <testcase name="terminalEditorUsesIndependentBackdropSectionsSwatchesAndOneSaveEntry" classname="com.qingke.schedule.ui.QingKeAppTest" time="0.849" />
+    <testcase name="settingsSuccessNoticeIsConsumedAfterDisplaying" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.756" />
+    <testcase name="validationErrorAndSaveFailureKeepFormAndDismissDialog" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.872" />
+    <testcase name="weekHeaderControlsAndSectionTitlesFollowIosStructure" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.438" />
+    <testcase name="weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.321" />
+    <testcase name="dialogsUseDedicatedOpaqueElevatedSurfaceAcrossThemesAndLargeFont" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.391" />
+    <testcase name="periodBoundariesDeleteAndSavingButtonsAreBehaviorallyDisabled" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.185" />
+    <testcase name="todayApi37MatrixShowsOrderedStatusesColorsDetailsFeaturedAndBottomTabs" classname="com.qingke.schedule.ui.QingKeAppTest" time="0.984" />
+    <testcase name="todayAddEmptyCourseEntryAndEndMarkersUseTerminalAffordances" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.641" />
+    <testcase name="weekDateStripSelectionMovesSignalUnderlineAndManifestTitleDropsIsoDate" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.416" />
+    <testcase name="settingsPeriodsToggleAddRemoveAndTimePickerUseRealCallbacks" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.920" />
+    <testcase name="dangerFooterFollowsDeletePanelAndValidationUsesAcrylicDangerCard" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.531" />
+    <testcase name="settingsScreenEditsExistingSemesterAndBothSaveEntriesShareOnePath" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.693" />
+    <testcase name="onboardingDefaultsExpandAndUseMeaningfulControls" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.702" />
+    <testcase name="appendUsesOriginalScheduleOrdinalAndAllowsRemovingNewSchedule" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.315" />
+    <testcase name="successNoticeIsReadableAcrossThemesDoesNotBlockAddAndExpires" classname="com.qingke.schedule.ui.QingKeAppTest" time="3.175" />
+    <testcase name="inlineSemesterCalendarRetainsLeapDayAcrossRecomposition" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.084" />
+    <testcase name="savedSemesterPeriodTimesFlowIntoTodayAndWeekImmediately" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.272" />
+    <testcase name="schedulePickerOpensMenuAndSelectsNonAdjacentDay" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.895" />
+    <testcase name="newestSuccessNoticeRestartsItsOwnTimer" classname="com.qingke.schedule.ui.QingKeAppTest" time="4.427" />
+    <testcase name="chooserPlusSquareUsesThemeForegroundInsteadOfCyan" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.872" />
+    <testcase name="chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.883" />
+    <testcase name="nightLogoUsesReadableNonCyanForegroundVariant" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.007" />
+    <testcase name="editorBackToolbarAndDangerControlsInvokeTheirRealCallbacks" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.363" />
+    <testcase name="todayApi37MatrixSwitchesFeaturedAndReportsAllThreeEmptyStates" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.174" />
+    <testcase name="systemTimeDialogsConfirmNewValuesAndCancelLeavesExistingValues" classname="com.qingke.schedule.ui.QingKeAppTest" time="3.888" />
+    <testcase name="logoResourcesUseIosSizedTrimmedCanvas" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.919" />
+    <testcase name="chooserAndConfirmationsUseTerminalSectionsAndCodes" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.077" />
+    <testcase name="savedSemesterPeriodTimesFlowIntoCourseEditorImmediately" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.153" />
+    <testcase name="touchTargetsAndTabSemanticsMeetTheContract" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.564" />
+    <testcase name="weekControlsRestoreAutoFollowAndManualBrowsingSurvivesClockRefresh" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.346" />
+    <testcase name="terminalTabsExposeCenteredIconTitleAndNumberGroups" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.081" />
+    <testcase name="todayPageUsesPresentationProgressAndStableOccurrenceTagsForDuplicateBusinessIds" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.923" />
+    <testcase name="todayApi37ScreenshotsCoverAllThreeEmptyStates" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.663" />
+    <testcase name="launcherForegroundUsesIndependentCoverArtworkAndAppLabel" classname="com.qingke.schedule.ui.QingKeAppTest" time="0.699" />
+    <testcase name="editorCloseUsesVisibleInverseInkAcrossThemesAndLargeFont" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.431" />
+    <testcase name="r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState" classname="com.qingke.schedule.ui.QingKeAppTest" time="5.317" />
+    <testcase name="weekDayManifestOmitsIsoDateAndRoutesCourseClicks" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.782" />
+    <testcase name="weekControlsKeepAllTextVisibleAndSpacedAcrossFontScales" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.044" />
+    <testcase name="settingsPullToRefreshKeepsEditedDraftAndOnlyRefreshesTheClock" classname="com.qingke.schedule.ui.QingKeAppTest" time="1.686" />
+    <testcase name="settingsSavingDisablesBothEntriesAndShowsValidationError" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.041" />
+    <testcase name="todayTypographyUsesCondensedIosEquivalentScaleAndFitsAtLargeFont" classname="com.qingke.schedule.ui.QingKeAppTest" time="2.104" />
+  </testsuite>
+</testsuites>

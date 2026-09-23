@@ -1,0 +1,59 @@
+P3-03 今日课表页面与实时刷新独立复审证据
+日期：2026-09-13
+
+角色与范围：
+- 分析审查窗口，只读复审应用实现；本轮没有修改 Android、iOS、Web 或共享 schema／fixtures 应用代码。
+- 复审范围：1426661035d386bce0146d3eb048a72f0abd197a..60d776a3c315a4b43fec1c52a7d6e64bcd489e87。
+- 实际 diff 为 11 个文件，实施提交 60d776a 的父提交就是 1426661，git diff --check 通过。
+- 复审开始时 HEAD、refs/heads/Android、origin/Android 和远端 refs/heads/Android 均为 60d776a；工作区干净。
+- 远端 origin/IOS 为 fc3ddfb8ffa14b205a591ffdbed5632d5f975001。
+
+已经核实的实现：
+- iOS 当前 CourseTimingProgress 使用 elapsedSeconds、remainingSeconds、elapsedMinutes 和 m:ss；状态边界为
+  开始时刻进入 ongoing、结束时刻进入 finished。Android 秒级状态、2812／3788 秒、63:08 与共享 fixture
+  回归和该基准一致。
+- ScheduleViewModel 的可注入 LocalDateTime 初值和 refreshCurrentTime() 不读取或写入持久化；JVM 用例验证
+  手动刷新不增加 repository load 次数、不改变草稿和标签。
+- QingKeApp 以 repeatOnLifecycle(STARTED) 包住立即刷新和每秒 delay；该结构不会在普通重组时重复创建任务，
+  协程取消没有被捕获或转换。
+- 今日展示继续调用 TodaySchedulePresentation.create()；LazyColumn key、课程行 tag 和 featured tag 都使用
+  OccurrenceKey 的 courseIndex／scheduleIndex，不依赖可能重复的业务 ID。
+- 没有接入课程编辑、周课表、完整设置、通知、导入导出或 P3-04。
+
+阻断审查通过的问题：
+1. 生产页面没有任何 course.color 使用点。CourseRow 始终以 MaterialTheme.colorScheme.surfaceVariant 为背景，
+   有效 #RRGGBB 和非法值没有视觉差异，非法颜色回退 QingKeCyan 也不存在。这违反已批准 P3-03 视觉契约。
+2. QingKeAppTest 只新增 todayPageUsesPresentationProgressAndStableOccurrenceTagsForDuplicateBusinessIds 一项。它只
+   断言 today-screen、品牌头、04、featured key、进度和 63:08，并断言 refreshes == 0；没有真实下拉手势、
+   刷新反馈／门禁、空状态刷新、STARTED 停止／恢复 tick 或重建后时钟所有权测试。它也没有逐项断言重复
+   course.id／schedule.id 的四个内部 tag、课程序列顺序和 COMPLETE／CURRENT／NEXT／UPCOMING 状态。
+3. 下一门 featured、全部结束无 featured、三类空状态、教师／教室回退、课程颜色、深浅主题与底部标签没有
+   形成 P3-03 API 37 测试矩阵。仓库没有 p3-03 PNG，缺少固定数据浅色／深色、130% 字体或窄屏截图；证据也
+   未记录真实生产入口的空状态下拉、强停重启和无崩溃完整步骤。
+
+原始结果核验：
+- Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml：
+  31 tests、0 failures、0 errors、0 skipped；QingKeAppTest 9 项，新增今日静态用例已进入测试体。
+- Debug／Release JVM XML：各 78 tests、0 failures、0 errors、0 skipped；ScheduleRulesTest 各 8、
+  SchedulePresentationTest 各 10、ScheduleViewModelTest 各 11。
+- 分析窗口再次运行 testDebugUnitTest、testReleaseUnitTest、assembleDebugAndroidTest：BUILD SUCCESSFUL，任务均
+  为 up-to-date；随后运行 Android 文档测试、documentation.test.sh、repository-layout.test.sh 和 git diff --check，
+  均通过。
+- 复审结束前 adb devices -l 为空，没有运行中的项目 Emulator、Gradle、xcodebuild、提交或推送操作。
+
+P3-03-R1 最小要求：
+- 在今日课程行实现严格 #RRGGBB 颜色解析和非法值回退 QingKeCyan，并以可读、不仅依赖颜色的状态标签保持
+  浅色／深色对比度；不要添加课程编辑或点击空操作。
+- API 37 上逐项覆盖四项顺序和状态、重复业务 ID 的全部唯一内部 tag、当前／下一门 featured、全部结束无
+  featured、三类空状态、详情回退、课程颜色、深浅主题和底部标签。
+- 对有课和空状态执行真实下拉手势，验证每次有效手势回调恰好一次、重入受门禁保护、SYNC / LOCAL 反馈出现
+  后结束；验证 ViewModel 仓库计数不变。
+- 用真实 Activity 生命周期验证 STARTED 每秒更新，进入 CREATED／STOPPED 后不再 tick，返回前台立即刷新，
+  recreate 后仍从新 Activity 的 ViewModelStore 取得同一 ViewModel 并保留标签和时间所有权。
+- 保存 API 37 固定数据浅色、深色和至少一张 130% 字体或窄屏截图并明确测试宿主；另记录真实生产入口已保存
+  学期进入 today-screen、空状态下拉、force-stop 重启仍进入今日页及无 FATAL EXCEPTION／ANR。
+- 完整运行 clean 构建、Debug／Release JVM、lint、AndroidTest APK、唯一 API 37 ARM64 connected 测试、文档和
+  差异检查；提交并推送 Android 后交回分析窗口最终复审。
+
+结论：P3-03 秒级模型和现有测试结果有效，但生产视觉缺失且实时刷新／UI／设备证据未达到任务门槛，独立复审
+未通过。不得宣称 P3-03、A02、A07、P3、完整 App 或用户验收完成，不得进入 P3-04。

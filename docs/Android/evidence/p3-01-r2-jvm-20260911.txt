@@ -1,0 +1,45 @@
+P3-01-R2 矩阵稳定来源键 JVM 测试与证据
+日期：2026-09-11
+
+任务边界：
+- 执行基准：4aae401181dd4ef563d087dcaea89eb4d00fe8e3，分支 Android。
+- 原实施提交：37851bd283029b1218de561fa633ccad33b40286；R1 提交：fd06b752cdcbc6925491e1742474d9c8360cf15f。
+- 实施提交在本文件写入时尚未创建；提交编号由交付记录核对，避免文档自引用。
+- 实际修改：Android/app/src/test/java/com/qingke/schedule/presentation/SchedulePresentationTest.kt、
+  docs/Android/handoff.md、本证据和 docs/tests/android-documentation.test.py。
+- 本轮未修改任何 Android src/main 生产代码，亦未修改 ScheduleRulesTest、UI、状态、持久化、构建依赖、
+  iOS、Web 或共享 schema／fixtures；没有进入 P3-02 或页面实现。
+
+新增稳定键回归：
+- matrixUsesOccurrenceKeyToOrderSameIntervalSources 在同一显示日构造三项完全相同的 startRow=0、endRow=0
+  发生项，输入 OccurrenceKey 明确逆序为 (2,1)、(1,9)、(1,3)。
+- 期望矩阵输出为 (1,3)、(1,9)、(2,1)，同时实际触发 courseIndex 和 scheduleIndex 两级排序；三项 lane 分别为 0／1／2，laneCount 均为 3，矩阵项目 ID 均唯一。
+- 若删除 MatrixDraft 比较器的来源键排序，稳定排序会保留上述逆序输入，输出键断言随即失败；因此本用例不是
+  由输入预排序或仅按行排序而通过。
+- R1 和此前全部测试／断言均保留；本轮没有发现或修正生产缺陷。
+
+环境与完整构建：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+cd Android
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：
+- BUILD SUCCESSFUL in 42s。
+- 145 actionable tasks：142 executed、3 up-to-date。
+- assembleDebug、assembleRelease、testDebugUnitTest、testReleaseUnitTest、lintDebug、assembleDebugAndroidTest 均成功。
+- Debug JVM XML：tests=66，failures=0，errors=0，skipped=0；SchedulePresentationTest tests=10，新增稳定键测试进入测试体。
+- Release JVM XML：tests=66，failures=0，errors=0，skipped=0；SchedulePresentationTest tests=10，新增稳定键测试进入测试体。
+- lintDebug：0 errors，13 warnings。
+- AndroidTest APK 已编译；本轮为纯 Kotlin 测试补强，按授权未启动模拟器、未运行 connectedDebugAndroidTest，
+  因此没有新的设备执行结果。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：50 项通过。
+- bash docs/tests/documentation.test.sh：通过。
+- bash docs/tests/repository-layout.test.sh：通过。
+- git diff --check：通过。
+- git diff --cached --check：提交前通过。
+
+结论与未完成边界：本轮只补齐 P3-01-R2 的同区间矩阵来源键排序证据，P3-01-R2 仍需分析审查窗口最终独立复审；
+不代表 P3-01、A02、A03、A07、P3、完整 App 或用户验收完成，不自动进入 P3-02。

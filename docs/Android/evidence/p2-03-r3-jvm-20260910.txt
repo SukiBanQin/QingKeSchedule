@@ -1,0 +1,54 @@
+P2-03-R3 测试构造修正证据
+日期：2026-09-10
+
+代码基准：37b53e6d870748cfecf826852133af6143558195
+分支：Android
+实际修改文件：
+- Android/app/src/test/java/com/qingke/schedule/draft/DraftTest.kt
+- docs/Android/handoff.md
+- docs/Android/evidence/p2-03-r3-jvm-20260910.txt
+
+范围：只修正两处 JVM 测试构造与交接证据。未修改任何生产代码、ScheduleRulesTest、构建配置、Room、
+DataStore、ScheduleAppState、页面、iOS、Web 或共享 schema/fixtures，未进入 P3。
+
+测试构造一：validationPrecedesDuplicateAndCrossCourseConflict
+- 候选课程名称为仅含空白，因此 ScheduleValidator 有 courses.0.name 的“请填写课程名称”基础错误。
+- 两项候选安排均合法，具有相同星期、节次、周次、repeatRule 和规范化教室；测试以仅统一 ID 后的完整
+  CourseSchedule 相等性证明完全重复特征真实成立。
+- 另一门已有课程具有同星期、同节次、共同周的合法安排；测试在调用 evaluateSave 前显式断言
+  ScheduleRules.conflicts(candidate, listOf(existing)) 非空，因此跨课程冲突前提真实成立。
+- evaluateSave 断言为 Invalid，issues 含课程名称错误、不含“该上课安排已存在，请勿重复添加”，且结果不是
+  Conflicting。没有使用第 99 节等会破坏冲突前提的无效节次。
+
+测试构造二：sameCourseSchedulesDifferingOnlyByRepeatRuleAreReady
+- 同一有效候选课程包含 ID 不同的 EVERY 和 ODD 两项安排；星期、节次、周次和规范化后的教室相同。
+- existingCourses 为空时 evaluateSave 返回 Ready，证明 repeatRule 是完全重复特征的一部分。
+- 既有不同教室的 Ready 覆盖保留。
+
+使用的 SDK：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+
+最终完整构建命令（Android/）：
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+最终结果：BUILD SUCCESSFUL in 43s
+actionable tasks：145（143 executed，2 up-to-date）
+assembleDebug：成功
+assembleRelease：成功
+assembleDebugAndroidTest：成功（仅 APK 编译）
+lintDebug：0 errors，10 warnings
+
+JVM XML（app/build/test-results/）：
+- testDebugUnitTest：tests=48，failures=0，errors=0，skipped=0
+- testReleaseUnitTest：tests=48，failures=0，errors=0，skipped=0
+- DraftTest：每变体 tests=12，failures=0，errors=0，skipped=0；包含上述两个修正用例。
+
+仓库根目录验证：
+- python3 docs/tests/android-documentation.test.py：40 tests 通过
+- bash docs/tests/documentation.test.sh：通过
+- bash docs/tests/repository-layout.test.sh：通过
+- git diff --check：通过
+
+本轮纯 Kotlin 测试构造修正，未启动模拟器且未运行 connectedDebugAndroidTest；AndroidTest APK 已成功编译。
+此结果不代表 P2-03、A04、A05、A06、P2 或完整 App 完成，也不代表用户验收；仍需分析审查窗口最终独立复审。

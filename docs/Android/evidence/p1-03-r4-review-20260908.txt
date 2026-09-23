@@ -1,0 +1,60 @@
+P1-03-R4 独立专项复审证据（2026-09-08）
+
+复审对象：729fbaa5fda460c547d2df47e38ec111a2dc2a15
+复审基准：4ee8919
+分支：Android
+
+一、范围与 AVD 根因
+
+- 729fbaa^..729fbaa 共 15 个文件，全部为 docs/Android 文档、证据和
+  docs/tests/android-documentation.test.py；应用源码、构建配置、iOS、Web 与共享协议无差异。
+- 修正前备份 /tmp/qingke-api37-r3-arm-before-target-fix.ini 与当前登记
+  /Users/takagisan/.android/qingke-api37-r3-avd/qingke-api37-r3-arm.ini 的 diff 只有：
+  target=android-0 改为 target=android-37。
+- 当前 AVD config.ini 为 abi.type=arm64-v8a、hw.cpu.arch=arm64、
+  image.sysdir.1=system-images/android-37.0/google_apis/arm64-v8a/。
+- 独立复现没有修改当前登记：在临时 ANDROID_AVD_HOME 中复制同一登记并将副本设为
+  target=android-0，以 -read-only、-no-snapshot、-no-window、-gpu software 启动。
+  日志再次显示 API level: 3、hvf is not enabled on this aarch64 host 和
+  qemu_mprotect__osdep: mprotect failed: Permission denied。
+- 使用当前 target=android-37 登记、同一 SDK 和 AVD，在独立端口 5588 启动；日志显示
+  API level: 37、-enable-hvf、Boot completed in 13129 ms。ADB 第 4 次、约 16 秒轮询取得
+  sys.boot_completed=1。
+
+二、提交证据交叉检查
+
+- 当前 Debug APK SHA-256：
+  2bf6b1abdfdb11c479573dc7ceab0dae654a3c7ace70f7fbe1effe8f113d3c4f，
+  与 result.json 和 device-validation.txt 一致。
+- cold-start-1.png、cold-start-2.png 均为有效 1080×1920 PNG；人工查看均显示“轻课”
+  骨架，文字贴近状态栏，与验证记录的限制一致。
+- 两份 Activity 证据均包含 MainActivity topResumed/Resumed、visible=true，且 PID 分别
+  对应 4283、4341。
+- 提交的 logcat 对 FATAL EXCEPTION、ANR in、am_anr、am_crash、Fatal signal 和
+  Process: com.qingke.schedule 的匹配均为 0；这只支持本次最小启动无崩溃／ANR。
+
+三、独立应用复验
+
+- 复审开始时没有连接的 emulator-5586，因此没有把“交付时保留可见窗口”当作当前证据。
+- 独立端口 5588 实测 sys.boot_completed=1、ro.build.version.sdk=37、
+  ro.product.cpu.abi=arm64-v8a。
+- adb install -r 当前 Debug APK 返回 Success。
+- dumpsys package 显示 versionCode=1、minSdk=26、targetSdk=37。
+- 清空全部 logcat 后执行 force-stop 和显式 MainActivity 启动，结果为 Status: ok、
+  LaunchState: COLD；Activity 为 resumed/visible，pidof 返回 3155。
+- 独立截图为有效 1080×1920 PNG，等待启动画面结束后显示“轻课”骨架；清空后的 logcat
+  对上述崩溃／ANR模式匹配均为 0。
+- 完成后用 adb emu kill 关闭本次 emulator-5588，未操作其他设备。
+
+四、独立构建与测试
+
+- 使用持久 API 37 SDK、JDK 17 执行：
+  ./gradlew assembleDebug test --rerun-tasks --no-daemon --console=plain
+- BUILD SUCCESSFUL in 11s，70 个任务实际执行；只有既有
+  libandroidx.graphics.path.so 无法 strip、按原样打包提示。
+- Debug 与 Release JVM 报告各 20 项，failures/errors/skipped 均为 0。
+- APK 元数据检查通过：com.qingke.schedule、minSdk 26、targetSdk 37。
+
+结论：target 登记错误是此前本机失败的可复现根因；R4 的 API 37 ARM64 设备和应用最小
+启动证据通过独立复审。该结果不覆盖 A01—A11、完整视觉／安全区域、多尺寸、内存压力、
+通知、存储或完整业务验收。未知字段策略及 P1 阶段关闭仍待后续决定，本轮不进入 P2。

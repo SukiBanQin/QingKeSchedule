@@ -1,0 +1,58 @@
+P2-02 DataStore connectedDebugAndroidTest 设备证据
+日期：2026-09-10
+
+代码基准：63b019a24b91021aad83e7528fcadbaa1fcca554
+分支：Android
+测试范围：P2-02 偏好设置持久化；不包含页面、ScheduleAppState 接线、通知调度、Room 改动、导入导出或跨存储事务。
+
+实现摘要：
+- 固定依赖 androidx.datastore:datastore-preferences:1.2.1。
+- 单个版本化 Preferences DataStore 文件，集中定义键、外观枚举编码和 JSON 列表格式。
+- 真实 DataStore AndroidTest 覆盖默认值、外观／提醒规范化、教学日历、缺失字段、文件损坏恢复并继续写入、关闭重建、写入故障、读取／写入取消和并发 update。
+- 普通写入故障与 CancellationException 向调用方传播；失败后保留已提交值。DataStore 自身 update 原子，但不表示与 Room 存在跨存储原子事务。
+
+设备启动：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_AVD_HOME=/Users/takagisan/.android/qingke-api37-r3-avd
+AVD：qingke-api37-r3-arm
+唯一目标设备：emulator-5588
+adb state：device
+sys.boot_completed：1
+ro.build.version.sdk：37
+ro.product.cpu.abi：arm64-v8a
+
+执行命令：
+ANDROID_SERIAL=emulator-5588 ./gradlew connectedDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL。
+XML：Android/app/build/outputs/androidTest-results/connected/debug/TEST-qingke-api37-r3-arm(AVD) - 17.xml
+汇总：18 tests，0 failures，0 errors，0 skipped。
+- com.qingke.schedule.persistence.RoomScheduleRepositoryTest：11 tests，0 failures，0 errors，0 skipped。
+- com.qingke.schedule.preferences.DataStoreSchedulePreferencesRepositoryTest：DataStore 7 tests，0 failures，0 errors，0 skipped。
+
+DataStore 7 个用例均进入测试体：
+- newStoreReadsCompleteDefaults
+- appearanceAndReminderRoundTripSanitizeUnknownAndLegacyFields
+- calendarRoundTripNormalizesDatesMakeupAndLunchBreak
+- missingNewFieldsUseDefaultsAndValidLunchTitleIsTrimmed
+- corruptFileRecoversDefaultsAndCanBeSavedAndReopened
+- writeFailureAndCancellationPropagateWithoutChangingStoredValue
+- concurrentUpdatesUseLatestCommittedPreferences
+
+取证后执行 adb -s emulator-5588 emu kill；随后 adb devices -l 无连接设备。本证据只证明本次 API 37 ARM64
+真实 DataStore／Room 集成测试运行，P2-02 仍须由分析审查窗口独立复审，不代表 P2-02、A09、P2 或完整 App 完成。
+
+最终构建后的重试限制：
+- `emulator-5588` 一次、`emulator-5584` 两次均先达到 `device`、boot=1、SDK 37、arm64-v8a；其中后两次改用
+  推荐 ADB 端口和 `nohup`，排除启动 shell 退出的影响。
+- 每次随后执行相同的 `connectedDebugAndroidTest` 前，ADB 设备均已自行退出；任务均在设备枚举阶段报
+  `DeviceException: No connected devices!`、`74 actionable tasks: 1 executed, 73 up-to-date`，没有测试体进入，
+  因而没有把这些失败写成通过，也没有以 BUILD SUCCESSFUL 推断测试数量。
+- 取证结束后 `adb devices -l` 无连接设备；没有终止其他设备或进程。成功 XML 的 18 tests／DataStore 7 tests
+  是本次可用 API 37 ARM64 环境下的实际测试证据，后续重试失败是宿主模拟器进程稳定性限制。
+
+最终代码编译核验：成功 XML 后仅补强了现有 7 个 DataStore AndroidTest 中的 0 分钟边界、复杂日历关闭重开、
+以及写入失败后的关闭重开与重试断言，未增加或跳过测试方法。最终
+testDebugUnitTest testReleaseUnitTest assembleDebugAndroidTest 成功，AndroidTest APK 已包含这些断言；由于上述
+设备枚举阶段失败，最终补强后的断言没有第二次设备执行记录，不能将其写成已在本轮最终状态下通过。

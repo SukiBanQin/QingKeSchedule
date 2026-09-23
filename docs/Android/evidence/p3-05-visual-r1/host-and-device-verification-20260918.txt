@@ -1,0 +1,56 @@
+P3-05／A03 周课表视觉返修 R1：主机与设备验证记录
+日期：2026-09-18（本机 macOS，JDK 采用 Android Studio JBR，Gradle 9.6.0，AGP 9.4.0）
+分支：Android    开始基准：2299e0b（= origin/Android）    工作区开始时干净
+
+== 环境说明 ================================================================
+本会话的文件沙箱只允许写入工作区，Gradle 用户目录、Android 用户目录与 TMPDIR 默认位置不可写，
+因此本次构建使用可写临时目录（不改变仓库配置、不影响其他窗口）：
+  JAVA_HOME=/Applications/Android Studio.app/Contents/jbr/Contents/Home
+  GRADLE_USER_HOME=<tmp>/qingke-gradle（首次从用户缓存复制，未联网下载）
+  ANDROID_USER_HOME=<tmp>/qingke-android-home（含 debug.keystore 与 adb key 副本）
+  TMPDIR=<tmp>/qingke-tmp，JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=<tmp>/qingke-tmp -Duser.home=<tmp>/qingke-userhome
+  sdk.dir 继续使用 Android/local.properties 的既有配置
+
+== 主机侧 ==================================================================
+执行：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+结果：BUILD SUCCESSFUL（144 actionable tasks）
+  testDebugUnitTest   tests=92 failures=0 errors=0 skipped=0
+  testReleaseUnitTest tests=92 failures=0 errors=0 skipped=0
+  lintDebug           errors=0 warnings=20（lint-results-debug.xml 解析：severity Warning ×20）
+  APK                  assembleDebug／assembleRelease／assembleDebugAndroidTest 均产出
+
+文档验证（仓库根目录，DEVELOPER_DIR=/Library/Developer/CommandLineTools）：
+  python3 docs/tests/android-documentation.test.py  → Ran 70 tests, OK
+  bash docs/tests/documentation.test.sh             → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh         → Repository layout tests passed.
+  git diff --check                                  → 通过（无输出）
+
+== 设备侧 ==================================================================
+设备：emulator-5556，API 37.0 google_apis arm64-v8a，1080x2400，420dpi
+      font_scale 实测 1.0 与 1.3，cmd uimode night 实测 no／yes
+完整套件：./gradlew connectedDebugAndroidTest --console=plain --no-daemon（ANDROID_SERIAL=emulator-5556）
+结果：BUILD SUCCESSFUL
+  TEST-emulator-5556 - 17.xml：tests=72 failures=0 errors=0 skipped=0
+  覆盖类：QingKeAppTest、P3R2ActivityRecreationTest、RoomScheduleRepositoryTest、
+          DataStoreSchedulePreferencesRepositoryTest、ScheduleAppDependenciesTest
+
+定向复跑（am instrument，已安装的 debug／androidTest APK）：
+  -e class QingKeAppTest#weekHeaderControlsAndSectionTitlesFollowIosStructure,
+           QingKeAppTest#weekDateStripSelectionMovesSignalUnderlineAndManifestTitleDropsIsoDate,
+           QingKeAppTest#weekMatrixDrawsGridLinesAndShowsLunchBreakOnlyWhenEnabled,
+           QingKeAppTest#weekDayManifestOmitsIsoDateAndRoutesCourseClicks,
+           QingKeAppTest#weekScheduleRendersMatrixHeadersAndRoutesAddAndCourseSource
+结果：OK (5 tests)
+
+历史失败观察：上一轮交接记录的两个 P3-04 connected 失败用例
+  chooserProfileAndClosedPickersUseCompactIosAlignedStructureAcrossFontScales
+  r5TerminalColorModesDropdownsAndRepeatSelectorKeepOneEditorState
+在本轮完整套件中通过；本轮未修改任何 P3-04 代码或测试，也未专门分析该差异。
+
+== 生产入口截图核对 ========================================================
+数据：全新安装后创建学期「2026 秋季学期」，新增课程 Advanced Mathematics（Zhang，周五第 1 节，每周 1–18 周）
+截图：p3-05-r1-week-light-api37.png、p3-05-r1-week-light-manifest-api37.png、
+      p3-05-r1-week-dark-api37.png、p3-05-r1-week-dark-manifest-api37.png、
+      p3-05-r1-week-dark-font130-api37.png
+逐张目视结论见同目录 README.md。结束时设备已恢复 light／font_scale=1.0，前台应用已强停。

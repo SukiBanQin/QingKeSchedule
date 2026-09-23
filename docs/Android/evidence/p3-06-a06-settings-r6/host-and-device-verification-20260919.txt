@@ -1,0 +1,57 @@
+P3-06／A06 视觉返修 R6：主机与设备验证记录
+日期：2026-09-19    分支：Android    开始基准：4df81f6（= origin/Android）    工作区开始时干净
+
+== 环境说明 ================================================================
+沙箱内以 root 运行 Gradle，无法 su／sudo 切换到普通用户，因此使用工作区副本 /private/tmp/qingke-r6
+（Android/ + ios/Shared/fixtures）构建与测试，避免与用户已打开的 Android Studio Gradle daemon／共享
+Android/app/build 冲突；本轮开始时 /private/tmp 下的临时 Gradle 用户目录已被清理，已按 R3 的记录重建：
+  GRADLE_USER_HOME=/private/tmp/qingke-gradle（caches／wrapper 克隆 + gradle.properties 指定
+    kotlin.daemon.jvmargs 与 org.gradle.java.home）；ANDROID_USER_HOME=/private/tmp/qingke-android-home
+  HOME=/tmp/qingke-userhome；JAVA_HOME=.../ms-17.0.20.1/Contents/Home（Microsoft JDK 17）
+  -Djava.io.tmpdir=/tmp/qingke-tmp -Dorg.sqlite.tmpdir=/tmp/qingke-tmp -Dfile.encoding=UTF-8
+设备为当时已在运行的 API 37 ARM64 AVD（emulator-5554），窗口覆盖 1080x2400、密度 420；小屏截图用 720x1280、密度 320。
+
+== 主机侧 ==================================================================
+执行（工作区副本）：./gradlew testDebugUnitTest testReleaseUnitTest assembleDebug assembleRelease \
+        assembleDebugAndroidTest lintDebug --console=plain --no-daemon
+结果：BUILD SUCCESSFUL
+  testDebugUnitTest   tests=104 failures=0 errors=0 skipped=0
+  testReleaseUnitTest tests=104 failures=0 errors=0 skipped=0
+  lintDebug           errors=0 warnings=20
+  APK                  assembleDebug／assembleRelease／assembleDebugAndroidTest 均产出
+
+文档验证（仓库根目录）：
+  python3 docs/tests/android-documentation.test.py  → Ran 71 tests, OK
+  bash docs/tests/documentation.test.sh             → Documentation tests passed.
+  bash docs/tests/repository-layout.test.sh         → Repository layout tests passed.
+  git diff --check                                  → 通过（无输出）
+
+== 设备侧 ==================================================================
+定向（首次设置与时间选择器用例所在类）：
+  ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.qingke.schedule.ui.QingKeAppTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=65 failures=0 errors=0 skipped=0
+完整：
+  ./gradlew connectedDebugAndroidTest
+  → BUILD SUCCESSFUL；TEST-emulator-5554 - 17.xml：tests=94 failures=0 errors=0 skipped=0
+
+== 实现要点 ================================================================
+1) 页面共享：新增 TerminalSemesterForm 渲染两页的 01／02 面板、节次行与提交卡片；TerminalToolbar、
+   TerminalIntro(onboarding)、TerminalNameField、TerminalDateControl、TerminalWeekControl、
+   TerminalPeriodRow、TerminalCommitCard、TerminalTimePickerHost／State 均只有一份实现；页面差异只剩
+   前缀（onboarding-／settings- testTag）、品牌头代码、介绍区与卡片文案。
+2) 首次设置：黑底黄字顶栏 + SETUP / 00 品牌头 + FIRST BOOT／首次设置／INIT 00 + 01／02 青线面板 +
+   创建课表／INITIALIZE TERMINAL 卡片；保存、校验、草稿、展开状态与进入主壳行为未改（复用同一
+   QingKeAppActions.saveSemester 与 SemesterFormState）。
+3) 时间选择器：TerminalTimePickerOverlay（TIME SELECT、目标标题、HH:MM 大号读数、24 小时与 00—59
+   分钟双列、取消／确认、BackHandler 取消）；状态由 PeriodTimeTarget(periodId, START/END) 标识，
+   TerminalTimePickerHost 只在目标节次仍存在时渲染，故增删节次不串位；确认才写 updatePeriodStart／End。
+4) 删除 android.app.TimePickerDialog 及其 import（android.view.View／android.widget.TimePicker／espresso 相关 import 一并清理）。
+
+== 测试取样注意事项（本轮修正）=============================================
+1) 展开态节次面板的分隔线数量随节次数量变化（10 节时为 11 条），断言需按 fixture 的节次数计算；
+2) 数字列使用普通 Column + verticalScroll（非 LazyColumn），保证所有小时／分钟项都在语义树中可 performScrollTo；
+3) 可点击卡片内的标题／副标题需用 useUnmergedTree = true 定位，且卡片文案随页面不同（COMMIT CHANGES／INITIALIZE TERMINAL）。
+
+== 结束状态 ================================================================
+工作区本轮只新增源码／测试／文档改动；构建产物位于工作区副本，不向共享 Android/app/build 写入 root 所有文件；
+截图后设备已恢复 AVD 默认窗口（1080x1920）、密度 420、font_scale=1.0 与浅色模式。

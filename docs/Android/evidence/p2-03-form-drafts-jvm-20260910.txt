@@ -1,0 +1,24 @@
+P2-03 课程／学期表单草稿与保存评估 JVM 证据
+日期：2026-09-10
+实施基准：ee2decac5849f7047f40d8b8638586b9d810ef83
+分支：Android
+
+范围：纯 Kotlin CourseDraft、SemesterDraft、保存前重复评估和 ScheduleRules 冲突计算；不连接 Compose、
+Activity、Context、Room、DataStore、ScheduleAppState 或仓库，不持久化草稿。
+
+主机构建命令：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+
+结果：BUILD SUCCESSFUL，36 秒。
+- testDebugUnitTest：41 tests，0 failures，0 errors，0 skipped。
+- testReleaseUnitTest：41 tests，0 failures，0 errors，0 skipped。
+- lintDebug：成功。
+- assembleDebugAndroidTest：成功；P2-03 不依赖 Android API，不单独运行 connectedDebugAndroidTest。
+
+测试覆盖：固定日期／ID 的课程默认值、规范化 dirty、编辑追加、复制删除、完全重复兼容、冲突的星期／
+闭区间节次／单双周／共同周和稳定顺序；春秋默认学期、十节时间、编辑与增删节次；以及通过既有
+ScheduleValidator 的课程／学期无效数据判断。
+
+文档验证将在提交前执行并在交接记录中如实更新。P2-03 仍须独立复审，不代表 A04、A05、A06、P2 或完整 App 完成。

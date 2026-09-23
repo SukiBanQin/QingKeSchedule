@@ -84,6 +84,33 @@ struct CourseNotificationPlannerTests {
         ).isEmpty)
     }
 
+    @Test("停课日不发提醒，调课日生成独立提醒")
+    func respectsAcademicCalendarExceptions() throws {
+        let data = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
+        let monday = try date("2026-08-31", hour: 0, minute: 0)
+        let saturday = try date("2026-09-05", hour: 0, minute: 0)
+        var settings = AcademicCalendarSettings.defaults
+        settings.setNonTeaching(monday, calendar: calendar)
+        settings.setMakeupTeachingDay(saturday, followsDayOfWeek: 1, calendar: calendar)
+
+        let requests = CourseNotificationPlanner.requests(
+            data: data,
+            leadMinutes: 0,
+            after: try date("2026-08-30", hour: 0, minute: 0),
+            limit: 1_000,
+            academicCalendarSettings: settings,
+            calendar: calendar
+        )
+
+        #expect(!requests.contains {
+            $0.identifier == "schedule.course-every.schedule-every.week.1"
+        })
+        let makeup = try #require(requests.first {
+            $0.identifier == "schedule.course-every.schedule-every.week.1.date.2026-09-05"
+        })
+        #expect(calendar.isDate(makeup.fireDate, inSameDayAs: saturday))
+    }
+
     private func date(_ localDate: String, hour: Int, minute: Int) throws -> Date {
         let day = try #require(ScheduleRules.localDate(from: localDate, calendar: calendar))
         return try #require(calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day))

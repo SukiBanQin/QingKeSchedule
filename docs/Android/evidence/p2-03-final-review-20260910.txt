@@ -1,0 +1,41 @@
+P2-03 最终独立复审与用户确认记录
+日期：2026-09-10
+
+复审范围：
+- 分析基准：ee2decac5849f7047f40d8b8638586b9d810ef83
+- 首次实施：25ef0b38ba72570ba56bba169c7289528a548665
+- R1 重复安排 ID 删除修正：01b2965151aa8f3bf89748ae3abcdcd88e06374b
+- R2 测试矩阵补强：37b53e6d870748cfecf826852133af6143558195
+- R3 测试构造修正：5c5c08a5772b1c3792406ee2fc5aa6d0eefff9b8
+
+最终代码结论：
+- CourseDraft／CourseScheduleDraft 的默认值、注入日期／ID、编辑、追加、复制、稳定首项删除、
+  规范化和 dirty 行为符合 P2-03 契约。
+- 保存评估严格按基础校验、同课程新增完全重复、跨课程冲突的顺序执行；历史重复数量未增加时
+  仍可保存，重复 ID 不被新增唯一性约束收紧。
+- ScheduleRules 的冲突判断同时考虑星期、闭区间节次、周次范围与 EVERY／ODD／EVEN，共同周
+  升序且冲突结果保持输入顺序，并排除候选课程自身。
+- SemesterDraft／PeriodDraft 的春秋默认名、18 周、完整十节时间、编辑、增删、连续编号、
+  最少一节及 10／45 分钟新增规则符合契约。
+- 实际生产代码保持纯 Kotlin，没有连接 Compose、Activity、Room、DataStore、ScheduleAppState
+  或仓库，也没有修改 iOS、Web、共享协议／fixtures 或进入 P3。
+
+最终独立验证（提交 5c5c08a）：
+ANDROID_HOME=/Users/takagisan/Library/Android/sdk-qingke-api37
+ANDROID_SDK_ROOT=/Users/takagisan/Library/Android/sdk-qingke-api37
+./gradlew clean assembleDebug assembleRelease testDebugUnitTest testReleaseUnitTest lintDebug assembleDebugAndroidTest --no-daemon --console=plain
+- BUILD SUCCESSFUL in 59s；145 actionable tasks：141 executed、4 up-to-date。
+- Debug／Release JVM XML 各 48 tests、0 failures、0 errors、0 skipped。
+- DraftTest 每变体 12 项；ScheduleRulesTest 每变体 6 项。
+- lintDebug 为 0 errors、11 warnings。执行取证时为 10 warnings；差异来自可随时间变化的依赖
+  新版本提示，独立复审所见警告仍只涉及既有依赖、未用资源和 application icon，不构成阻断。
+- assembleDebugAndroidTest 成功。P2-03 是纯 Kotlin 能力，未运行 connectedDebugAndroidTest，
+  该限制记录准确且不构成本任务设备门槛。
+- python3 docs/tests/android-documentation.test.py：40 tests 通过。
+- documentation.test.sh、repository-layout.test.sh、git diff --check：通过。
+- 复审时 HEAD、refs/heads/Android、origin/Android 与远端 refs/heads/Android 均为
+  5c5c08a5772b1c3792406ee2fc5aa6d0eefff9b8，工作区干净。
+
+复审结论：P2-03 已实现、已测试并通过独立复审。用户随后明确确认 P2-03 本子任务结果。
+该确认不代表 A04、A05、A06 的页面与端到端流程已验收，也不代表 P2 或完整 App 完成；
+不自动授权 P3 或其他后续实施。

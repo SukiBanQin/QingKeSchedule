@@ -1,0 +1,28 @@
+# P4／A10 iOS 侧实现完整性（origin/IOS = fc3ddfb）
+
+## 用于真实往返的未修改 iOS 源文件（sha256）
+
+```
+99f2ba5e5701c6cb848c23c22cacbad4e3cd31188de0caaeffe0e2f1abcdc9e5  ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift
+1167e092b1127e533de3176e3b776c65d68fbaf2119c3c125cbca956eaee74c0  ios/QingKeSchedule/Domain/ScheduleDTOs.swift
+faccf7cfd8f7cdf9222931a3c2f2d0adce9149bbf26c0ed0a2cb4423c7015e2c  ios/QingKeSchedule/Domain/ScheduleRules.swift
+80bf6feab70c7ec6cbbf865d4b014c78eacc0420d343080de989a3327c4e6a9d  ios/QingKeSchedule/Domain/ScheduleValidation.swift
+```
+
+以上文件由 git archive origin/IOS 导出到 /tmp/ios-a10-baseline（未修改），并用
+sha256 核对与 origin/IOS 完全一致；Android 分支工作区中的旧副本未参与编译。
+
+## 主机编译命令（真实 iOS 实现，非重写）
+
+```
+swiftc -enable-bare-slash-regex -module-cache-path /tmp/a10ios2/modulecache \
+  -o /tmp/a10ios2/a10preview main.swift \
+  /tmp/ios-a10-baseline/ios/QingKeSchedule/Transfer/ScheduleDataTransfer.swift \
+  /tmp/ios-a10-baseline/ios/QingKeSchedule/Domain/ScheduleDTOs.swift \
+  /tmp/ios-a10-baseline/ios/QingKeSchedule/Domain/ScheduleRules.swift \
+  /tmp/ios-a10-baseline/ios/QingKeSchedule/Domain/ScheduleValidation.swift
+```
+
+- main.swift 只调用 ScheduleDataTransfer.previewImport / exportDocument 与 JSONDecoder，不实现协议逻辑。
+- 工作区 ios/QingKeSchedule/Domain/ScheduleRules.swift 与 origin/IOS 不同（旧副本，仅课程进行中状态的分钟/秒粒度差异），
+  因此主机编译改用 origin/IOS 导出副本，保证四个源文件都等于当前 iOS 基准。
