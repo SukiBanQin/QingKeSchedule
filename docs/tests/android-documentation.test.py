@@ -20,6 +20,7 @@ NAMES = (
 )
 REVIEW_NAME = "p1-01-review.md"
 RELEASE_NAME = "release-v1.0.md"
+RELEASE_REVIEW_NAME = "d04-release-v1.0-review.md"
 
 
 def missing_links(path, contents):
@@ -35,6 +36,13 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_d04_release_review_preserves_publish_gate(self):
+        review = (DOCS / RELEASE_REVIEW_NAME).read_text(encoding="utf-8")
+        handoff = (DOCS / "handoff.md").read_text(encoding="utf-8")
+        for marker in ("独立技术复审", "公开发布尚未完成", "加密备份", "v1.0", "SHA-256"):
+            self.assertIn(marker, review + handoff)
+        self.assertIn("d04-release-v1.0-review.md", handoff)
+
     def test_p6_acceptance_keeps_release_gate_and_limits(self):
         handoff = (DOCS / "handoff.md").read_text().split(
             "## P6 阶段获用户验收；交给新窗口", 1
