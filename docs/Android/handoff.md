@@ -1,10 +1,10 @@
 # 安卓项目当前交接状态
 
-## D04 青课 Android 1.0 已公开；获授权更新根 README 并合并到 main（最新，2026-09-23）
+## D04 青课 Android 1.0 已公开；根 README 与 Android 成果已合并 main（最新，2026-09-23）
 
 用户确认以 GitHub Release 直接分发 Android 1.0 APK，后续同签名、递增 `versionCode` 手动覆盖升级。本轮发布准备经 GPT6 SOL [独立复审](d04-release-v1.0-review.md)通过后，已公开 [青课 Android 1.0 Release](https://github.com/SukiBanQin/QingKeSchedule/releases/tag/v1.0)；`v1.0` 标签指向 `Android` 提交 `38907cb81189b035577f475cc93e40de8ae3fb82`，APK SHA-256 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51` 与 GitHub 页面及本机一致。完整发布核对与密钥保管状态见[D04 公开发布记录](d04-release-v1.0-publication.md)。
 
-用户现已明确授权编写面向下载者的仓库根目录 `README.md`，并把已验收的 `Android` 成果合并、推送到 `main`。本轮范围是在 `Android` 分支记录该授权、编写根 README 并补充对应测试，再从最新 `origin/main` 合并 `origin/Android` 并推送；`main` 起点是共同祖先 `94953c7` 之后的 `552c045`，该提交只新增了内容为 `Codex` 的根 README 占位行，合并时以经过审阅的青课说明替换占位，不覆盖其他 `main` 改动。保留既有 `Android/README.md` 工程技术说明。本节记录授权及本轮合并依据；最终合并提交和推送状态以交付消息为准。仍保留用户未跟踪 `.vscode/`，不纳入提交；不改应用代码、签名材料、Release/tag 或手机数据。
+用户现已明确授权编写面向下载者的仓库根目录 `README.md`，并把已验收的 `Android` 成果合并、推送到 `main`。README、交接及测试提交 `07feac0bd2e083ca6434bce9af3d5bf28f030126` 已推送 `Android`；从最新 `origin/main` 合并后，`main` 合并提交为 `116afd222ed2c8dc350afa7e1bbc367b7f847739`，双亲分别为原 `main` 的 `552c045` 和该 Android 提交。`main` 相对共同祖先 `94953c7` 仅新增了内容为 `Codex` 的根 README 占位行；唯一 add/add 冲突以完整青课说明替换占位，其余内容保留。GPT6 SOL 已独立核对实际 README／交接／测试 diff、合并双亲、合并树与 Android 提交一致、远端 `main`／`Android`／`v1.0` 指向；未发现阻断。Android 文档测试 77 项、文档链接与布局检查、`git diff --check` 通过。保留既有 `Android/README.md` 工程技术说明及用户未跟踪 `.vscode/`；不改应用代码、签名材料、Release/tag 或手机数据。
 
 正式签名 keystore 留在仓库外；本机与私人 iCloud Drive 两处加密副本已核对，密码在本机登录钥匙串和 Apple“密码”App 中一致。iCloud 云端完成同步及异机恢复尚未独立验证。公开前已更换 keystore 密码并以新密码重建成功，签名证书和最终 APK 不变。P6 既有验收与未测限制继续保留，不因发布扩大结论；实体手机未连接，也未修改其数据。工作区保留用户未跟踪 `.vscode/`，未纳入提交。
 

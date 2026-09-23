@@ -54,6 +54,8 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in (
             "用户现已明确授权", "仓库根目录 `README.md`", "合并、推送到 `main`",
             "552c045", "Codex", "保留既有 `Android/README.md`",
+            "已合并 main", "116afd222ed2c8dc350afa7e1bbc367b7f847739",
+            "独立核对实际 README", "文档测试 77 项",
         ):
             self.assertIn(marker, latest)
         self.assertNotIn("不合并 `main`", latest)
