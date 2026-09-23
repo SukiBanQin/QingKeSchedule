@@ -1,5 +1,14 @@
 # 安卓项目当前交接状态
 
+## P6-02 最终回归与 A01—A11 证据收口（最新，2026-09-23）
+
+本轮基准为 `Android` 分支 `5700d42197e8a53391e4b267371a50ff8a6833bb`，与 `origin/Android` 一致；开始时仅有无关未跟踪 `.vscode/`，已保留且未纳入。修改范围为 `docs/Android/`，未改应用代码、iOS、Web、共享协议或发布配置。A01—A11 状态矩阵、iOS 基准证据索引和保留限制见 [P6-02 最终回归记录](p6-final-regression.md)；本轮 Gradle 命令、原始报告路径和结果见[回归证据记录](evidence/p6-final-regression-20260923.txt)。
+
+- API 37 ARM64 `emulator-5554`：Debug／Release JVM 各 **283 tests**，`connectedDebugAndroidTest` **202 tests**，均为 0 failures／errors／skipped；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 均成功，`lintDebug` 0 errors、24 warnings。首次完整命令将 Debug JVM 标记为 `UP-TO-DATE`，随后已通过 `--rerun-tasks` 实际重跑并确认 283 项通过。强制编译记录了 `statusBarColor`、`navigationBarColor` 两条 deprecation 警告；模拟器控制台出现一次鉴权警告，但设备测试全数完成。
+- 文档验证结果：最终证据记录列出的 4 项检查均已在本轮文档修改后运行；各命令结果及新增文档测试计数见证据记录。
+- 用户于 2026-09-23 对 A08 已观察范围内的小米真机提醒体验表示通过；自然长时待机测试无结果且不重测，手动拒绝权限完整路径、非精确长期待机和其他厂商仍未验证。小米成功条件为自启动开启、青课省电策略“无限制”、通知类别开启悬浮／震动／完整锁屏显示；设备未连接，本轮未读取、清理或修改手机课程／节次。
+- 准确状态：**P6-02 自动化回归及 A01—A11 证据收口已完成，等待 GPT6 SOL 独立审查；P6 阶段仍待用户确认。D04 仍待决定，不发布、不合并 `main`。**
+
 ## 执行与审查模型更新（2026-09-23）
 
 GPT6 SOL 按需集中审查；GPT6-LUNA 或 DeepSeek（DSH）负责执行。用户会在窗口明确选择 Luna 或 DSH；Luna 指 GPT6-LUNA，DSH 指 DeepSeek。执行者负责已授权任务的分析、开发、自测、修复、进度记录及提交推送。额度用完时可由用户选择 DSH 接手，不自动切换。实际模型和思考档位以客户端设置为准，未知则注明未核实，不因用户称呼就声称设置已应用。关键改动和用户指定任务保留独立审查；默认人工按需交接，集中审查、增量阅读、单写入者及既有验收要求保持。旧 DeepSeek 单一默认和旧 Terra 流程不覆盖本条决定。
