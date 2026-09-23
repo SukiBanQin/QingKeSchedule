@@ -1,5 +1,15 @@
 # 安卓项目当前交接状态
 
+## D04 GitHub 1.0 APK 发布准备完成，待 GPT6 SOL 集中审查（最新，2026-09-23）
+
+用户已确认 Android App `1.0` 通过 GitHub Release 提供 APK 下载，后续保持同一包名与签名密钥、递增 `versionCode` 并由用户手动更新；不接入自动更新。**本轮只准备、构建并验证发布资产，没有创建公开 Release 或 `v1.0` 标签；待 GPT6 SOL 审阅后由主窗口处理发布动作。** P6 按原范围与限制维持已验收状态，不重开。
+
+本轮以 `Android`／`origin/Android` 的 `aac6daa0c8b2d4d84c1932fab4258248c8535c27` 为基准；开始工作区仅有用户未跟踪 `.vscode/`，保留且未纳入。修改范围限 `Android/`、`docs/Android/` 与相应文档验证，无 iOS、Web、共享协议、`main` 或实体手机数据修改。Android 的 release 签名配置只从本机环境变量取值；新增 macOS Security.framework 钥匙串读密码及签名构建脚本。私钥在仓库外 `~/Library/Application Support/QingKeSchedule/AndroidRelease/release-key.p12`（PKCS#12、RSA 3072、权限 0600），密码在本机登录钥匙串服务 `QingKeSchedule-Android-Release-v1`／账户 `qingke-release`。密码和私钥不入 Git、日志或聊天。用户仍需将 keystore 复制到至少两处加密备份，并把钥匙串中密码保存至自己的密码管理器；在完成备份前不要清除本机 key。
+
+签名 APK 已构建至 `Android/release-assets/QingKeSchedule-1.0.apk`（Git 忽略的稳定资产路径，不受后续 Gradle 清理影响）；包名 `com.qingke.schedule`、`versionCode=1`、`versionName=1.0`、minSdk 26、targetSdk 37。APK SHA-256 为 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51`，签名证书 SHA-256 为 `616de2e49fa9bb41ad6629e26b42ae0b97d5be021aecf1c28bfb6a2be51f8d39`；apksigner v2 验证成功。API 37 模拟器完成最终 APK 首装／启动、添加测试课程，以及同证书 `versionCode=2` 覆盖升级；课程升级后仍在。实体手机未连接，模拟器测试后已卸载 App。具体命令、测试边界和结果见 [D04 发布准备验证](evidence/d04-release-v1.0-20260923.md) 与 [1.0 下载和升级说明](release-v1.0.md)。
+
+最终强制回归 Debug／Release JVM 各 **283 项**、API 37 connected **202 项**，全部通过；三种 APK 构建成功，lint 0 errors／24 warnings；Android 文档测试 **73 项**和现有文档／布局脚本、`git diff --check` 通过。临时新建 AVD 曾在 QEMU 启动时无响应并退出，本轮在已运行且开始前无青课 App 的 API 37 模拟器完成安装升级验证。P6 对提醒的已接受未测限制保持原样。没有 `gh` CLI，因此无公开上传。提交编号及 `Android` 同名分支推送结果见交付消息；用户未跟踪 `.vscode/` 不进入提交。
+
 ## P6 阶段获用户验收；交给新窗口（最新，2026-09-23）
 
 用户在阅读 P6-02 最终回归及 GPT6 SOL 独立复审结果后明确回复“接受”，因此 **P6 阶段按已记录范围与限制通过用户验收**。A01—A11 的各自状态及证据见 [P6-02 最终回归](p6-final-regression.md)，独立复审结论见 [P6-02 复审](p6-final-regression-review.md)。P6 用户验收不表示自然长时待机、手动拒绝权限完整路径、非精确能力长期待机、其他厂商投递或 A10 的 iOS App 文件 UI 往返已验证；这些既有边界继续保留。小米 10 成功提醒依赖自启动开启、青课省电策略“无限制”及通知类别的悬浮／震动／完整锁屏显示；默认推荐省电策略曾实际阻滞闹钟。

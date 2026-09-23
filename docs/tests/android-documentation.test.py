@@ -19,6 +19,7 @@ NAMES = (
     "handoff.md",
 )
 REVIEW_NAME = "p1-01-review.md"
+RELEASE_NAME = "release-v1.0.md"
 
 
 def missing_links(path, contents):
@@ -48,6 +49,37 @@ class AndroidDocumentationTests(unittest.TestCase):
             self.assertIn(f"A{acceptance_id:02d} ", matrix)
         self.assertIn("用户随后于 2026-09-23 明确接受 P6 阶段结果", matrix)
         self.assertIn("D04", matrix)
+
+    def test_android_v1_release_instructions_and_secret_handling(self):
+        release = (DOCS / RELEASE_NAME).read_text(encoding="utf-8")
+        gradle = (ROOT / "Android" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+        build_script = (ROOT / "Android" / "scripts" / "build-signed-release.sh").read_text(encoding="utf-8")
+        keychain_reader = (ROOT / "Android" / "scripts" / "read-release-password.swift").read_text(encoding="utf-8")
+        android_ignore = (ROOT / "Android" / ".gitignore").read_text(encoding="utf-8")
+
+        for marker in (
+            "com.qingke.schedule", "versionCode` 1", "versionName` 1.0",
+            "Android/release-assets/QingKeSchedule-1.0.apk", "SHA-256", "Android 8.0（API 26）",
+            "不能直接覆盖安装", "卸载 Debug 版", "同一正式签名密钥",
+            "不含自动检查或安装更新", "自然长时待机", "自启动",
+            "~/Library/Application Support/QingKeSchedule/AndroidRelease/release-key.p12",
+            "macOS 登录钥匙串", "尚未创建 GitHub Release",
+        ):
+            self.assertIn(marker, release)
+
+        self.assertIn("System.getenv(it)", gradle)
+        self.assertIn("QINGKE_RELEASE_KEYSTORE", gradle)
+        self.assertIn("QINGKE_RELEASE_STORE_PASSWORD", gradle)
+        self.assertNotRegex(gradle, r"(?m)^\s*(storePassword|keyPassword)\s*=\s*['\"]")
+        for marker in (
+            "read-release-password.swift", "QingKeSchedule-Android-Release-v1",
+            "QINGKE_RELEASE_STORE_PASSWORD", "version_name=", "QingKeSchedule-${version_name}.apk",
+            " verify --verbose", "shasum -a 256",
+        ):
+            self.assertIn(marker, build_script)
+        self.assertIn("SecItemCopyMatching", keychain_reader)
+        self.assertIn("FileHandle.standardOutput.write(password)", keychain_reader)
+        self.assertIn("/release-assets/*.apk", android_ignore)
 
     def test_user_selected_executor_preserves_review_gate(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 角色与修改范围", 1)[1].split("# Codex 回退模式", 1)[0]
@@ -166,6 +198,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "p3-02-app-shell-onboarding.md",
             "p3-03-today-schedule.md",
             "p3-03-r2-visual-alignment.md",
+            RELEASE_NAME,
         ):
             with self.subTest(document=name):
                 path = DOCS / name

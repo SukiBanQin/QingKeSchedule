@@ -5,6 +5,28 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val releaseSigningEnvironment = listOf(
+    "QINGKE_RELEASE_KEYSTORE",
+    "QINGKE_RELEASE_STORE_PASSWORD",
+    "QINGKE_RELEASE_KEY_ALIAS",
+    "QINGKE_RELEASE_KEY_PASSWORD",
+).associateWith { System.getenv(it) }
+val configuredReleaseSigningValues = releaseSigningEnvironment.values.count { !it.isNullOrBlank() }
+if (configuredReleaseSigningValues != 0 && configuredReleaseSigningValues != releaseSigningEnvironment.size) {
+    throw GradleException("Release signing requires all QINGKE_RELEASE_* environment variables.")
+}
+val releaseSigningConfigured = configuredReleaseSigningValues == releaseSigningEnvironment.size
+
+val requestedReleaseVersionCode = providers.gradleProperty("qingkeReleaseVersionCode").orNull
+val releaseVersionCode = requestedReleaseVersionCode?.toIntOrNull() ?: 1
+if (requestedReleaseVersionCode != null && (requestedReleaseVersionCode.toIntOrNull() == null || releaseVersionCode <= 0)) {
+    throw GradleException("qingkeReleaseVersionCode must be a positive integer.")
+}
+val releaseVersionName = providers.gradleProperty("qingkeReleaseVersionName").orNull ?: "1.0"
+if (releaseVersionName.isBlank()) {
+    throw GradleException("qingkeReleaseVersionName must not be blank.")
+}
+
 android {
     namespace = "com.qingke.schedule"
     compileSdk = 37
@@ -19,8 +41,8 @@ android {
         applicationId = "com.qingke.schedule"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -33,6 +55,26 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    if (releaseSigningConfigured) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseSigningEnvironment.getValue("QINGKE_RELEASE_KEYSTORE")!!)
+                storePassword = releaseSigningEnvironment.getValue("QINGKE_RELEASE_STORE_PASSWORD")
+                keyAlias = releaseSigningEnvironment.getValue("QINGKE_RELEASE_KEY_ALIAS")
+                keyPassword = releaseSigningEnvironment.getValue("QINGKE_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            // Ordinary local release builds remain unsigned unless every local signing value is supplied.
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

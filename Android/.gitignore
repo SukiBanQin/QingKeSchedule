@@ -2,4 +2,5 @@
 build/
 local.properties
 **/build/
+/release-assets/*.apk
 .idea/
