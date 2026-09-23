@@ -175,6 +175,23 @@ class AndroidDocumentationTests(unittest.TestCase):
         )
         self.assertIn("当前固定工程组合", android_readme)
 
+    def test_ios_sync_handoff_records_source_commits_and_test_boundary(self):
+        handoff = (DOCS / "handoff.md").read_text(encoding="utf-8")
+        sync_status = handoff.split("## iOS 源码同步完成；", 1)[1].split("\n## ", 1)[0]
+        for marker in (
+            "b5dd4561d795dc6071c31e9e16ee0e1dc68bd8d3",
+            "bdb77da5f54752468054375180a459c15a308b0b",
+            "89a4a2809702a8748e9d51f4604aeaed8e464712",
+            "testAppearancePreferenceAppliesImmediately",
+            "testDataTransferImportControlRespondsOutsideItsText",
+            "22/22 UI 用例",
+            "SBMainWorkspace Busy",
+            "0 项通过",
+            "尚未合并／推送 main",
+            "没有公开 iOS 版本",
+        ):
+            self.assertIn(marker, sync_status)
+
     def test_user_selected_executor_preserves_review_gate(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 角色与修改范围", 1)[1].split("# Codex 回退模式", 1)[0]
         for marker in ("GPT6-LUNA", "DSH", "GPT6 SOL", "用户验收", "不默认自动创建子 Agent", "由用户决定", "一个写入者"):
