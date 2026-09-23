@@ -8,7 +8,7 @@
 
 正式签名 keystore 留在仓库外；本机与私人 iCloud Drive 两处加密副本已核对，密码在本机登录钥匙串和 Apple“密码”App 中一致。iCloud 云端完成同步及异机恢复尚未独立验证。公开前已更换 keystore 密码并以新密码重建成功，签名证书和最终 APK 不变。P6 既有验收与未测限制继续保留，不因发布扩大结论；实体手机未连接，也未修改其数据。工作区保留用户未跟踪 `.vscode/`，未纳入提交。
 
-## iOS 源码同步完成；全量测试通过并获准合并 `main`（2026-09-24）
+## iOS 源码同步完成；全量测试通过并已合并 `main`（2026-09-24）
 
 用户已明确授权把 `/Users/takagisan/课表软件-IOS` 的 `ios/` 同步到本仓库 `Android` 分支，更新仓库根 `README.md` 添加 iOS 工程介绍与 Mac/Xcode 本机签名安装指引，并在验证后同步到 `main`。不修改签名密钥、APK、GitHub Release/tag、手机数据或 iOS 应用逻辑；保持原 `IOS` 工作区和 Android 的用户未跟踪 `.vscode/`。
 
@@ -16,8 +16,8 @@
 - iOS 工程最低部署版本是 iOS 17。README 已说明源码路径、没有公开 IPA／TestFlight／App Store 版本、选择自己的 Xcode Team 与自动签名、连接并信任自己的 iPhone、按提示启用 Developer Mode；Personal Team 的开发配置文件有效期为 7 天。信息参考 Apple 官方账户、Xcode 设备分发、Developer Mode 与 Developer Program 页面，不宣称 iOS 已公开发布。
 - 全量 UI 测试曾先后暴露两个测试环境问题。首次 100/101 中 `testAppearancePreferenceAppliesImmediately` 把“跟随系统”硬编码为深色；在干净 IOS 起点、iPhone 17 Pro（iOS 26.5）重现，`simctl ui appearance` 为 `unknown`。IOS 提交 `b5dd456` 改为记录实际 system label，仍断言 LIGHT=浅色、DARK=深色即时切换及返回 SYSTEM 恢复原外观；targeted 1/1 通过。之后全量 100/101 的唯一失败是既有 `testDataTransferImportControlRespondsOutsideItsText` 第 383 行未打开确认面板；活动记录与 AX hierarchy 显示测试按钮 y=831.7–879.7、固定底部 Tab bar 从 y=836 起覆盖其中心，而 `isHittable` 仍为 true。IOS 提交 `bdb77da` 只改测试滚动条件，使控件下缘移到 Tab bar 上方，再点击右侧文字外区域，并保留导入预览断言；targeted 1/1 通过。没有修改 App 业务逻辑。
 - 首次修正后全量运行曾有 22 个 UI 用例因 CoreSimulator `SBMainWorkspace Busy (Application failed preflight checks)` 无法启动。之后确认没有其他 XCTest 进程占用，所有模拟器已关闭；运行 `simctl shutdown all`，重新启动 iPhone 17 Pro Max（iOS 26.5），确认 SpringBoard 为 running，不擦除数据或更改外观设置。使用独立 DerivedData 重新完整运行一次：**101 passed、0 failed、0 skipped，445.598 秒**；无 Busy 错误。Xcode 27.0（27A266a）；唯一编译警告为既有 iOS 17 弃用 API `QingKeScheduleTests.swift:84`，不影响结果。精确命令、xcresult、JSON 摘要和日志保存在 `/tmp/qingke-ios-busy-recovery-20260923/`，其中摘要为 `verification-summary.md` 和 `summary.json`。
-- 使用隔离 `/tmp/qingke-ios-source-sync-20260923/` DerivedData 的初次构建成功；文档测试 `android-documentation.test.py` **78 项通过**，文档脚本、仓库布局脚本与 `git diff --check` 通过。GPT6 SOL 已独立核对 Android 同步范围、IOS 树一致性、关键功能/UI 测试 diff、README 的 Apple 签名说明和 101/101 结果，未发现阻断；满足合并门槛。用户授权向 `main` 做非强推合并。基线核对时 `origin/main` 为 `8a379403e4a4131ed7d2e75553f8072075c3f2ad`；本次将重新获取最新远端并在隔离 worktree 合并。源码无实体 iPhone 签名安装或发布 iOS 包验证，iOS 仍没有公开版本。
-- 根 README 和 `ios/` 同步提交 `89a4a2809702a8748e9d51f4604aeaed8e464712`、验证状态交接提交 `c3979eea358938764c7f19a9cb44296ace16f5ff` 均已推送 `origin/Android`；Android 工作区仅保留用户未跟踪 `.vscode/`。保持 iOS 签名材料、Android APK、Release/tag 与手机数据不变。
+- 使用隔离 `/tmp/qingke-ios-source-sync-20260923/` DerivedData 的初次构建成功；文档测试 `android-documentation.test.py` **78 项通过**，文档脚本、仓库布局脚本与 `git diff --check` 通过。GPT6 SOL 已独立核对 Android 同步范围、IOS 树一致性、关键功能/UI 测试 diff、README 的 Apple 签名说明和 101/101 结果，未发现阻断；满足合并门槛。基于最新 `origin/main` `8a379403e4a4131ed7d2e75553f8072075c3f2ad` 的非强推合并已在隔离 worktree 完成：合并提交 `3ef25c27185fd773be4955b88bc6576be9607596`，双亲为该 main 基线与 Android `c5e5f9ae8bef559f91412b7545bd9a7710771233`，合并树与 Android 完全一致。已推送并核对远端 `main`、`Android`、`IOS` 与 `v1.0` 指针；源码无实体 iPhone 签名安装或发布 iOS 包验证，iOS 仍没有公开版本。
+- 根 README 和 `ios/` 同步提交 `89a4a2809702a8748e9d51f4604aeaed8e464712`、恢复测试记录提交 `c3979eea358938764c7f19a9cb44296ace16f5ff`、独立复核及合并记录提交 `c5e5f9ae8bef559f91412b7545bd9a7710771233` 均已推送 `origin/Android`；用户未跟踪 `.vscode/` 保留且未纳入。保持 iOS 签名材料、Android APK、Release/tag 与手机数据不变。
 
 ## D04 GitHub 1.0 发布准备通过独立复审（历史阶段记录，2026-09-23）
 

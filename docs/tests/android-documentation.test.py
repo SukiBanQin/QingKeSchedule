@@ -191,7 +191,9 @@ class AndroidDocumentationTests(unittest.TestCase):
             "445.598 秒",
             "verification-summary.md",
             "GPT6 SOL 已独立核对",
-            "用户授权向 `main` 做非强推合并",
+            "3ef25c27185fd773be4955b88bc6576be9607596",
+            "合并树与 Android 完全一致",
+            "已推送并核对远端 `main`、`Android`、`IOS` 与 `v1.0` 指针",
             "iOS 仍没有公开版本",
         ):
             self.assertIn(marker, sync_status)
