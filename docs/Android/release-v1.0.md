@@ -9,7 +9,7 @@
 - APK 文件：`QingKeSchedule-1.0.apk`
 - APK SHA-256：`dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51`
 - 签名证书 SHA-256：`616de2e49fa9bb41ad6629e26b42ae0b97d5be021aecf1c28bfb6a2be51f8d39`
-- 公开发布状态：尚未创建 GitHub Release 或 `v1.0` 标签；此文档与 APK 先供集中审查
+- 正式发布状态以[仓库 GitHub Releases 页面](https://github.com/SukiBanQin/QingKeSchedule/releases)为准
 
 最终 APK 位于 `Android/release-assets/QingKeSchedule-1.0.apk`，该资产路径已加入 Git 忽略规则，不会随 Git 提交上传，也不会被后续 Gradle 构建清理。生成方式见 [`Android/scripts/build-signed-release.sh`](../../Android/scripts/build-signed-release.sh)。
 

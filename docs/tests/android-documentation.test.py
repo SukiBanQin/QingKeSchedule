@@ -72,7 +72,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不能直接覆盖安装", "卸载 Debug 版", "同一正式签名密钥",
             "不含自动检查或安装更新", "自然长时待机", "自启动",
             "~/Library/Application Support/QingKeSchedule/AndroidRelease/release-key.p12",
-            "macOS 登录钥匙串", "尚未创建 GitHub Release",
+            "macOS 登录钥匙串", "正式发布状态以", "GitHub Releases 页面",
         ):
             self.assertIn(marker, release)
 
