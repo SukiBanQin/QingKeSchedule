@@ -1,6 +1,12 @@
 # 安卓项目当前交接状态
 
-## D04 GitHub 1.0 发布准备通过独立复审；公开发布待密钥备份和 GitHub 登录（最新，2026-09-23）
+## D04 青课 Android 1.0 已在 GitHub 公开发布（最新，2026-09-23）
+
+用户确认以 GitHub Release 直接分发 Android 1.0 APK，后续同签名、递增 `versionCode` 手动覆盖升级。本轮发布准备经 GPT6 SOL [独立复审](d04-release-v1.0-review.md)通过后，已公开 [青课 Android 1.0 Release](https://github.com/SukiBanQin/QingKeSchedule/releases/tag/v1.0)；`v1.0` 标签指向 `Android` 提交 `38907cb81189b035577f475cc93e40de8ae3fb82`，APK SHA-256 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51` 与 GitHub 页面及本机一致。完整发布核对与密钥保管状态见[D04 公开发布记录](d04-release-v1.0-publication.md)。本次交接文档提交编号从交付消息或 `git log` 查询；不合并 `main`。
+
+正式签名 keystore 留在仓库外；本机与私人 iCloud Drive 两处加密副本已核对，密码在本机登录钥匙串和 Apple“密码”App 中一致。iCloud 云端完成同步及异机恢复尚未独立验证。公开前已更换 keystore 密码并以新密码重建成功，签名证书和最终 APK 不变。P6 既有验收与未测限制继续保留，不因发布扩大结论；实体手机未连接，也未修改其数据。工作区保留用户未跟踪 `.vscode/`，未纳入提交。
+
+## D04 GitHub 1.0 发布准备通过独立复审（阶段记录，2026-09-23）
 
 GPT6 SOL 已集中核对 `5aa4805`、`cedc6bc`、`1b024e5` 的实际 diff、签名 APK、测试 XML 与发布文案；结论为**发布准备通过独立技术复审**，详见 [D04 独立复审](d04-release-v1.0-review.md)。签名 1.0 APK 的 SHA-256 为 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51`，已独立确认；P6 既有未测限制保留。
 

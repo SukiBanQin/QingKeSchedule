@@ -21,6 +21,7 @@ NAMES = (
 REVIEW_NAME = "p1-01-review.md"
 RELEASE_NAME = "release-v1.0.md"
 RELEASE_REVIEW_NAME = "d04-release-v1.0-review.md"
+RELEASE_PUBLICATION_NAME = "d04-release-v1.0-publication.md"
 
 
 def missing_links(path, contents):
@@ -36,6 +37,17 @@ def missing_links(path, contents):
 
 
 class AndroidDocumentationTests(unittest.TestCase):
+    def test_d04_publication_records_tag_asset_and_remaining_limits(self):
+        published = (DOCS / RELEASE_PUBLICATION_NAME).read_text(encoding="utf-8")
+        handoff = (DOCS / "handoff.md").read_text(encoding="utf-8")
+        for marker in (
+            "releases/tag/v1.0", "38907cb81189b035577f475cc93e40de8ae3fb82",
+            "dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51",
+            "Apple“密码”App", "未独立验证", "不合并 `main`",
+        ):
+            self.assertIn(marker, published + handoff)
+        self.assertIn("d04-release-v1.0-publication.md", handoff)
+
     def test_d04_release_review_preserves_publish_gate(self):
         review = (DOCS / RELEASE_REVIEW_NAME).read_text(encoding="utf-8")
         handoff = (DOCS / "handoff.md").read_text(encoding="utf-8")
@@ -72,7 +84,7 @@ class AndroidDocumentationTests(unittest.TestCase):
             "不能直接覆盖安装", "卸载 Debug 版", "同一正式签名密钥",
             "不含自动检查或安装更新", "自然长时待机", "自启动",
             "~/Library/Application Support/QingKeSchedule/AndroidRelease/release-key.p12",
-            "macOS 登录钥匙串", "正式发布状态以", "GitHub Releases 页面",
+            "macOS 登录钥匙串", "已公开发布", "青课 Android 1.0 GitHub Release",
         ):
             self.assertIn(marker, release)
 
