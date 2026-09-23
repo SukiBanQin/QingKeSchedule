@@ -184,11 +184,15 @@ class AndroidDocumentationTests(unittest.TestCase):
             "89a4a2809702a8748e9d51f4604aeaed8e464712",
             "testAppearancePreferenceAppliesImmediately",
             "testDataTransferImportControlRespondsOutsideItsText",
-            "22/22 UI 用例",
+            "100/101",
+            "22 个 UI 用例",
             "SBMainWorkspace Busy",
-            "0 项通过",
-            "尚未合并／推送 main",
-            "没有公开 iOS 版本",
+            "101 passed、0 failed、0 skipped",
+            "445.598 秒",
+            "verification-summary.md",
+            "GPT6 SOL 已独立核对",
+            "用户授权向 `main` 做非强推合并",
+            "iOS 仍没有公开版本",
         ):
             self.assertIn(marker, sync_status)
 
