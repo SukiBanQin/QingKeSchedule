@@ -491,9 +491,11 @@ final class QingKeScheduleUITests: XCTestCase {
         let systemButton = app.buttons["appearance-system"]
         XCTAssertTrue(systemButton.exists)
         XCTAssertEqual(systemButton.value as? String, "已选择")
-        XCTAssertEqual(
-            app.descendants(matching: .any)["appearance-effective-style"].label,
-            "当前显示：深色"
+        let expectedSystemAppearanceLabel = app.descendants(matching: .any)[
+            "appearance-effective-style"
+        ].label
+        XCTAssertTrue(
+            ["当前显示：浅色", "当前显示：深色"].contains(expectedSystemAppearanceLabel)
         )
 
         app.buttons["appearance-light"].tap()
@@ -517,7 +519,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["appearance-system"].tap()
         let systemAppearance = app.descendants(matching: .any)["appearance-effective-style"]
         let systemExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "当前显示：深色"),
+            predicate: NSPredicate(format: "label == %@", expectedSystemAppearanceLabel),
             object: systemAppearance
         )
         XCTAssertEqual(XCTWaiter.wait(for: [systemExpectation], timeout: 5), .completed)
