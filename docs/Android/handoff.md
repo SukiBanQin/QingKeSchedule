@@ -16,13 +16,13 @@
 
 本次交接更新前的已推送基准是 `Android` 分支 `ad0a9d56912107c45efe48ea6ab3bb6516c34f5b`；本次文档提交编号以交付消息或 `git log` 为准。新窗口接手前须重新核对 `HEAD`、`origin/Android`、远程同名分支与 `git status`。当时工作区只有用户未跟踪 `.vscode/`，应保留且不纳入本任务。P6-02 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84`、GPT6 SOL 复审提交 `ad0a9d5`；执行子 Agent `/root/p6_final_regression`（本 GPT6 SOL 主会话、`gpt-6-luna`／`xhigh`）已完成并回报，当前没有授权中的应用写入任务。全量回归：Debug／Release JVM 各 283、API 37 ARM64 connected 202，均 0 failures／errors／skipped；三种构建成功，lint 0 errors／24 warnings；复审文档验证 72 tests OK，详见上述证据文件。
 
-**下一步是与用户讨论 D04 的个人安装／分发／正式发布目标，而不是默认启动开发。** P1 已确认个人 debug 安装验证，正式发行范围仍未决定；用户尚未授权发布配置、签名、商店提交或 `main` 合并。用户称小米测试课程已自行清理，手机未连接 Mac，未独立核对课程、节次或闹钟；用户明确不需要恢复第 1 节到 18:50，新窗口不得自行改动手机数据。执行模型由用户在新窗口选择 GPT6 Luna 或 DSH；GPT6 SOL 按需独立审查，不能假定当前子 Agent 可跨新窗口复用。
+**在该次 P6 验收时，D04 的个人分发范围仍待决定；后续用户已确认 GitHub APK 1.0 目标并授权准备签名发布资产，当前状态见本文首节。** P1 已确认个人 debug 安装验证；用户称小米测试课程已自行清理，手机未连接 Mac，未独立核对课程、节次或闹钟；用户明确不需要恢复第 1 节到 18:50，新窗口不得自行改动手机数据。执行模型由用户在新窗口选择 GPT6 Luna 或 DSH；GPT6 SOL 按需独立审查，不能假定当前子 Agent 可跨新窗口复用。
 
 ## P6-02 最终回归通过 GPT6 SOL 独立复审（最新，2026-09-23）
 
 GPT6 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84` 的五个文档改动、A01—A11 状态矩阵及原始回归报告已经 GPT6 SOL 集中复审，未发现阻断。独立读取本地 XML：Debug／Release JVM 各 283 项、API 37 ARM64 设备 202 项，均 0 failures／errors／skipped；Lint HTML 为 24 warnings，执行记录的构建与文档验证结果一致。完整范围、依据及未测限制见 [P6-02 独立复审](p6-final-regression-review.md)。本次复审未重复完整 Gradle 测试，也未改应用代码。
 
-准确状态：**P6-02 全量回归与证据收口已通过独立技术复审；P6 阶段仍待用户确认。** A08 是用户按已观察范围验收，未测限制继续保留；D04 待单独决定，不发布、不合并 `main`。
+准确状态（该复审检查点）：**P6-02 全量回归与证据收口已通过独立技术复审；随后用户已按记录范围验收 P6，见本文首节。** A08 仍按已观察范围验收，未测限制继续保留；当时 D04 尚待决定，后续决定与签名资产进度见本文 D04 最新章节；未发布、不合并 `main`。
 
 ## P6-02 最终回归与 A01—A11 证据收口（最新，2026-09-23）
 
@@ -31,7 +31,7 @@ GPT6 Luna 执行提交 `23b5b2c313aca285b877deda23ed3c19d7a1cf84` 的五个文�
 - API 37 ARM64 `emulator-5554`：Debug／Release JVM 各 **283 tests**，`connectedDebugAndroidTest` **202 tests**，均为 0 failures／errors／skipped；`assembleDebug`、`assembleRelease`、`assembleDebugAndroidTest` 均成功，`lintDebug` 0 errors、24 warnings。首次完整命令将 Debug JVM 标记为 `UP-TO-DATE`，随后已通过 `--rerun-tasks` 实际重跑并确认 283 项通过。强制编译记录了 `statusBarColor`、`navigationBarColor` 两条 deprecation 警告；模拟器控制台出现一次鉴权警告，但设备测试全数完成。
 - 文档验证结果：最终证据记录列出的 4 项检查均已在本轮文档修改后运行；各命令结果及新增文档测试计数见证据记录。
 - 用户于 2026-09-23 对 A08 已观察范围内的小米真机提醒体验表示通过；自然长时待机测试无结果且不重测，手动拒绝权限完整路径、非精确长期待机和其他厂商仍未验证。小米成功条件为自启动开启、青课省电策略“无限制”、通知类别开启悬浮／震动／完整锁屏显示；设备未连接，本轮未读取、清理或修改手机课程／节次。
-- 准确状态：**P6-02 自动化回归及 A01—A11 证据收口已完成，等待 GPT6 SOL 独立审查；P6 阶段仍待用户确认。D04 仍待决定，不发布、不合并 `main`。**
+- 准确状态（该回归检查点）：**P6-02 自动化回归及 A01—A11 证据收口已完成，待独立审查与用户验收。后续状态见本文首节；D04 目标已由用户决定，发布准备见 D04 最新章节；未发布、不合并 `main`。**
 
 ## 执行与审查模型更新（2026-09-23）
 
