@@ -1,18 +1,20 @@
 # 安卓项目当前交接状态
 
-## D04 青课 Android 1.0 已在 GitHub 公开发布（最新，2026-09-23）
+## D04 青课 Android 1.0 已公开；获授权更新根 README 并合并到 main（最新，2026-09-23）
 
-用户确认以 GitHub Release 直接分发 Android 1.0 APK，后续同签名、递增 `versionCode` 手动覆盖升级。本轮发布准备经 GPT6 SOL [独立复审](d04-release-v1.0-review.md)通过后，已公开 [青课 Android 1.0 Release](https://github.com/SukiBanQin/QingKeSchedule/releases/tag/v1.0)；`v1.0` 标签指向 `Android` 提交 `38907cb81189b035577f475cc93e40de8ae3fb82`，APK SHA-256 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51` 与 GitHub 页面及本机一致。完整发布核对与密钥保管状态见[D04 公开发布记录](d04-release-v1.0-publication.md)。本次交接文档提交编号从交付消息或 `git log` 查询；不合并 `main`。
+用户确认以 GitHub Release 直接分发 Android 1.0 APK，后续同签名、递增 `versionCode` 手动覆盖升级。本轮发布准备经 GPT6 SOL [独立复审](d04-release-v1.0-review.md)通过后，已公开 [青课 Android 1.0 Release](https://github.com/SukiBanQin/QingKeSchedule/releases/tag/v1.0)；`v1.0` 标签指向 `Android` 提交 `38907cb81189b035577f475cc93e40de8ae3fb82`，APK SHA-256 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51` 与 GitHub 页面及本机一致。完整发布核对与密钥保管状态见[D04 公开发布记录](d04-release-v1.0-publication.md)。
+
+用户现已明确授权编写面向下载者的仓库根目录 `README.md`，并把已验收的 `Android` 成果合并、推送到 `main`。本轮范围是在 `Android` 分支记录该授权、编写根 README 并补充对应测试，再从最新 `origin/main` 合并 `origin/Android` 并推送；`main` 起点是共同祖先 `94953c7` 之后的 `552c045`，该提交只新增了内容为 `Codex` 的根 README 占位行，合并时以经过审阅的青课说明替换占位，不覆盖其他 `main` 改动。保留既有 `Android/README.md` 工程技术说明。本节记录授权及本轮合并依据；最终合并提交和推送状态以交付消息为准。仍保留用户未跟踪 `.vscode/`，不纳入提交；不改应用代码、签名材料、Release/tag 或手机数据。
 
 正式签名 keystore 留在仓库外；本机与私人 iCloud Drive 两处加密副本已核对，密码在本机登录钥匙串和 Apple“密码”App 中一致。iCloud 云端完成同步及异机恢复尚未独立验证。公开前已更换 keystore 密码并以新密码重建成功，签名证书和最终 APK 不变。P6 既有验收与未测限制继续保留，不因发布扩大结论；实体手机未连接，也未修改其数据。工作区保留用户未跟踪 `.vscode/`，未纳入提交。
 
-## D04 GitHub 1.0 发布准备通过独立复审（阶段记录，2026-09-23）
+## D04 GitHub 1.0 发布准备通过独立复审（历史阶段记录，2026-09-23）
 
 GPT6 SOL 已集中核对 `5aa4805`、`cedc6bc`、`1b024e5` 的实际 diff、签名 APK、测试 XML 与发布文案；结论为**发布准备通过独立技术复审**，详见 [D04 独立复审](d04-release-v1.0-review.md)。签名 1.0 APK 的 SHA-256 为 `dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51`，已独立确认；P6 既有未测限制保留。
 
-**公开发布尚未完成。** 用户正在按指导将仓库外 keystore 做至少两处加密备份，并将钥匙串密码保存到其密码管理器；尚未收到完成确认。当前 Safari 未登录 GitHub，本机没有 `gh` CLI 或可用的 GitHub HTTPS 凭据。备份完成且取得有写入权限的 GitHub 会话后，才在已审查的 `Android` 提交创建 `v1.0` 标签、上传同一 APK 并核对 Release。不得把“已准备”写成“已发布”，也不自动合并 `main`。本次复审文档提交编号见交付消息或 `git log`。
+该复审发生在公开发布前；随后用户完成签名备份并公开了 Release，最新发布与合并授权状态见本文首节。此历史检查点中的“未公开”与“不合并 `main`”不再代表当前状态。
 
-## D04 GitHub 1.0 APK 发布准备完成，待 GPT6 SOL 集中审查（最新，2026-09-23）
+## D04 GitHub 1.0 APK 发布准备完成（历史阶段记录，2026-09-23）
 
 用户已确认 Android App `1.0` 通过 GitHub Release 提供 APK 下载，后续保持同一包名与签名密钥、递增 `versionCode` 并由用户手动更新；不接入自动更新。**本轮只准备、构建并验证发布资产，没有创建公开 Release 或 `v1.0` 标签；待 GPT6 SOL 审阅后由主窗口处理发布动作。** P6 按原范围与限制维持已验收状态，不重开。
 

@@ -43,10 +43,21 @@ class AndroidDocumentationTests(unittest.TestCase):
         for marker in (
             "releases/tag/v1.0", "38907cb81189b035577f475cc93e40de8ae3fb82",
             "dd52315f3bc369dd6189bb820ea709cc31218521f733ce384ab88388758f8e51",
-            "Apple“密码”App", "未独立验证", "不合并 `main`",
+            "Apple“密码”App", "未独立验证",
         ):
             self.assertIn(marker, published + handoff)
         self.assertIn("d04-release-v1.0-publication.md", handoff)
+
+    def test_current_d04_handoff_records_readme_and_main_merge_authorization(self):
+        handoff = (DOCS / "handoff.md").read_text(encoding="utf-8")
+        latest = handoff.split("\n## ", 1)[1].split("\n## ", 1)[0]
+        for marker in (
+            "用户现已明确授权", "仓库根目录 `README.md`", "合并、推送到 `main`",
+            "552c045", "Codex", "保留既有 `Android/README.md`",
+        ):
+            self.assertIn(marker, latest)
+        self.assertNotIn("不合并 `main`", latest)
+        self.assertIn("历史阶段记录", handoff)
 
     def test_d04_release_review_preserves_publish_gate(self):
         review = (DOCS / RELEASE_REVIEW_NAME).read_text(encoding="utf-8")
@@ -115,6 +126,36 @@ class AndroidDocumentationTests(unittest.TestCase):
         self.assertIn("SecItemCopyMatching", keychain_reader)
         self.assertIn("FileHandle.standardOutput.write(password)", keychain_reader)
         self.assertIn("/release-assets/*.apk", android_ignore)
+
+    def test_root_readme_is_download_oriented_and_uses_official_links(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        android_readme = (ROOT / "Android" / "README.md").read_text(encoding="utf-8")
+        for marker in (
+            "今日课表和周课表", "课程与教学日历", "上课提醒", "JSON 文件导入或导出",
+            "Android 8.0（API 26）", "QingKeSchedule-1.0.apk", "SHA-256",
+            "相同包名和正式签名密钥", "更高的 `versionCode`", "不会自动检查或安装更新",
+            "导出课表 JSON", "卸载 Debug 版", "小米 10（Android 13）",
+            "自然长时待机", "GitHub Issues",
+        ):
+            self.assertIn(marker, readme)
+
+        release_url = re.search(
+            r"\]\((https://github\.com/[^)]+/releases/tag/v1\.0)\)", readme
+        )
+        issue_url = re.search(
+            r"\[GitHub Issues\]\((https://github\.com/[^)]+/issues)\)", readme
+        )
+        self.assertIsNotNone(release_url)
+        self.assertIsNotNone(issue_url)
+        self.assertEqual(
+            urlsplit(release_url.group(1)).path,
+            "/SukiBanQin/QingKeSchedule/releases/tag/v1.0",
+        )
+        self.assertEqual(
+            urlsplit(issue_url.group(1)).path,
+            "/SukiBanQin/QingKeSchedule/issues",
+        )
+        self.assertIn("当前固定工程组合", android_readme)
 
     def test_user_selected_executor_preserves_review_gate(self):
         rules = (ROOT / "AGENTS.md").read_text().split("# 角色与修改范围", 1)[1].split("# Codex 回退模式", 1)[0]
