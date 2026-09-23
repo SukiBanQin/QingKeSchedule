@@ -188,6 +188,44 @@ struct ReminderSettingsAndStateTests {
         #expect(state.lastNotificationReconciliation?.permissionStatus == .authorized)
     }
 
+    @Test("前台和手动时间刷新立即校准时钟但不会重复核对提醒或读取课表")
+    func clockRefreshIsInMemoryAndForegroundCalibratesAcrossMidnight() async throws {
+        let initialTime = try date(2026, 9, 4, hour: 23, minute: 59, second: 59)
+        let nextDayTime = try date(2026, 9, 5, hour: 0, minute: 0, second: 1)
+        let clock = MutableTestClock(now: initialTime)
+        let repository = TestScheduleRepository()
+        let coordinator = RecordingNotificationCoordinator(status: .authorized)
+        let state = ScheduleAppState(
+            repository: repository,
+            calendar: calendar,
+            now: { clock.now },
+            notificationCoordinator: coordinator
+        )
+
+        state.load()
+        await state.waitForNotificationWork()
+        let initialLoadCount = repository.loadCount
+        let initialNotificationCount = await coordinator.recordedCalls().count
+        #expect(state.now == initialTime)
+
+        clock.now = nextDayTime
+        state.refreshCurrentTime()
+        #expect(state.now == nextDayTime)
+        #expect(repository.loadCount == initialLoadCount)
+        #expect(await coordinator.recordedCalls().count == initialNotificationCount)
+
+        state.appBecameActive()
+        await state.waitForNotificationWork()
+        #expect(state.now == nextDayTime)
+        #expect(repository.loadCount == initialLoadCount)
+        #expect(await coordinator.recordedCalls().count == initialNotificationCount + 1)
+
+        state.refreshCurrentTime()
+        state.refreshCurrentTime()
+        #expect(repository.loadCount == initialLoadCount)
+        #expect(await coordinator.recordedCalls().count == initialNotificationCount + 1)
+    }
+
     @Test("仅用户显式开启时请求权限，拒绝不阻断关闭")
     func explicitPermissionFlowHandlesDenial() async throws {
         let fixture = try SharedFixtureLoader.scheduleData(named: "complete-schedule.json")
@@ -251,6 +289,25 @@ struct ReminderSettingsAndStateTests {
         #expect(state.presentedError == nil)
         #expect(state.notificationDiagnostic?.contains("测试通知失败") == true)
     }
+
+    private func date(
+        _ year: Int,
+        _ month: Int,
+        _ day: Int,
+        hour: Int,
+        minute: Int,
+        second: Int
+    ) throws -> Date {
+        try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: month,
+            day: day,
+            hour: hour,
+            minute: minute,
+            second: second
+        )))
+    }
 }
 
 @MainActor
@@ -301,6 +358,7 @@ struct AppearanceSettingsTests {
 @MainActor
 private final class TestScheduleRepository: ScheduleRepository {
     private var stored: ScheduleDataDTO
+    private(set) var loadCount = 0
 
     init(data: ScheduleDataDTO = ScheduleDataDTO(
         semester: nil,
@@ -310,7 +368,10 @@ private final class TestScheduleRepository: ScheduleRepository {
         stored = data
     }
 
-    func load() throws -> ScheduleDataDTO { stored }
+    func load() throws -> ScheduleDataDTO {
+        loadCount += 1
+        return stored
+    }
 
     func replace(with data: ScheduleDataDTO) throws {
         stored = data
@@ -340,6 +401,15 @@ private final class TestScheduleRepository: ScheduleRepository {
             courses: stored.courses.filter { $0.id != id },
             updatedAt: stored.updatedAt
         )
+    }
+}
+
+@MainActor
+private final class MutableTestClock {
+    var now: Date
+
+    init(now: Date) {
+        self.now = now
     }
 }
 

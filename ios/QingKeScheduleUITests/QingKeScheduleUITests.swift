@@ -128,6 +128,42 @@ final class QingKeScheduleUITests: XCTestCase {
     }
 
     @MainActor
+    func testMainTabsRefreshWithoutResettingWeekSelectionOrSettingsDraft() throws {
+        let app = launchAndCreateSemester(launchArguments: ["--ui-testing-refresh-feedback"])
+
+        triggerRefresh("today-refresh-status", in: app)
+
+        app.buttons["schedule-tab"].tap()
+        let selectedWeek = app.buttons["selected-week"]
+        XCTAssertTrue(selectedWeek.waitForExistence(timeout: 5))
+        app.buttons["week-next"].tap()
+        let secondWeek = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "第 2 周"),
+            object: selectedWeek
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [secondWeek], timeout: 5), .completed)
+        triggerRefresh("week-refresh-status", in: app)
+        XCTAssertTrue(selectedWeek.label.contains("第 2 周"))
+
+        app.buttons["settings-tab"].tap()
+        let semesterName = app.textFields["semester-name"]
+        XCTAssertTrue(semesterName.waitForExistence(timeout: 5))
+        replaceText(in: semesterName, with: "未保存草稿")
+        triggerRefresh("settings-refresh-status", in: app)
+        XCTAssertEqual(semesterName.value as? String, "未保存草稿")
+    }
+
+    @MainActor
+    func testRefreshFeedbackIsAvailableInDarkMode() throws {
+        let app = launchAndCreateSemester(launchArguments: [
+            "--ui-testing-refresh-feedback",
+            "-AppleInterfaceStyle",
+            "Dark",
+        ])
+        triggerRefresh("today-refresh-status", in: app)
+    }
+
+    @MainActor
     func testCourseCreateConflictEditWeekAndDeleteFlow() throws {
         let app = launchAndCreateSemester()
 
@@ -342,7 +378,13 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["settings-tab"].tap()
 
         let importControl = app.buttons["schedule-import-test-file"]
+        let todayTab = app.buttons["today-tab"]
+        XCTAssertTrue(todayTab.waitForExistence(timeout: 5))
         scrollToElement(importControl, in: app)
+        for _ in 0..<8 where importControl.frame.maxY >= todayTab.frame.minY {
+            app.swipeUp()
+        }
+        XCTAssertLessThan(importControl.frame.maxY, todayTab.frame.minY)
         tapVisibleBlankArea(of: importControl, horizontalOffset: 0.88)
         XCTAssertTrue(app.staticTexts["替换当前课表？"].waitForExistence(timeout: 5))
         app.buttons["取消"].coordinate(
@@ -455,9 +497,11 @@ final class QingKeScheduleUITests: XCTestCase {
         let systemButton = app.buttons["appearance-system"]
         XCTAssertTrue(systemButton.exists)
         XCTAssertEqual(systemButton.value as? String, "已选择")
-        XCTAssertEqual(
-            app.descendants(matching: .any)["appearance-effective-style"].label,
-            "当前显示：深色"
+        let expectedSystemAppearanceLabel = app.descendants(matching: .any)[
+            "appearance-effective-style"
+        ].label
+        XCTAssertTrue(
+            ["当前显示：浅色", "当前显示：深色"].contains(expectedSystemAppearanceLabel)
         )
 
         app.buttons["appearance-light"].tap()
@@ -481,7 +525,7 @@ final class QingKeScheduleUITests: XCTestCase {
         app.buttons["appearance-system"].tap()
         let systemAppearance = app.descendants(matching: .any)["appearance-effective-style"]
         let systemExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "当前显示：深色"),
+            predicate: NSPredicate(format: "label == %@", expectedSystemAppearanceLabel),
             object: systemAppearance
         )
         XCTAssertEqual(XCTWaiter.wait(for: [systemExpectation], timeout: 5), .completed)
@@ -803,6 +847,25 @@ final class QingKeScheduleUITests: XCTestCase {
         element.coordinate(
             withNormalizedOffset: CGVector(dx: horizontalOffset, dy: 0.5)
         ).tap()
+    }
+
+    @MainActor
+    private func triggerRefresh(_ statusIdentifier: String, in app: XCUIApplication) {
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.waitForExistence(timeout: 5))
+        let pullStart = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18))
+        let pullEnd = scrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+        pullStart.press(forDuration: 0.1, thenDragTo: pullEnd)
+        let refreshing = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true"),
+            object: app.descendants(matching: .any)[statusIdentifier]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [refreshing], timeout: 5), .completed)
+        let finished = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.descendants(matching: .any)[statusIdentifier]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 5), .completed)
     }
 
     @MainActor

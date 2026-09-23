@@ -177,14 +177,16 @@ enum ScheduleRules {
             return .upcoming
         }
 
-        let components = calendar.dateComponents([.hour, .minute], from: now)
-        guard let hour = components.hour, let minute = components.minute else {
+        let components = calendar.dateComponents([.hour, .minute, .second], from: now)
+        guard let hour = components.hour, let minute = components.minute, let second = components.second else {
             return .upcoming
         }
-        let currentMinutes = hour * 60 + minute
+        let currentSeconds = (hour * 60 + minute) * 60 + second
+        let startSeconds = startMinutes * 60
+        let endSeconds = endMinutes * 60
 
-        if currentMinutes < startMinutes { return .upcoming }
-        if currentMinutes <= endMinutes { return .ongoing }
+        if currentSeconds < startSeconds { return .upcoming }
+        if currentSeconds < endSeconds { return .ongoing }
         return .finished
     }
 

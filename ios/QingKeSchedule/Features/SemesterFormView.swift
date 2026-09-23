@@ -4,6 +4,8 @@ struct SemesterFormView: View {
     let isOnboarding: Bool
     let onSave: (SemesterDTO) -> Bool
     let dataTransferState: ScheduleAppState?
+    let isRefreshing: Bool
+    let onRefresh: () async -> Void
 
     @State private var draft: SemesterDraft
     @State private var periodsExpanded = false
@@ -17,11 +19,15 @@ struct SemesterFormView: View {
         isOnboarding: Bool,
         now: Date = Date(),
         dataTransferState: ScheduleAppState? = nil,
+        isRefreshing: Bool = false,
+        onRefresh: @escaping () async -> Void = {},
         onSave: @escaping (SemesterDTO) -> Bool
     ) {
         self.isOnboarding = isOnboarding
         self.onSave = onSave
         self.dataTransferState = dataTransferState
+        self.isRefreshing = isRefreshing
+        self.onRefresh = onRefresh
         let initialDraft = SemesterDraft(semester: semester, now: now)
         _draft = State(initialValue: initialDraft)
         _periodsExpanded = State(
@@ -48,6 +54,9 @@ struct SemesterFormView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
+                        if isRefreshing {
+                            TerminalRefreshFeedback(accessibilityIdentifier: "settings-refresh-status")
+                        }
                         terminalIntro
 
                         TerminalFormSection(index: "01", title: "学期信息", detail: "TERM") {
@@ -155,6 +164,8 @@ struct SemesterFormView: View {
                     .padding(.top, 14)
                     .padding(.bottom, 32)
                 }
+                .scrollBounceBehavior(.always)
+                .refreshable { await onRefresh() }
             }
             .accessibilityHidden(reminderPermissionPromptPresented)
 
