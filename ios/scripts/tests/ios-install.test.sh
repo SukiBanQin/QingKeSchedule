@@ -46,11 +46,19 @@ fake_device_json='{"result":{"devices":[]}}'
 
 fake_xcrun() {
     if [[ "$1" == "devicectl" && "$2" == "list" && "$3" == "devices" ]]; then
-        [[ "$*" == *"--json-output /dev/stdout"* ]] \
-            || fail "device discovery must consume devicectl JSON output"
+        [[ "$*" != *"--json-output /dev/stdout"* ]] \
+            || fail "device discovery must use a real JSON output file"
         [[ "$*" == *"--filter"* ]] \
             || fail "device discovery must filter for a connected iPhone"
-        printf '%s' "${fake_device_json}"
+        [[ "$*" == *'hardwareProperties.reality == "physical"'* ]] \
+            || fail "device discovery must exclude simulators"
+        while [[ $# -gt 0 ]]; do
+            if [[ "$1" == "--json-output" ]]; then
+                printf '%s' "${fake_device_json}" > "$2"
+                break
+            fi
+            shift
+        done
         return 0
     fi
 
@@ -72,7 +80,7 @@ fake_plistbuddy() {
     printf '%s' 'test.local.QingKeSchedule'
 }
 
-fake_device_json='{"result":{"devices":[{"identifier":"fixture-device"}]}}'
+fake_device_json='{"result":{"devices":[{"identifier":"core-device-id","hardwareProperties":{"udid":"fixture-device"}}]}}'
 assert_equals "fixture-device" "$(discover_connected_iphone)" "single-device discovery"
 
 fake_device_json='{"result":{"devices":[]}}'
@@ -82,17 +90,22 @@ fi
 [[ "${no_device_output}" == *"No paired, booted, connected iPhone"* ]] \
     || fail "no-device failure should explain how to reconnect"
 
-fake_device_json='{"result":{"devices":[{"identifier":"fixture-one"},{"identifier":"fixture-two"}]}}'
+fake_device_json='{"result":{"devices":[{"identifier":"fixture-one","hardwareProperties":{"udid":"udid-one"}},{"identifier":"fixture-two","hardwareProperties":{"udid":"udid-two"}}]}}'
 if multiple_device_output="$(discover_connected_iphone 2>&1)"; then
     fail "device discovery should fail when multiple iPhones are connected"
 fi
 [[ "${multiple_device_output}" == *"More than one connected iPhone"* ]] \
     || fail "multiple-device failure should ask the user to disambiguate"
 
-fake_device_json='{"result":{"devices":[{"identifier":"fixture-device"}]}}'
+fake_device_json='{"result":{"devices":[{"identifier":"core-device-id"}]}}'
+if discover_connected_iphone >/dev/null 2>&1; then
+    fail "missing hardware UDID must not fall back to a CoreDevice identifier"
+fi
+
+fake_device_json='{"result":{"devices":[{"identifier":"core-device-id","hardwareProperties":{"udid":"fixture-device"}}]}}'
 main >/dev/null
 
-assert_log_contains "xcodebuild <build>"
+assert_log_contains "xcodebuild <clean> <build>"
 assert_log_contains "<-destination> <platform=iOS,id=fixture-device>"
 assert_log_contains "<-allowProvisioningUpdates>"
 assert_log_contains "<-quiet>"

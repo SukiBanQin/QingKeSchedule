@@ -18,30 +18,33 @@ discover_connected_iphone() {
     local device_json
     local device_identifier
 
-    if ! device_json="$(
-        "${XCRUN_BIN}" devicectl list devices \
-            --filter 'hardwareProperties.platform == "iOS" AND hardwareProperties.deviceType == "iPhone" AND deviceProperties.bootState == "booted" AND connectionProperties.pairingState == "paired" AND connectionProperties.tunnelState == "connected"' \
-            --json-output /dev/stdout \
-            --quiet 2>/dev/null
-    )"; then
+    device_json="$(mktemp -t qingke-devices)" || return 1
+
+    if ! "${XCRUN_BIN}" devicectl list devices \
+            --filter 'hardwareProperties.reality == "physical" AND hardwareProperties.platform == "iOS" AND hardwareProperties.deviceType == "iPhone" AND deviceProperties.bootState == "booted" AND connectionProperties.pairingState == "paired" AND (connectionProperties.transportType == "wired" OR connectionProperties.tunnelState == "connected")' \
+            --json-output "${device_json}" \
+            --quiet; then
+        rm -f "${device_json}"
         echo "Unable to query connected iPhones. Open Xcode once and verify its command-line tools are selected." >&2
         return 1
     fi
 
     if ! device_identifier="$(
-        printf '%s' "${device_json}" \
-            | "${PLUTIL_BIN}" -extract result.devices.0.identifier raw -o - - 2>/dev/null
+        "${PLUTIL_BIN}" -extract result.devices.0.hardwareProperties.udid raw -o - "${device_json}" 2>/dev/null
     )"; then
+        rm -f "${device_json}"
         echo "No paired, booted, connected iPhone was found. Unlock the iPhone and check Xcode's Devices and Simulators window." >&2
         return 1
     fi
 
-    if printf '%s' "${device_json}" \
-        | "${PLUTIL_BIN}" -extract result.devices.1.identifier raw -o - - >/dev/null 2>&1; then
+    if "${PLUTIL_BIN}" -extract result.devices.1.identifier raw -o - "${device_json}" >/dev/null 2>&1; then
+        rm -f "${device_json}"
         echo "More than one connected iPhone was found. Disconnect the other devices and run the script again." >&2
         return 1
     fi
 
+    rm -f "${device_json}"
+    [[ -n "${device_identifier}" ]] || return 1
     printf '%s' "${device_identifier}"
 }
 
@@ -57,7 +60,7 @@ main() {
     device_identifier="$(discover_connected_iphone)" || return 1
 
     echo "Building QingKeSchedule for the connected iPhone with Automatic Signing."
-    if ! "${XCODEBUILD_BIN}" build \
+    if ! "${XCODEBUILD_BIN}" clean build \
         -project "${PROJECT_PATH}" \
         -scheme "${SCHEME}" \
         -configuration Debug \
@@ -96,7 +99,7 @@ main() {
         --terminate-existing \
         --quiet \
         "${bundle_identifier}"; then
-        echo "The app was installed but could not be launched. Unlock the iPhone and launch it manually once." >&2
+        echo "App 已覆盖安装，但启动失败。请解锁 iPhone；若提示 Security，请联网后在 设置 → 通用 → VPN 与设备管理 中信任或验证对应开发者，再打开 App。无需卸载。" >&2
         return 1
     fi
 
